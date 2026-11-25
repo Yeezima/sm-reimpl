@@ -65,9 +65,13 @@ public partial class CustomizationCatalogTests
         var sm = c.SpaceMarines; var csm = c.ChaosMarines;
         Assert.Contains(sm.PiecesFor("leftarm"), p => p.Name == "sm_dlc_bloodravens_arm_left" && p.ExtraGroup == "mp" && p.DisplayName == "Blood Ravens Left Arm");
         Assert.Contains(csm.PiecesFor("head"), p => p.Name == "csm_armour_mp_raptor_01_head" && p.HelmetOverride == "helmet");   // every Chaos class: the list is the race's
+        // Round 5 (owner, 2026-11-26: "Hide the 2 pieces"): the co-op elite Berserker's helmet and backpack keep their places (reserved) but are never offered.
         var berserker = csm.PiecesFor("head").Single(p => p.Name == "csm_berserker_helmet");
         Assert.Equal("Khorne Berserker Elite Helmet", berserker.DisplayName);   // not the data's "DEV" label
-        Assert.Contains(csm.PiecesFor("backpack"), p => p.Name == "csm_berserker_backpack");
+        Assert.True(berserker.Reserved);
+        Assert.True(csm.PiecesFor("backpack").Single(p => p.Name == "csm_berserker_backpack").Reserved);
+        Assert.DoesNotContain(csm.OfferedPiecesFor("head"), p => p.Name == "csm_berserker_helmet");
+        Assert.DoesNotContain(csm.OfferedPiecesFor("backpack"), p => p.Name == "csm_berserker_backpack");
         var lib = sm.PiecesFor("torso").Single(p => p.Name == "sm_librarian_torso");
         Assert.Equal(["sm_armour_mp_librarian_torso", "sm_armour_mp_librarian_belt"], lib.Packages);
         Assert.Equal("librarian", lib.ExtraGroup);
@@ -103,7 +107,6 @@ public partial class CustomizationCatalogTests
         foreach (var (slot, name, _) in LibrarianLook.Pieces)
             Assert.False(c.SpaceMarines.PiecesFor(slot).Single(p => p.Name == name).BuiltMasks, $"{name} must load exactly as before (no built mask)");
         Assert.True(c.SpaceMarines.PiecesFor("leftarm").Single(p => p.Name == "sm_dlc_bloodravens_arm_left").BuiltMasks);
-        Assert.True(c.ChaosMarines.PiecesFor("head").Single(p => p.Name == "csm_berserker_helmet").BuiltMasks);
         Assert.False(c.ChaosMarines.PiecesFor("head").Single(p => p.Name == "csm_armour_mp_raptor_01_head").BuiltMasks);   // masked by the game
         // Musou's Librarian: the same three pieces, names and packages, over a look that now may also offer them.
         var look = AppearanceResolver.Resolve(AppearanceProfile.Empty("t", CustomizationCatalog.SpaceMarine, "t"), "sm - tactical", c, null);

@@ -359,6 +359,8 @@ public sealed class CustomizationCatalog
             ArmourPiece Reserve() => new(spec.Name, spec.Race, spec.Slot, [], Customization.ExtraArmourPieces.DisplayNames.GetValueOrDefault(spec.Name, spec.Packages is null
                 ? spec.Name : Customization.ExtraArmourPieces.DisplayName(spec)), "", 1, spec.HelmetOverride, null, [spec.SetLabel ?? spec.Group])
                 { FromPredefinedSet = true, ExtraGroup = spec.Group, Reserved = true };
+            // Round 5: a hidden piece (owner: the co-op elite Berserker's helmet and backpack) keeps its place but is never offered.
+            if (spec.Hidden) return Reserve();
             if (spec.Packages is { } packages)
             {
                 if (packageExists is null || !packages.All(packageExists)) return Reserve();

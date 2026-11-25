@@ -127,7 +127,7 @@ public static partial class AppearanceResolver
             string? wanted = null;
             if (predefined is null && code.Piece((ArmourSlot)i) != AppearanceCode.DefaultIndex) piece = race.PiecesFor(slot)[code.Piece((ArmourSlot)i)];
             // armour-pieces-1125 repair: a reserved place (a piece this install lacks) is drawn as the class's default piece; the code keeps the index.
-            if (piece is { Reserved: true }) { notes.Add($"{slot}: piece {piece.Name} is not in this install; the default piece is drawn"); piece = null; }
+            if (piece is { Reserved: true }) { notes.Add($"{slot}: piece {piece.Name} is not offered (hidden, or not in this install); the default piece is drawn"); piece = null; }
             if (piece is null && defaultSet is not null && defaultSet.Items.TryGetValue(slot, out wanted))
             {
                 piece = race.OfferedPiecesFor(slot).FirstOrDefault(p => p.Name.Equals(wanted, StringComparison.OrdinalIgnoreCase))

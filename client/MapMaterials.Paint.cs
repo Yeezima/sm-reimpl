@@ -121,7 +121,9 @@ public sealed partial class MapMaterials
         };
         var dirt = bmat.Vectors.TryGetValue("DirtColour", out var d) && d.Length >= 3 ? new Color(d[0], d[1], d[2]) : new Color(0.28f, 0.22f, 0.14f);
         s.Dirt = PaintIsLinear ? ToSrgb(dirt) : dirt;
-        if (normalMaps && bmat.Textures.TryGetValue("NormalMap", out var normalName) && Load(normalName, dds, notes) is { } normal) { s.Normal = normal; NormalMapped++; }
+        // armour-pieces-1125 round 5: a built piece whose normal map is a constant placeholder is painted without it (BakedArmourPaint.PaintsWithoutNormalMap).
+        if (normalMaps && !SmContent.Customization.BakedArmourPaint.PaintsWithoutNormalMap(bmat)
+            && bmat.Textures.TryGetValue("NormalMap", out var normalName) && Load(normalName, dds, notes) is { } normal) { s.Normal = normal; NormalMapped++; }
         // armour-pieces-1125 round 4: a built-mask piece is painted with the regular armour's specular strength (BakedArmourPaint.UsesRegularSpecular).
         float roughness = RoughnessFor(bmat, "SpecularPower"),
             specular = SpecularFor(bmat, SmContent.Customization.BakedArmourPaint.UsesRegularSpecular(bmat) ? "" : "SpecularColor");

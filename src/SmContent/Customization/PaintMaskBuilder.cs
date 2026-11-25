@@ -333,6 +333,69 @@ public static class PaintMaskBuilder
     }
 
     /// <summary>
+    /// Round 5 (ours; per piece, <see cref="BuiltMaskOverride.MinIsland"/>): islands of one region (four-connected covered texels mostly in it, <see
+    /// cref="BuiltMaskOverrides.RegionOf"/>) of fewer than <paramref name="minIsland"/> texels join the region that borders them most (baked included). It clears the
+    /// rust spots, wear flecks and ragged fragments larger than <see cref="Despeckle"/>'s window on the pieces whose data asks for it, without touching the general
+    /// speck rule (the round-4 reviewer: it already thins real scratches). <paramref name="only"/>: merge islands of these regions only (null: every region).
+    /// Deterministic: the islands are found on the input and applied to a copy.
+    /// </summary>
+    public static MaskOnly MergeIslands(MaskOnly m, bool[]? covered, int minIsland, IReadOnlyCollection<MaskRegion>? only = null)
+    {
+        int w = m.Width, h = m.Height, n = w * h;
+        if (minIsland <= 1) return m;
+        if (covered is not null && covered.Length != n) covered = null;
+        var region = new byte[n]; var inside = new bool[n];
+        for (int i = 0; i < n; i++)
+        {
+            int o = i * 4;
+            region[i] = (byte)BuiltMaskOverrides.RegionOf(m.Mask[o], m.Mask[o + 1], m.Mask[o + 2]);
+            inside[i] = covered is not null ? covered[i] : m.Mask[o] + m.Mask[o + 1] + m.Mask[o + 2] > 0;
+        }
+        var mask = (byte[])m.Mask.Clone();
+        var seen = new bool[n];
+        var island = new List<int>();
+        var stack = new Stack<int>();
+        Span<int> border = stackalloc int[4];
+        bool changed = false;
+        for (int start = 0; start < n; start++)
+        {
+            if (!inside[start] || seen[start]) continue;
+            byte r = region[start];
+            island.Clear(); border.Clear();
+            seen[start] = true; stack.Push(start);
+            bool big = false;
+            while (stack.Count > 0)
+            {
+                int i = stack.Pop();
+                if (!big) island.Add(i);
+                if (island.Count >= minIsland) big = true;
+                int x = i % w, y = i / w;
+                for (int k = 0; k < 4; k++)
+                {
+                    int xx = x + (k == 0 ? -1 : k == 1 ? 1 : 0), yy = y + (k == 2 ? -1 : k == 3 ? 1 : 0);
+                    if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+                    int j = yy * w + xx;
+                    if (!inside[j]) continue;
+                    if (region[j] != r) { border[region[j]]++; continue; }
+                    if (!seen[j]) { seen[j] = true; stack.Push(j); }
+                }
+            }
+            if (big || only is not null && !only.Contains((MaskRegion)r)) continue;
+            int best = -1;
+            for (int k = 0; k < 4; k++) if (k != r && border[k] > 0 && (best < 0 || border[k] > border[best])) best = k;
+            if (best < 0) continue;
+            foreach (int i in island)
+            {
+                int o = i * 4;
+                mask[o] = mask[o + 1] = mask[o + 2] = 0;
+                if (best < 3) mask[o + best] = 255;
+            }
+            changed = true;
+        }
+        return changed ? m with { Mask = mask } : m;
+    }
+
+    /// <summary>
     /// Round 4 (ours): the texels outside the mesh's UV islands take the mask and grey diffuse of the nearest covered texel, <paramref name="passes"/> texels out. The
     /// textures carry their baked colour as padding past each island (the campaign raptor's yellow), which the mipmaps mixed back into the painted edges as a
     /// baked-colour seam at a distance. Covered texels never change.
@@ -461,9 +524,12 @@ public static class PaintMaskBuilder
         /// <summary>Round 4: scale on the grey's distance from the target before the shoulder (1 = unchanged; <see cref="BuiltMaskOverride.Contrast"/>).</summary>
         public float Contrast { get; init; } = 1f;
 
+        /// <summary>Round 5: share (0..1) of the broad shading removed before the grey is made (<see cref="BuiltMaskOverride.Flatten"/>, <see cref="FlattenRadius"/>); 0 = none.</summary>
+        public float Flatten { get; init; }
+
         /// <summary>These targets and ceilings times <paramref name="k"/> (a per-piece brightness scale).</summary>
         public Targets Scaled(float k) => new(Primary * k, Secondary * k, Tertiary * k)
-            { PrimaryCeiling = PrimaryCeiling * k, SecondaryCeiling = SecondaryCeiling * k, TertiaryCeiling = TertiaryCeiling * k, Contrast = Contrast };
+            { PrimaryCeiling = PrimaryCeiling * k, SecondaryCeiling = SecondaryCeiling * k, TertiaryCeiling = TertiaryCeiling * k, Contrast = Contrast, Flatten = Flatten };
 
         internal float Target(int c) => c == 0 ? Primary : c == 1 ? Secondary : Tertiary;
         internal float Ceiling(int c) => c == 0 ? PrimaryCeiling : c == 1 ? SecondaryCeiling : TertiaryCeiling;
@@ -491,10 +557,14 @@ public static class PaintMaskBuilder
         var outDif = new byte[n * 4];
         float[] channelMedian = [m.PlateMedian, m.SecondaryMedian, m.OrnamentMedian];
         bool groups = m.Group is { } gr && gr.Length == n && m.GroupMedians is { Length: 3 * StatGroups };
+        float[][]? broad = targets.Flatten > 0f ? BroadMeans(diffuse, m) : null;
         float Shade(float lum, int c, int i)
         {
             float med = channelMedian[c];
             if (groups && m.GroupMedians![c * StatGroups + m.Group![i]] is var gm && !float.IsNaN(gm)) med = gm;
+            // Round 5 (per piece): the broad light and dark patches of a worn texture (the Black Templars' black paint over grey wear) move toward the median; edges,
+            // scratches and crevices (the difference to the neighbourhood's mean) stay.
+            if (broad is not null && !float.IsNaN(broad[c][i])) lum = MathF.Max(0f, lum - targets.Flatten * (broad[c][i] - med));
             float v = Grey(lum, med, targets.Target(c), groups ? DarkSpanRound4 : DarkSpan);
             if (targets.Contrast != 1f) v = targets.Target(c) + (v - targets.Target(c)) * targets.Contrast;
             return Shoulder(v, targets.Target(c), targets.Ceiling(c));
@@ -536,6 +606,50 @@ public static class PaintMaskBuilder
         }
         return new BuiltPaintMask(m.Width, m.Height, m.Mask, outDif, m.Primary, m.Secondary, m.Tertiary)
             { PlateMedian = m.PlateMedian, SecondaryMedian = m.SecondaryMedian, OrnamentMedian = m.OrnamentMedian };
+    }
+
+    /// <summary>The radius (texels) of the neighbourhood mean <see cref="Targets.Flatten"/> removes (ours, round 5: wider than scratches and panel lines on a 512 texture).</summary>
+    public const int FlattenRadius = 10;
+
+    /// <summary>
+    /// Per channel and texel: the mean luminance of the texels of that channel (mask 0.6 and more) within <see cref="FlattenRadius"/> (a box, by summed-area tables), or NaN
+    /// where under a quarter of the box is in the channel. Channel-aware, so a black trim beside a plate does not darken the plate's mean (no halo).
+    /// </summary>
+    static float[][] BroadMeans(DdsImage diffuse, MaskOnly m)
+    {
+        int w = m.Width, h = m.Height, n = w * h, r = FlattenRadius;
+        var result = new float[3][];
+        var sum = new double[(w + 1) * (h + 1)]; var cnt = new int[(w + 1) * (h + 1)];
+        for (int c = 0; c < 3; c++)
+        {
+            Array.Clear(sum); Array.Clear(cnt);
+            for (int y = 0; y < h; y++)
+            {
+                double rowS = 0; int rowC = 0;
+                for (int x = 0; x < w; x++)
+                {
+                    int i = y * w + x;
+                    if (m.Mask[i * 4 + c] >= 153) { rowS += 0.2126f * diffuse.Rgba[i * 4] + 0.7152f * diffuse.Rgba[i * 4 + 1] + 0.0722f * diffuse.Rgba[i * 4 + 2]; rowC++; }
+                    sum[(y + 1) * (w + 1) + x + 1] = sum[y * (w + 1) + x + 1] + rowS;
+                    cnt[(y + 1) * (w + 1) + x + 1] = cnt[y * (w + 1) + x + 1] + rowC;
+                }
+            }
+            var mean = new float[n];
+            int minCount = (2 * r + 1) * (2 * r + 1) / 4;
+            for (int y = 0; y < h; y++)
+            {
+                int y0 = Math.Max(0, y - r), y1 = Math.Min(h, y + r + 1);
+                for (int x = 0; x < w; x++)
+                {
+                    int x0 = Math.Max(0, x - r), x1 = Math.Min(w, x + r + 1);
+                    int a = y0 * (w + 1) + x0, b = y0 * (w + 1) + x1, cc = y1 * (w + 1) + x0, d = y1 * (w + 1) + x1;
+                    int k = cnt[d] - cnt[b] - cnt[cc] + cnt[a];
+                    mean[y * w + x] = k >= minCount ? (float)((sum[d] - sum[b] - sum[cc] + sum[a]) / k) : float.NaN;
+                }
+            }
+            result[c] = mean;
+        }
+        return result;
     }
 
     /// <summary>How far a painted texel's luminance may stand from its 3 x 3 median before the grey is made (share of the median; ours, round 4).</summary>

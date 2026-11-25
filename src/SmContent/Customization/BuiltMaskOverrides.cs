@@ -41,7 +41,12 @@ public sealed record MaskRegionOverride(float U0, float V0, float U1, float V1, 
 /// darker than its neighbours after the per-slot targets (round 3, second worker); 1 = the slot's targets.</param>
 /// <param name="Contrast">Round 4: scale on the shading's distance from each channel's target (1 = as shaded; 0.5 halves it), for a piece whose baked wear (light
 /// scratches and rubbed paint on a black plate) reads as blotches under the paint where the regular armour's grey diffuse is even.</param>
-public sealed record BuiltMaskOverride(string Package, string? Material, int[]? Channels, IReadOnlyList<MaskRegionOverride> Regions, string Why, float Brightness = 1f, float Contrast = 1f);
+/// <param name="MinIsland">Round 5: islands of one region smaller than this (texels) join the region bordering them most (<see cref="PaintMaskBuilder.MergeIslands"/>), for
+/// a piece whose wear, rust or ragged fragments survive the general speck pass; 0 = none. The largest value of a package's entries applies.</param>
+/// <param name="Flatten">Round 5: share (0..1) of the broad shading removed (<see cref="PaintMaskBuilder.Targets.Flatten"/>): the large light and dark patches of a worn
+/// baked texture (black paint rubbed to grey) move toward the region's median while edges, scratches and crevices stay; 0 = none. The largest value applies.</param>
+public sealed record BuiltMaskOverride(string Package, string? Material, int[]? Channels, IReadOnlyList<MaskRegionOverride> Regions, string Why, float Brightness = 1f, float Contrast = 1f,
+    int MinIsland = 0, float Flatten = 0f);
 
 /// <summary>
 /// The per-piece table (armour-pieces-1125 round 3). Every entry names its package and why (the gate's defect it answers); see docs/changes-from-original.md.
@@ -72,6 +77,21 @@ public static class BuiltMaskOverrides
     [
         "sm_armour_black_temp_shldrl", "sm_armour_black_temp_shldrr", "sm_armour_blacktemp_shldrl", "sm_armour_blacktemp_shldrr", "sm_armour_leandros_shldrl",
         "sm_armour_leandros_shldrr",
+    ];
+
+    /// <summary>Round 5: a gilded disc pad (the campaign Chaos pads): the disc inside the ellipse of the rectangle is primary, a rim ring 0.045 wide tertiary.</summary>
+    static MaskRegionOverride[] GildedDisc(float u0, float v0, float u1, float v1) =>
+    [
+        new(u0, v0, u1, v1, MaskRegion.Tertiary, new TexelFilter(MinLum: 4f), Ellipse: true),
+        new(u0 + 0.045f, v0 + 0.045f, u1 - 0.045f, v1 - 0.045f, MaskRegion.Primary, Ellipse: true),
+    ];
+
+    /// <summary>Round 5: every covered texel of the rectangle goes wholly to the region it is mostly in (a soft blend of two regions draws a mixed, muddy colour).</summary>
+    static MaskRegionOverride[] Harden(float u0, float v0, float u1, float v1) =>
+    [
+        new(u0, v0, u1, v1, MaskRegion.Primary, From: MaskRegion.Primary),
+        new(u0, v0, u1, v1, MaskRegion.Secondary, From: MaskRegion.Secondary),
+        new(u0, v0, u1, v1, MaskRegion.Tertiary, From: MaskRegion.Tertiary),
     ];
 
     static MaskRegionOverride ArcDome(MaskRegion to, TexelFilter? f = null, MaskRegion? from = null) => new(0.02f, 0.10f, 0.98f, 0.67f, to, f, Ellipse: true, From: from);
@@ -141,14 +161,33 @@ public static class BuiltMaskOverrides
             [new MaskRegionOverride(0f, 0.89f, 0.84f, 1f, MaskRegion.Primary, From: MaskRegion.Baked)], "Campaign Chaos torso: the back waist band is plate"),
         new("csm_armour_havoc_torso", null, null, [new MaskRegionOverride(0.42f, 0.61f, 1f, 0.71f, MaskRegion.Primary, From: MaskRegion.Baked)],
             "Campaign havoc torso: the back waist band is plate"),
+        // Round 5 (re-gate: "torso back waist band pale and streaked"): the ribbed band was part plate, part baked-moved plate and part tertiary blend (grey streaks
+        // through the red); the ribbed band (V 0.595 to 0.715) is wholly plate and the strip above it (V 0.54 to 0.595) wholly trim.
+        new("csm_armour_havoc_torso", null, null,
+        [
+            new MaskRegionOverride(0.42f, 0.54f, 1f, 0.595f, MaskRegion.Tertiary, new TexelFilter(MinLum: 4f)),
+            new MaskRegionOverride(0.42f, 0.595f, 1f, 0.715f, MaskRegion.Primary, new TexelFilter(MinLum: 4f)),
+        ], "Campaign havoc torso: the back waist band wholly plate, the strip above it trim"),
 
         // Round 4, second pass (lead 41's list after the first round-4 capture).
         // Black Templars legs and backpack (DLC sm_armour_blacktemp, campaign sm_armour_black_temp: the same textures): the black plates' light wear drew as
         // blotches under the paint ("leg wear blotches"); their shading keeps half its distance from the target.
+        // Round 5 (re-gate abac9452: "L arm large near-black blotches", "blotchy black helmet crown", "leg/backpack wear; Contrast 0.5 did not clear it"): the baked
+        // black paint is rubbed to grey in broad patches, which the shading kept as near-black and pale blotches under every scheme; the broad patches are flattened
+        // toward the median (edges and scratches stay) and wear flecks split off as trim or kept baked join the plate (80 texels; legs and backpack, rubbed to bare metal in larger flecks, 200). Legs and backpack keep a softer contrast.
         .. Each(["sm_armour_blacktemp_legl", "sm_armour_blacktemp_legr", "sm_armour_blacktemp_backpack", "sm_armour_black_temp_legl", "sm_armour_black_temp_legr",
-                 "sm_armour_black_temp_backpack"], [], "Black Templars legs and backpack: wear blotches softened", contrast: 0.5f),
+                 "sm_armour_black_temp_backpack"], [], "Black Templars legs and backpack: wear blotches flattened", contrast: 0.7f, minIsland: 200, flatten: 0.85f),
+        .. Each(["sm_armour_blacktemp_helmet", "sm_armour_black_temp_helmet", "sm_armour_blacktemp_arml", "sm_armour_black_temp_arml", "sm_armour_blacktemp_armr",
+                 "sm_armour_black_temp_armr", "sm_armour_blacktemp_torso", "sm_armour_black_temp_torso"], [],
+            "Black Templars helmet, arms and torso: wear blotches flattened", minIsland: 80, flatten: 0.85f),
         // Salamanders left pad: the dragon's dark shadow outline shaded as a dark halo on the dome; the dome's shading keeps 60 % of its distance from the target.
         new("sm_armour_mp_dlc2_set2_shldrl", null, null, [], "Salamanders left pad: softer dome shading (dragon halo)", Contrast: 0.6f),
+        // Round 5 (re-gate abac9452: "heavy pale mottle over the backpack; R pad chipped patches"): the green paint is chipped to a lighter undercoat in broad patches,
+        // which shaded as pale blotches in every scheme; the broad patches are flattened toward the median and flecks under 40 texels join their surroundings.
+        .. Each(["sm_armour_mp_dlc2_set2_bp", "sm_armour_mp_dlc2_set2_shldrr", "sm_armour_mp_dlc2_set2_shldrl", "sm_armour_mp_dlc2_set2_legl", "sm_armour_mp_dlc2_set2_legr",
+                 "sm_armour_mp_dlc2_set2_arml", "sm_armour_mp_dlc2_set2_armr", "sm_armour_mp_dlc2_set2_torso", "sm_armour_mp_dlc2_set2_helmet"], [],
+            "Salamanders: chipped-paint blotches flattened", minIsland: 40, flatten: 0.85f),
+        new("sm_armour_mp_dlc2_set2_bp", null, null, [], "Salamanders backpack: softer shading (chips)", Contrast: 0.75f),
         // Sidonus left pad: the white omega on the dome was ragged (part plate): white texels in its ellipse are tertiary, the blue field round it primary.
         new("sm_armour_sidonus_shldrl", null, null,
         [
@@ -167,6 +206,14 @@ public static class BuiltMaskOverrides
             new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Tertiary, Hue(1.6f, 2.6f, 10f)),
             new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Primary, new TexelFilter(MinLum: 4f), From: MaskRegion.Baked),
         ], "Alpha Legion left pad: blue field primary, serpents tertiary"),
+        // Round 5 (re-gate abac9452: "L pad serpent mostly plate with ragged tertiary fragments"): the serpents' green (hue 2.57 to 2.93 rad, measured on the install's
+        // texture) falls inside the blue-and-teal plate band (2.6 through pi), so most of it was taken as plate; on this dome the field is plain blue (hue -1.53 to
+        // -1.34), so green from 2.3 to 3.05 rad is the serpent (tertiary), the blue field primary, and fragments under 40 texels join their surroundings.
+        new("csm_armour_mp_dlc1_set1_shldrl", null, null,
+        [
+            new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Tertiary, Hue(2.3f, 3.05f, 10f)),
+            new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Primary, Hue(-2.3f, -0.9f, 6f)),
+        ], "Alpha Legion left pad: green serpents tertiary, blue field primary", MinIsland: 40),
         // Iron Warriors pads: the frame ring was half primary, half tertiary (a mixed colour: "trims half-painted") and the field flat; the ring is tertiary like the
         // regular Chaos trims, the dark field primary, the silver emblem (left) and the gold star (right) tertiary.
         new("csm_armour_mp_ironwarr_shldrl", null, null,
@@ -188,13 +235,16 @@ public static class BuiltMaskOverrides
             new MaskRegionOverride(0.06f, 0.03f, 0.94f, 0.57f, MaskRegion.Primary, new TexelFilter(MinLum: 4f), Ellipse: true),
             new MaskRegionOverride(0.28f, 0.03f, 0.70f, 0.24f, MaskRegion.Tertiary, new TexelFilter(MinLum: 40f, MaxChroma: 10f), Ellipse: true),
         ], "Death Guard pads: dome plate, metal patch tertiary"),
-        // Campaign Chaos left pads (basic, berserker, raptor): the whole pad, gold frame and emblem included, was one plate region ("left pad flat and pale"); the gold
-        // frame and the silver emblem are tertiary like the regular Chaos trims, the field primary.
+        // Campaign Chaos left pads (basic, berserker, raptor). Round 4 put the gold frame and the silver emblem in tertiary by colour; round 5 (re-gate abac9452: raptor
+        // "L pad mostly tertiary with a ragged primary patch", the data finding that the gold filter took the raptor's whole gilded plate; basic "L pad field flat and pale
+        // with a speckle fringe"): the three share one gilded disc layout whose olive-gold frame and dark red centre are one engraved plate, so a colour filter splits it
+        // raggedly. The disc is primary, its outer rim (a ring 0.045 wide) and the silver skull emblem tertiary; the engraved runes stay as shading.
         .. Each(["csm_armour_basic_shldrl", "csm_armour_berserker_shldrl", "csm_armour_raptor_shldrl"],
-        [
-            new MaskRegionOverride(0f, 0.01f, 0.98f, 0.85f, MaskRegion.Tertiary, DarkGold, Ellipse: true),
-            new MaskRegionOverride(0.18f, 0.21f, 0.76f, 0.73f, MaskRegion.Tertiary, new TexelFilter(MinLum: 60f, MaxChroma: 14f), Ellipse: true),
-        ], "Campaign Chaos left pad: gold frame and silver emblem tertiary"),
+            [.. GildedDisc(0f, 0.01f, 0.98f, 0.85f), new MaskRegionOverride(0.18f, 0.21f, 0.76f, 0.73f, MaskRegion.Tertiary, new TexelFilter(MinLum: 60f, MaxChroma: 14f), Ellipse: true)],
+            "Campaign Chaos left pads: gilded disc primary, rim and emblem tertiary"),
+        // Campaign basic right pad (re-gate: "R pad dome mottled dark/primary"): the same gilded disc (a compass star engraved on it) split 43 / 57 between primary and
+        // tertiary in patches; the disc is primary, its rim tertiary.
+        new("csm_armour_basic_shldrr", null, null, GildedDisc(0.03f, 0f, 0.98f, 0.76f), "Campaign basic right pad: gilded disc primary, rim tertiary"),
         // Campaign raptor and basic torsos: the ribbed belt strip at the texture's right edge (round the back of the waist, under the pack) stayed baked grey on the
         // raptor ("back waist grey"); it is trim (tertiary), as the berserker torso's builder mask already makes it.
         .. Each(["csm_armour_raptor_torso", "csm_armour_basic_torso"], [new MaskRegionOverride(0.91f, 0f, 1f, 1f, MaskRegion.Tertiary, new TexelFilter(MinLum: 6f))],
@@ -213,6 +263,13 @@ public static class BuiltMaskOverrides
                  "sm_armour_basic_upres_legr", "sm_armour_basic_upres_backpack"],
             [Whole(MaskRegion.Primary, UmBlue, MaskRegion.Tertiary), Whole(MaskRegion.Primary, UmBlue)],
             "Titus: the blue plates are primary, not light ornaments"),
+        // Round 5 (re-gate abac9452: "backpack tertiary speckle + baked rust patches; chest aquila half tertiary"): the gold trims and the chest aquila were split
+        // between plate and trim (rust-brown and gold texels on either side of the warm rule); every gold texel is trim (tertiary), and specks, rust flecks and
+        // holes under 60 texels join their surroundings.
+        .. Each(["sm_armour_basic_upres_helmet", "sm_armour_basic_upres_torso", "sm_armour_basic_upres_arml", "sm_armour_basic_upres_armr", "sm_armour_basic_upres_legl",
+                 "sm_armour_basic_upres_legr", "sm_armour_basic_upres_backpack"],
+            [Whole(MaskRegion.Tertiary, DarkGold, from: null)], "Titus: gold trim and aquila tertiary; specks joined", minIsland: 60),
+        new("sm_armour_basic_upres_backpack", null, null, [], "Titus backpack: rust patches flattened", Flatten: 0.8f),
         new("sm_armour_basic_upres_backpack", null, null,
         [
             // The large brass top plate: secondary, as the upper box of the regular Mk 7 backpack (test_rgb: green); its dark grille slots stay baked.
@@ -306,6 +363,16 @@ public static class BuiltMaskOverrides
         ], "Space Wolves pads: disc primary, ring secondary"),
         new("sm_armour_mp_spacewolves_shldrl", null, null,
             [new MaskRegionOverride(0.17f, 0.30f, 0.83f, 0.81f, MaskRegion.Tertiary, new TexelFilter(MaxLum: 40f, MaxChroma: 14f), Ellipse: true)], "Space Wolves left pad: black wolf tertiary"),
+        // Round 5 (re-gate abac9452: "L pad wolf emblem ragged with plate/secondary islands"): in the disc every texel is the yellow field (primary) or the wolf (tertiary:
+        // the dark texels, its shaded outline included, under 60 levels); the wolf's small inner yellow lines and the stray secondary flecks join their surroundings.
+        new("sm_armour_mp_spacewolves_shldrl", null, null,
+        [
+            new MaskRegionOverride(0.175f, 0.32f, 0.825f, 0.86f, MaskRegion.Primary, new TexelFilter(MinLum: 60f), Ellipse: true),
+            new MaskRegionOverride(0.175f, 0.32f, 0.825f, 0.86f, MaskRegion.Tertiary, new TexelFilter(MaxLum: 60f), Ellipse: true),
+        ], "Space Wolves left pad: disc field primary, wolf tertiary, crisp", MinIsland: 40),
+        // Space Wolves arms (re-gate: "R arm flat and bright"): over a quarter of the arm's texels reached the highlight ceiling (p75 115 of a ceiling of 116, regular
+        // arm p75 101); the shading keeps 55 % of its distance from the target.
+        .. Each(["sm_armour_mp_spacewolves_arml", "sm_armour_mp_spacewolves_armr"], [], "Space Wolves arms: softer shading (no flat highlight)", contrast: 0.55f),
         new("sm_armour_mp_spacewolves_shldrr", null, null,
             [new MaskRegionOverride(0.17f, 0.32f, 0.83f, 0.87f, MaskRegion.Tertiary, Hue(-0.4f, 1.05f, 28f, 15f), Ellipse: true)], "Space Wolves right pad: red chevrons tertiary"),
 
@@ -324,6 +391,9 @@ public static class BuiltMaskOverrides
         // below the dome everything is tertiary, as the regular Chaos pad's trims and ornaments.
         .. Each(["csm_armour_havoc_shldrl", "csm_armour_havoc_shldrr"], [new MaskRegionOverride(0f, 0.31f, 1f, 1f, MaskRegion.Tertiary)],
             "Campaign havoc pads: skull and rims tertiary"),
+        // Round 5 (re-gate: "pad rims primary+tertiary mix"): the dome's olive-gold frame and skull panels were a soft blend of primary and tertiary (purple in test_rgb, a
+        // muddy rim in every scheme); each dome texel goes wholly to the region it is mostly in, and fragments under 30 texels join their surroundings.
+        .. Each(["csm_armour_havoc_shldrl", "csm_armour_havoc_shldrr"], Harden(0f, 0f, 1f, 0.31f), "Campaign havoc pads: dome regions crisp", minIsland: 30),
 
         // Blood Ravens, DLC (sm_armour_mp_bloodravens) and campaign (sm_armour_blood_ravens). Pads: the domes are bone with a black marking (winged raven with a red
         // stone, the campaign right pad's chevron); the marking was split and partly baked ("blotches round the raven", "baked black marking", "brown smear"). In the
@@ -381,10 +451,87 @@ public static class BuiltMaskOverrides
         // dlc2_set3 / dlc3_set2 helmet (byte-identical textures): its baked plate is a light, even grey, so the shaded crown drew flat and brighter than the regular
         // pieces beside it ("helmet crown flat / over-bright"); its targets are scaled down. Partial: the texture has little shading to keep.
         .. Each(["csm_armour_mp_dlc2_set1_helmet", "csm_armour_mp_dlc3_set1_helmet"], [], "dlc2_set3 / dlc3_set2 helmet: as bright as the body (round 4: 0.72, was 0.82)", brightness: 0.72f),
+
+        // ---- Round 5 (re-gate abac9452 per-piece defects; coordinates read on built-mask-bench --grid previews, colours measured on the install's textures) ----
+        // These come last: they act on the masks the entries above left.
+
+        // Iron Warriors (helmet, torso, arms, legs, backpack; the pads have their own entries): the brass trims and globes were a soft primary + tertiary blend (purple in
+        // test_rgb) that never took the trim colour ("trims and globes a primary+tertiary mix: backpack, L leg, torso"). The brass (hue 0.9 to 1.6 rad, chroma 9 and more:
+        // measured 16 median, the grey steel plate 3 to 4) and the bright silver edging (luminance 110+, chroma under 8) are wholly trim; every other painted texel is
+        // wholly the plate (large dark steel areas had gone to tertiary in the blend); fragments under 30 texels join. The right leg keeps its hazard-stripe entry and is
+        // only made crisp.
+        .. Each(["csm_armour_mp_ironwarr_helmet", "csm_armour_mp_ironwarr_torso", "csm_armour_mp_ironwarr_arml", "csm_armour_mp_ironwarr_armr", "csm_armour_mp_ironwarr_backpack"],
+            [.. Harden(0f, 0f, 1f, 1f), Whole(MaskRegion.Primary, from: MaskRegion.Tertiary), Whole(MaskRegion.Tertiary, IwBrass, from: null),
+             Whole(MaskRegion.Tertiary, IwSilver, from: MaskRegion.Primary)],
+            "Iron Warriors: steel plate primary, brass and silver trim tertiary, crisp", minIsland: 30),
+        new("csm_armour_mp_ironwarr_legl", null, null,
+            [.. Harden(0f, 0f, 1f, 1f), Whole(MaskRegion.Secondary, from: MaskRegion.Tertiary), Whole(MaskRegion.Tertiary, IwBrass, from: null),
+             Whole(MaskRegion.Tertiary, IwSilver, from: MaskRegion.Secondary)],
+            "Iron Warriors left leg: steel plate secondary (Chaos leg), brass and silver trim tertiary, crisp", MinIsland: 30),
+        new("csm_armour_mp_ironwarr_legr", null, null, [.. Harden(0f, 0f, 1f, 1f), Whole(MaskRegion.Tertiary, IwBrass, from: null)],
+            "Iron Warriors right leg: brass tertiary, crisp", MinIsland: 30),
+
+        // Blood Ravens campaign torso: the silver chest aquila stayed baked (near-black under the paint: "chest aquila plate instead of tertiary"), as did the bone belt
+        // skull; both are tertiary, as the DLC torso's aquila.
+        new("sm_armour_blood_ravens_torso", null, null,
+        [
+            new MaskRegionOverride(0.55f, 0.33f, 0.88f, 0.54f, MaskRegion.Tertiary, new TexelFilter(MinLum: 12f, MaxChroma: 18f)),
+            new MaskRegionOverride(0.85f, 0.74f, 1f, 0.92f, MaskRegion.Tertiary, new TexelFilter(MinLum: 30f)),
+        ], "Blood Ravens campaign torso: silver chest aquila and belt skull tertiary", MinIsland: 30),
+        // Blood Ravens backpacks: the red-plate rule above put red texels of the bone top plate back in primary ("backpack top mottled"); the top plate is wholly secondary.
+        .. Each(["sm_armour_mp_bloodravens_bp", "sm_armour_blood_ravens_backpack"],
+            [new MaskRegionOverride(0.25f, 0.76f, 0.49f, 0.98f, MaskRegion.Secondary, new TexelFilter(MinLum: 28f))], "Blood Ravens backpacks: bone top plate wholly secondary", minIsland: 30),
+        // Blood Ravens DLC right leg: the knee skull stayed baked with plate bleeding round it, and the shin scroll was half tertiary ("knee skull baked with plate bleed;
+        // shin scroll half tertiary"): the knee boss and skull are wholly tertiary (the regular knee's ornament), the light scroll wholly tertiary.
+        new("sm_armour_mp_bloodravens_legr", null, null,
+        [
+            new MaskRegionOverride(0.62f, 0.42f, 0.93f, 0.57f, MaskRegion.Tertiary, new TexelFilter(MinLum: 4f), Ellipse: true),
+            new MaskRegionOverride(0.45f, 0.86f, 0.97f, 0.95f, MaskRegion.Tertiary, new TexelFilter(MinLum: 40f)),
+        ], "Blood Ravens DLC right leg: knee skull and shin scroll tertiary", MinIsland: 30),
+
+        // Legion of the Damned torso: the ribcage's bone ribs were plate and the black between them tertiary ("ribcage split tertiary/plate"): in the ribcage the bone
+        // (luminance 60 and more; measured 93 to 163, the black field 8 to 36) is tertiary and the black field primary. Right pad: the skull below the dome kept
+        // secondary (rim) patches in its sockets ("secondary patches in the pad skull"); it is wholly tertiary.
+        new("sm_armour_mp_dlc1_set1_torso", null, null,
+        [
+            new MaskRegionOverride(0.5f, 0.35f, 0.93f, 0.58f, MaskRegion.Primary, new TexelFilter(MinLum: 2f)),
+            new MaskRegionOverride(0.5f, 0.35f, 0.93f, 0.58f, MaskRegion.Tertiary, new TexelFilter(MinLum: 60f)),
+        ], "Legion of the Damned torso: bone ribs tertiary, black field primary", MinIsland: 20),
+        new("sm_armour_mp_dlc1_set1_shldrr", null, null, [new MaskRegionOverride(0f, 0.66f, 0.22f, 0.85f, MaskRegion.Tertiary, new TexelFilter(MinLum: 4f))],
+            "Legion of the Damned right pad: skull wholly tertiary"),
+
+        // Sidonus backpack: the gold eagle panel and the gold top trim (scroll and rings) were split between plate and trim ("eagle panels and top trim ragged"): every
+        // gold texel is trim; the rest goes wholly to the region it is mostly in, and fragments under 40 texels (the eagle's dark lines) join their surroundings.
+        new("sm_armour_sidonus_backpack", null, null, [Whole(MaskRegion.Tertiary, DarkGold, from: null), .. Harden(0f, 0f, 1f, 1f)],
+            "Sidonus backpack: gold eagle and trims tertiary, the rest crisp", MinIsland: 40),
+
+        // Death Guard Champion legs (dlc3_set2, Chaos legs: plate secondary): orange rust spots on the shin and its arrow stayed baked ("baked orange rust on the shin
+        // arrow"); rust (hue 0.4 to 1.4 rad, chroma 12 and more) is the leg plate, and baked holes and flecks under 60 texels join their surroundings.
+        .. Each(["csm_armour_mp_dlc3_set2_legl", "csm_armour_mp_dlc3_set2_legr"], [Whole(MaskRegion.Secondary, Hue(0.4f, 1.4f, 12f))],
+            "Death Guard legs: rust is plate", minIsland: 60),
+
+        // Corvus helmet: the silver laurel on the red plate was part plate with tertiary and rust flecks ("tertiary flecks on aquila and laurel (rust speckle)"): the
+        // laurel's silver (chroma under 14) is wholly tertiary; on the helmet and the pad, flecks under 30 texels join their surroundings.
+        new("sm_armour_corvus_helmet", null, null,
+            [new MaskRegionOverride(0.36f, 0.02f, 0.94f, 0.33f, MaskRegion.Tertiary, new TexelFilter(MinLum: 25f, MaxChroma: 14f))],
+            "Corvus helmet: silver laurel tertiary", MinIsland: 30),
+        // Corvus right pad: the round-3 entry's wing filter (luminance 45+) missed the grey wings (luminance 16 to 64, chroma about 1; the red base chroma 12 to 42), so
+        // the wings drew as plate with tertiary fragments along their outline: in the dome the grey is tertiary (the emblem's place) and the red primary.
+        new("sm_armour_corvus_shldrr", null, null,
+        [
+            new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Tertiary, new TexelFilter(MinLum: 6f, MaxChroma: 8f)),
+            new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Primary, Hue(0.2f, 1.1f, 10f)),
+        ], "Corvus right pad: grey wings tertiary, red base primary", MinIsland: 40),
     ];
 
     /// <summary>Alpha Legion blue and teal plate paint (hue from 2.6 round through pi to -1.0 rad).</summary>
     static TexelFilter AlBlueTeal => new(MinLum: 10f, MinHue: 2.6f, MaxHue: -1.0f, MinChroma: 8f);
+
+    /// <summary>Round 5: Iron Warriors brass (measured: chroma 16 median, the grey steel plate 3 to 4).</summary>
+    static TexelFilter IwBrass => new(MinLum: 14f, MinHue: 0.9f, MaxHue: 1.6f, MinChroma: 9f);
+
+    /// <summary>Round 5: Iron Warriors bright silver edging.</summary>
+    static TexelFilter IwSilver => new(MinLum: 110f, MaxChroma: 8f);
 
     /// <summary>Grey silver trim (light, nearly colourless).</summary>
     static TexelFilter ChaosSilver => new(MinLum: 45f, MaxChroma: 8f);
@@ -405,8 +552,9 @@ public static class BuiltMaskOverrides
     static MaskRegionOverride Whole(MaskRegion to, TexelFilter? f = null, MaskRegion? from = MaskRegion.Baked) => new(0f, 0f, 1f, 1f, to, f, From: from);
 
     /// <summary>The same regions (and brightness scale) for each of <paramref name="packages"/>.</summary>
-    static IEnumerable<BuiltMaskOverride> Each(string[] packages, MaskRegionOverride[] regions, string why, float brightness = 1f, float contrast = 1f) =>
-        packages.Select(p => new BuiltMaskOverride(p, null, null, regions, why, brightness, contrast));
+    static IEnumerable<BuiltMaskOverride> Each(string[] packages, MaskRegionOverride[] regions, string why, float brightness = 1f, float contrast = 1f, int minIsland = 0,
+        float flatten = 0f) =>
+        packages.Select(p => new BuiltMaskOverride(p, null, null, regions, why, brightness, contrast, minIsland, flatten));
 
     /// <summary>
     /// Round 4 (finding 6 of the round-3 re-gate): the packages the table names that <paramref name="exists"/> says are not in the install (a misspelt or missing

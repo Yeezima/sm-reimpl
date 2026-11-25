@@ -103,6 +103,9 @@ static class BuiltMaskCommand
                         double r = 0, g = 0, b = 0; int n = 0;
                         for (int i = 0; i < mi.Width * mi.Height; i++) { int o2 = i * 4; if (mi.Rgba[o2] + mi.Rgba[o2 + 1] + mi.Rgba[o2 + 2] < 60) continue; r += mi.Rgba[o2]; g += mi.Rgba[o2 + 1]; b += mi.Rgba[o2 + 2]; n++; }
                         double t = Math.Max(1, r + g + b);
+                        // Round 5: the dirt in the mask's alpha (the paint shader mixes the material's DirtColour in by it, x 0.6): its mean and the share of painted texels over 64.
+                        double dirtSum = 0; int dirtHigh = 0;
+                        for (int i = 0; i < mi.Width * mi.Height; i++) { int o2 = i * 4; if (mi.Rgba[o2] + mi.Rgba[o2 + 1] + mi.Rgba[o2 + 2] < 60) continue; dirtSum += mi.Rgba[o2 + 3]; if (mi.Rgba[o2 + 3] > 64) dirtHigh++; }
                         // Brightness check (round 3): the median luminance (sRGB 0..255) of the diffuse the paint shader reads (the grey paint diffuse of a built mask,
                         // the regular piece's own diffuse otherwise) over the texels mostly in each region, to compare a built piece with the regular piece beside it.
                         string dk = BakedArmourPaint.IsBuilt(mm) ? BakedArmourPaint.PaintDiffuseKey : "DiffuseMap";
@@ -151,7 +154,14 @@ static class BuiltMaskCommand
                         string sp = mm.Floats.TryGetValue("SpecularPower", out var pw) ? pw.ToString("0.#") : "-";
                         string sc = mm.Vectors.TryGetValue("SpecularColor", out var cv) && cv.Length >= 3 ? $"{cv[0]:0.##},{cv[1]:0.##},{cv[2]:0.##}" : "-";
                         meds += $"; specular map p5/p50/p95 {Pct(spec)}, SpecularPower {sp}, SpecularColor {sc}; baked diffuse p5/p50/p95 {Pct(baked)}; light property R {Pct(lpr)} B {Pct(lpb)}";
-                        Console.WriteLine($"mask shares {pkg}/{mm.Name} ({mn}{(BakedArmourPaint.IsBuilt(mm) ? ", built" : "")}): R {r / t:P0} G {g / t:P0} B {b / t:P0} over {n} painted texels{meds}");
+                        // Round 5: the normal map's name, size and the spread of its R and G (a flat or constant map shades the whole piece one way).
+                        if (mm.Textures.TryGetValue("NormalMap", out var nn) && piece.Model.Textures.TryGetValue(nn, out var nb) && DdsImage.TryDecode(nb) is { } ni)
+                        {
+                            var nr = new List<float>(); var ng = new List<float>();
+                            for (int i = 0; i < ni.Width * ni.Height; i += 7) { nr.Add(ni.Rgba[i * 4]); ng.Add(ni.Rgba[i * 4 + 1]); }
+                            meds += $"; normal map {nn} {ni.Width}x{ni.Height} R {Pct(nr)} G {Pct(ng)} format {System.Text.Encoding.ASCII.GetString(nb, 84, 4).Replace('\0', '.')} bytes {nb.Length} head {Convert.ToHexString(nb, 128, Math.Min(16, nb.Length - 128))}";
+                        }
+                        Console.WriteLine($"mask shares {pkg}/{mm.Name} ({mn}{(BakedArmourPaint.IsBuilt(mm) ? ", built" : "")}): R {r / t:P0} G {g / t:P0} B {b / t:P0} over {n} painted texels; dirt mean {dirtSum / Math.Max(1, n):0.0}, over 64 {dirtHigh * 100.0 / Math.Max(1, n):0.0}%{meds}");
                     }
         if (previews is not null) WritePreviews(gameDir, catalog, wanted, pieces, previews, Opt("--schemes"), int.TryParse(Opt("--cell"), out var cell) ? cell : 192, rest.Contains("--full"), rest.Contains("--grid"));
         return 0;
@@ -182,6 +192,11 @@ static class BuiltMaskCommand
                     cells.Add((grey.Width, grey.Height, Painted(grey, mask, set.Primary.Diffuse, set.Secondary.Diffuse, set.Tertiary.Diffuse)));
                 }
                 if (full) for (int c = 0; c < cells.Count; c++) GfxDumpCommand.WritePng($"{stem}_{c}.png", cells[c].Item1, cells[c].Item2, cells[c].Item3);
+                // Round 5: with --full, the specular, light property and normal maps too (what else shapes the painted look).
+                if (full)
+                    foreach (var (key, suffix) in new[] { ("SpecularMap", "spec"), ("LightPropMap", "lp"), ("NormalMap", "nrm") })
+                        if (m.Textures.TryGetValue(key, out var extraName) && tex.TryGetValue(extraName, out var extraBytes) && DdsImage.TryDecode(extraBytes) is { } extra)
+                            GfxDumpCommand.WritePng($"{stem}_{suffix}.png", extra.Width, extra.Height, Opaque(extra.Rgba));
                 rows.Add(($"{package}/{m.Name}", cells));
             }
         }

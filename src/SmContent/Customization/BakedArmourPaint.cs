@@ -140,6 +140,7 @@ public static class BakedArmourPaint
         var added = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         var built = new Dictionary<Sources, (string Mask, string Grey)?>();
         var surfaces = new List<StaticModelSurface>(model.Surfaces.Count);
+        var placeholder = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         bool changed = false;
         foreach (var s in model.Surfaces)
         {
@@ -155,6 +156,9 @@ public static class BakedArmourPaint
             }
             if (names is not { } n) { surfaces.Add(s); continue; }
             var tex = new Dictionary<string, string>(m.Textures, StringComparer.Ordinal) { ["PaintMask"] = n.Mask, [PaintDiffuseKey] = n.Grey };
+            if (!OldRound4Look && m.Textures.TryGetValue("NormalMap", out var normalName) && model.Textures.TryGetValue(normalName, out var normalBytes)
+                && (placeholder.TryGetValue(normalName, out bool isPlaceholder) ? isPlaceholder : placeholder[normalName] = IsPlaceholderNormal(normalBytes)))
+                tex[PaintFlatNormalKey] = "1";
             surfaces.Add(s with { Material = m with { Textures = tex } });
             changed = true;
         }
@@ -163,13 +167,54 @@ public static class BakedArmourPaint
 
     /// <summary>
     /// Round 4 (ours, measured 2026-11-25 with <c>smtool built-mask-bench --mask-shares</c>): whether a material is painted with the specular strength of the regular
-    /// masked armour, which names no <c>SpecularColor</c> (the client's default: 0.4 with a specular map), instead of its own: true for every built material. The
+    /// masked armour, which names no <c>SpecularColor</c> (the client's default, <c>MapMaterials.SpecularFor</c>: 0.35 x SpecScale, which <c>PreparePainted</c> raises to at
+    /// least 0.4 when the material has a specular map, as every regular and built armour material here has), instead of its own: true for every built material. The
     /// campaign Chaos materials name SpecularColor (1, 1, 1), which the client reads as the strongest specular (0.6, half again the regular 0.4): the campaign raptor
     /// and berserker legs read washed pale though their grey paint diffuse (raptor right leg median 72, 67 to 76) is no brighter than the regular leg's (72, 53 to 94)
     /// and their specular maps (median 63) match the regular leg's (68). The plain (baked) material keeps its own specular, so a full set draws as before. Off under
     /// <see cref="OldRegionStats"/>.
     /// </summary>
     public static bool UsesRegularSpecular(BmatMaterial m) => IsBuilt(m) && !OldRegionStats && !PaintMaskBuilder.OldMaskRules;
+
+    /// <summary>The material texture key that marks a built material to be painted without its normal map (<see cref="PaintsWithoutNormalMap"/>).</summary>
+    public const string PaintFlatNormalKey = "PaintFlatNormal";
+
+    /// <summary>
+    /// Round 5 (ours, measured 2026-11-26 with <c>smtool built-mask-bench --mask-shares</c>): whether a built material is painted without its normal map because that map
+    /// is a placeholder (<see cref="IsPlaceholderNormal"/>). Every campaign raptor and berserker material (<c>csm_armour_raptor_*</c>, <c>csm_armour_berserker_*</c>) names
+    /// a normal map that is one DXT1 colour throughout (sRGB 200, 200, 200 on every texel), which a renderer reads as a normal tilted about 55 degrees off the surface:
+    /// lit from one side the whole piece drew washed pale (the round-4 gate's "right pad and right leg washed pale pink", "berserker shin and thigh washed pale and flat"),
+    /// and the mirrored piece dark. The campaign basic pieces' normal maps are real (byte-identical to the MP basic ones). The plain (baked) material keeps its own normal map,
+    /// so a full set draws as before. Off under <see cref="OldRound4Look"/>.
+    /// </summary>
+    public static bool PaintsWithoutNormalMap(BmatMaterial m) => IsBuilt(m) && m.Textures.ContainsKey(PaintFlatNormalKey) && !OldRound4Look && !OldRegionStats;
+
+    /// <summary>
+    /// A normal map that carries no surface detail and is not flat: its R and G vary by at most 6 levels over the texture while their mean stands more than 16 levels from
+    /// 128 (a flat map, 128 / 128, is harmless and is kept). False when it does not decode.
+    /// </summary>
+    public static bool IsPlaceholderNormal(byte[] dds)
+    {
+        if (DdsImage.TryDecode(dds) is not { } img || img.Width * img.Height == 0) return false;
+        int minR = 255, maxR = 0, minG = 255, maxG = 0; double sumR = 0, sumG = 0; int n = 0;
+        for (int i = 0; i < img.Width * img.Height; i += 3)
+        {
+            int r = img.Rgba[i * 4], g = img.Rgba[i * 4 + 1];
+            minR = Math.Min(minR, r); maxR = Math.Max(maxR, r); minG = Math.Min(minG, g); maxG = Math.Max(maxG, g); sumR += r; sumG += g; n++;
+        }
+        return maxR - minR <= 6 && maxG - minG <= 6 && (Math.Abs(sumR / n - 128) > 16 || Math.Abs(sumG / n - 128) > 16);
+    }
+
+    /// <summary>
+    /// Restore switch (round 5): true paints built pieces as round 4 did in the general rules round 5 added (placeholder normal maps kept, <see cref="PaintsWithoutNormalMap"/>;
+    /// no island pass, <see cref="BuiltMaskOverride.MinIsland"/>). Per-piece region data is not switched. A look only (client; <c>--old-round4-look</c> or SM_OLD_ROUND4_LOOK=1).
+    /// </summary>
+    public static bool OldRound4Look
+    {
+        get => _oldRound4Look ?? (Environment.GetEnvironmentVariable("SM_OLD_ROUND4_LOOK") == "1" || Array.IndexOf(Environment.GetCommandLineArgs(), "--old-round4-look") >= 0);
+        set => _oldRound4Look = value;
+    }
+    static bool? _oldRound4Look;
 
     /// <summary>
     /// The texels the surfaces' UV triangles cover (UVs wrapped into 0..1, V down as the textures are stored), grown by two texels so filtering at seams reads
@@ -293,7 +338,11 @@ public static class BakedArmourPaint
 
     /// <summary>
     /// Restore switch (round 4): true shades built pieces against the builder's region medians (as round 3) instead of <see cref="PaintMaskBuilder.WithRegionStats"/>,
-    /// keeps the builder's shares and leaves specks alone (<see cref="PaintMaskBuilder.Despeckle"/>). The highlight ceilings go with <see cref="OldBrightness"/>. A look only (client; <c>--old-region-stats</c> or SM_OLD_REGION_STATS=1); not part of the mask cache.
+    /// keeps the builder's shares and leaves specks alone (<see cref="PaintMaskBuilder.Despeckle"/>), and drops the round-4 regular specular, shading speckle clamp,
+    /// UV padding and per-piece contrast. A look only (client; <c>--old-region-stats</c> or SM_OLD_REGION_STATS=1); not part of the mask cache.
+    /// <para>Not an exact round-3 restore (round-4 gate, LOW): the highlight ceilings and the Chaos left pad target 106 stay (they go with <see cref="OldBrightness"/>),
+    /// as do the per-piece brightness scales (Emperor's Children helmet 0.75, dlc2_set3 / dlc3_set2 helmet 0.72), every region-data entry added since round 3 and the
+    /// one-sided hue filter fix; the round-5 additions (placeholder normal maps, island pass, broad-shading removal) also go with it.</para>
     /// </summary>
     public static bool OldRegionStats
     {
@@ -358,13 +407,21 @@ public static class BakedArmourPaint
             // Round 4 (findings 1, 3 and 4): medians and shares from the final mask, each texel shaded against the texels that came into its channel the same way.
             // Specks of one region inside another join it first (PaintMaskBuilder.Despeckle).
             if (!PaintMaskBuilder.OldMaskRules && !OldRegionStats)
-                remapped = PaintMaskBuilder.WithRegionStats(maskOnly, permuted,
-                    PaintMaskBuilder.Despeckle(PaintMaskBuilder.Despeckle(remapped, used), used, radius: 4, holesOnly: true), diffuse, used);
+            {
+                var cleaned = PaintMaskBuilder.Despeckle(PaintMaskBuilder.Despeckle(remapped, used), used, radius: 4, holesOnly: true);
+                // Round 5: per-piece island pass (BuiltMaskOverride.MinIsland).
+                int minIsland = OldRound4Look ? 0 : overrides.Select(o => o.MinIsland).DefaultIfEmpty(0).Max();
+                if (minIsland > 1) cleaned = PaintMaskBuilder.MergeIslands(cleaned, used, minIsland);
+                remapped = PaintMaskBuilder.WithRegionStats(maskOnly, permuted, cleaned, diffuse, used);
+            }
             var targets = PaintMaskBuilder.OldMaskRules ? PaintMaskBuilder.Targets.Default : LuminanceTargets(package);
             float scale = OldBrightness ? 1f : overrides.Aggregate(1f, (a, o) => a * o.Brightness);
             if (scale != 1f) targets = targets.Scaled(scale);
             float contrast = OldBrightness || OldRegionStats ? 1f : overrides.Aggregate(1f, (a, o) => a * o.Contrast);
             if (contrast != 1f) targets = targets with { Contrast = contrast };
+            // Round 5: per-piece broad-shading removal (BuiltMaskOverride.Flatten).
+            float flatten = OldBrightness || OldRegionStats || OldRound4Look ? 0f : overrides.Select(o => o.Flatten).DefaultIfEmpty(0f).Max();
+            if (flatten > 0f) targets = targets with { Flatten = Math.Clamp(flatten, 0f, 1f) };
             var result = PaintMaskBuilder.WithGrey(diffuse, remapped, targets);
             if (!PaintMaskBuilder.OldMaskRules && !OldRegionStats) result = PaintMaskBuilder.PadOutside(result, used);
             if (result.Primary + result.Secondary + result.Tertiary < 0.005f)

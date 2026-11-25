@@ -8,8 +8,10 @@ namespace SmContent.Customization;
 /// </summary>
 /// <param name="Group">The owner's group: "mp" (multiplayer and co-op extras), "librarian", "campaign".</param>
 /// <param name="SetLabel">For package pieces: the display name of the campaign armour it belongs to (ours) and its <see cref="ArmourPiece.SetNames"/> entry.</param>
+/// <param name="Hidden">Round 5 (owner, 2026-11-26, card "Berserker": "Hide the 2 pieces"): the piece keeps its place in the slot's list (a reserved entry, so
+/// later appearance-code indices keep their meaning) but is never offered, as a piece the install lacks.</param>
 public sealed record ExtraPieceSpec(string Group, string Race, string Slot, string Name, IReadOnlyList<string>? Packages = null, string? SetLabel = null,
-    string HelmetOverride = "no_override");
+    string HelmetOverride = "no_override", bool Hidden = false);
 
 /// <summary>
 /// The pieces armour-pieces-1125 Series A adds to the per-slot libraries, in the order they are appended (after the customizable sets' pieces and the
@@ -59,8 +61,10 @@ public static class ExtraArmourPieces
             new("mp", Csm, "head", "csm_armour_mp_raptor_01_head"),
             new("mp", Csm, "leftleg", "csm_armour_mp_raptor_01_leg_left"),
             new("mp", Csm, "rightleg", "csm_armour_mp_raptor_01_leg_right"),
-            new("mp", Csm, "head", "csm_berserker_helmet"),
-            new("mp", Csm, "backpack", "csm_berserker_backpack"),
+            // The co-op elite Berserker's helmet and backpack: hidden since round 5 (owner, 2026-11-26: unfinished developer art, block-out meshes on a misnamed
+            // basic-helmet diffuse and a flat grey; out of the piece library and the 92 % gate). The rest of that armour is unaffected (it has no full-set quick pick).
+            new("mp", Csm, "head", "csm_berserker_helmet", Hidden: true),
+            new("mp", Csm, "backpack", "csm_berserker_backpack", Hidden: true),
             // (2) The Librarian's pieces (the very ones Musou's LibrarianLook puts on).
             new("librarian", Sm, "torso", "sm_librarian_torso"),
             new("librarian", Sm, "rightshoulder", "sm_librarian_shoulder_right"),
