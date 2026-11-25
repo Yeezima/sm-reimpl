@@ -31,6 +31,12 @@ public static class OvershieldCoverage
         return false;
     }
 
+    /// <summary>
+    /// Whether a mesh or surface named <paramref name="name"/> is covered: an armour piece of the look (<paramref name="armourPiece"/>) always, whatever its name (X6 review X6-8: a pad or a
+    /// helmet whose package name says seal, chain, trophy, fur, belt or cape is still armour); any other node (a worn item, an attachment) unless <see cref="Excluded"/>; never a weapon.
+    /// </summary>
+    public static bool Covered(string? name, bool armourPiece) => !(name is not null && Weapon(name)) && (armourPiece || !Excluded(name));
+
     /// <summary>Whether a node named <paramref name="name"/> under the skeleton is a weapon (never covered).</summary>
     public static bool Weapon(string name) => name.StartsWith("Weapon_", StringComparison.Ordinal);
 }

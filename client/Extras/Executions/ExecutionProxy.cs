@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using SmNet.Extras.Musou;
 using SmSim;
 using SmSim.Extras.Executions;
 using SmSim.Extras.Musou;
@@ -58,6 +59,17 @@ public partial class NetworkView
     readonly HashSet<int> _execProxiedVictims = new();
     readonly HashSet<int> _execHidden = new();
     readonly List<(int, uint)> _execDrop = new();
+    /// <summary>
+    /// The crowd deaths handed out this frame, copied at their source (<c>MusouDraw</c>'s hook, <see cref="ExecutionsDeathsHanded"/>) before the sound frame empties Musou's own list (X5 review
+    /// X5-3); read and cleared by the presenter's frame. Only the executed Orks' are kept.
+    /// </summary>
+    readonly List<MusouDeathShown> _execDeathsHanded = new();
+
+    partial void ExecutionsDeathsHanded(IReadOnlyList<MusouDeathShown> deaths)
+    {
+        if (_execHidden.Count == 0) return;
+        foreach (var d in deaths) if (_execHidden.Contains(d.Id)) _execDeathsHanded.Add(d);
+    }
 
     /// <summary>Live proxies (the headless self-test reads it).</summary>
     internal int ExecutionProxyCount => _execProxies.Count;
@@ -99,7 +111,7 @@ public partial class NetworkView
                 if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: end P{p.Run.Executor} {p.Row.Id} {ended.Reason} at tick {ended.EndTick}");
             }
         if (warfront && _musouCrowd is { } gibCrowd && _execHidden.Count > 0)
-            foreach (var d in _musouDeathsHanded)
+            foreach (var d in _execDeathsHanded)
             {
                 // A death of an executed Ork that left no crowd corpse (MusouCrowd.AddBody never asked): gibbed or thrown, so the proxy steps aside for the crowd's own remains.
                 if (!_execHidden.Contains(d.Id) || gibCrowd.ExecutionCorpseClaimed.Contains(d.Id)) continue;
@@ -110,6 +122,7 @@ public partial class NetworkView
                         if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: enemy {d.Id} gibbed or thrown by the crowd; its proxy is hidden");
                     }
             }
+        _execDeathsHanded.Clear();
         _execDrop.Clear();
         foreach (var (key, p) in _execProxies)
         {
@@ -144,8 +157,8 @@ public partial class NetworkView
             if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: proxy of P{p.Run.Executor} {p.Row.Id} freed ({_execProxies.Count} left)");
         }
         // A Classic victim alive again keeps no proxy claim (its next death is its own).
-        if (_execProxiedVictims.Count > 0)
-            foreach (var o in others) if (o.Alive && _execProxiedVictims.Contains(o.PlayerId) && !AnyProxyOn(o.PlayerId)) _execProxiedVictims.Remove(o.PlayerId);
+        // The victim's own client too (X5 review X5-2): its own state is not among the others, and a kept claim would hide its next death.
+        if (_execProxiedVictims.Count > 0) ExecutionPresentMath.ReleaseClaims(_execProxiedVictims, ExecClaimPlayers(me, others), AnyProxyOn);
         if (warfront && _musouCrowd is { } crowd)
         {
             crowd.ExecutionHidden = _execHidden.Count > 0 ? _execHidden : null;
@@ -170,6 +183,13 @@ public partial class NetworkView
         _pendingDeaths.Add((id, v, state, _client is not null && id == _client.PlayerId, Vector3.Zero));
         p.RagdollHanded = true;
         if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: executor P{p.Run.Executor} killed mid-move; P{id} goes to a ragdoll from the proxy's pose");
+    }
+
+    /// <summary>The others and, on a player's own client, the own player (an observer's <paramref name="me"/> is default and not listed).</summary>
+    IEnumerable<(int, bool)> ExecClaimPlayers(PlayerState me, IReadOnlyList<PlayerState> others)
+    {
+        foreach (var o in others) yield return (o.PlayerId, o.Alive);
+        if (_client is not null && me.PlayerId == _client.PlayerId) yield return (me.PlayerId, me.Alive);
     }
 
     bool AnyProxyOn(int victim)
@@ -229,7 +249,13 @@ public partial class NetworkView
         string first = p.StandIn ? ExecutionStandIns.VictimClip(assets) ?? CharacterViewer.DefaultAnimation : ExecutionClipLibrary.Alias(p.Row.VictimClip);
         CharacterViewer? viewer = null;
         for (int i = 0; i < _execPool.Count; i++)
-            if (ReferenceEquals(_execPool[i].Assets, assets) && IsInstanceValid(_execPool[i])) { viewer = _execPool[i]; _execPool.RemoveAt(i); break; }
+            if (ReferenceEquals(_execPool[i].Assets, assets) && IsInstanceValid(_execPool[i]))
+            {
+                viewer = _execPool[i];
+                _execPool.RemoveAt(i);
+                viewer.Pose(first, 0f, 0f);   // X5 review X5-4: a reused proxy starts from its first clip, not blended from the last move's final pose
+                break;
+            }
         if (viewer is null)
         {
             viewer = new CharacterViewer(assets, first, gameSpaceRoot: false) { Name = $"ExecutionVictim{p.Run.Target}" };

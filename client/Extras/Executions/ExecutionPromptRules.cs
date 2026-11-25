@@ -97,25 +97,25 @@ public static class ExecutionPromptRules
     }
 
     /// <summary>
-    /// The slide's bystanders (X4's horde rule, plan step 2; until X4's <c>ExecutionsBystanders</c> lands this is its copy, to be replaced by a call): the other living players within reach,
-    /// and only the player-solid crowd enemies (<see cref="MusouSolids.Blocks"/>: the Warboss and the Boss Orks). Regular Orks never block the slide.
+    /// The bystander reach round the executor (metres): the server's <c>World.ExecutionsBystanderReach</c> (the longest slide, two capsule radii and 7 m), the same formula on the match's config
+    /// (that property reads only <see cref="SimConfig.CapsuleRadius"/> and the X2/X3 constants).
+    /// </summary>
+    public static float BystanderReach(SimConfig c) => MathF.Max(ExecutionRules.ClassicMaxSlide, ExecutionAlign.MaxBackSlide) + 2f * MathF.Max(c.CapsuleRadius, 0.05f) + 7f;
+
+    /// <summary>
+    /// The slide's bystanders by X4's horde rule itself (<see cref="ExecutionBystanders.Warfront"/>, the call the server's <c>ExecutionsWarfrontBystanders</c> makes; X6 review X6-12): the other
+    /// living players within <see cref="BystanderReach"/> (3D) of the executor, then the player-solid crowd enemies (<see cref="ExecutionBystanders.Counts"/>: the Warboss and the Boss Orks) as the
+    /// crowd is drawn (a dying one is not a body any more). Regular Orks never block the slide.
     /// </summary>
     public static void Bystanders(SimConfig c, in PlayerState me, IReadOnlyList<PlayerState> others, IReadOnlyList<MusouShown> shown, List<Vector3> into)
     {
         into.Clear();
-        float reach = ExecutionAlign.MaxSlide + 2f * c.CapsuleRadius + 7f, r2 = reach * reach;
-        foreach (var o in others)
-        {
-            if (!o.Alive || o.PlayerId == me.PlayerId) continue;
-            float dx = o.Position.X - me.Position.X, dy = o.Position.Y - me.Position.Y;
-            if (dx * dx + dy * dy <= r2) into.Add(o.Position);
-        }
-        foreach (var e in shown)
-        {
-            if (!MusouSolids.Blocks(e.Type) || e.State == MusouEnemyState.Dying) continue;
-            float dx = e.Position.X - me.Position.X, dy = e.Position.Y - me.Position.Y;
-            if (dx * dx + dy * dy <= r2) into.Add(e.Position);
-        }
+        var players = new List<(int, PlayerState)>(others.Count + 1) { (me.PlayerId, me) };
+        foreach (var o in others) if (o.PlayerId != me.PlayerId) players.Add((o.PlayerId, o));
+        players.Sort((a, b) => a.Item1.CompareTo(b.Item1));   // the server's order (by id)
+        var enemies = new List<(MusouEnemyType, Vector3)>();
+        foreach (var e in shown) if (e.State != MusouEnemyState.Dying && ExecutionBystanders.Counts(e.Type)) enemies.Add((e.Type, e.Position));
+        into.AddRange(ExecutionBystanders.Warfront(me.PlayerId, players, enemies, me.Position, BystanderReach(c)));
     }
 
     /// <summary>

@@ -28,19 +28,19 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4190 spec table rows: **3099 tagged**, 716 not tagged (read from data with high confidence), 375 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4199 spec table rows: **3108 tagged**, 716 not tagged (read from data with high confidence), 375 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 422 | 362 | 360 | 115 | 12 |
-| Combat core (critical) | 26 | 17 | 24 | 18 | 8 |
+| Combat core (critical) | 27 | 18 | 24 | 18 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 104 | 98 | 74 | 16 | 0 |
+| HUD and hit feedback (critical) | 108 | 102 | 75 | 16 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
@@ -51,16 +51,16 @@ Scanned 4190 spec table rows: **3099 tagged**, 716 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 228 | 227 | 89 | 80 | 0 |
+| General game design | 232 | 231 | 91 | 80 | 0 |
 | Ork faction | 300 | 280 | 180 | 73 | 0 |
-| **All areas** | **3099** | 2789 | 2260 | 924 | 37 |
+| **All areas** | **3108** | 2798 | 2263 | 924 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1898 |
-| confidence: medium | 1076 |
+| kind: ours | 1907 |
+| confidence: medium | 1079 |
 | confidence: low | 1073 |
 | notes: ours | 478 |
 | kind: interpretation | 461 |
@@ -851,7 +851,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-0C521317` | Sequencer speed | each clip's raw time is the same fraction of its own length as the row's clock is of the row's length (the row's lengths are after the sequencer's playback speed), so a sequencer faster or slower than 1 plays as the original graph does | confidence: medium | X7 rows (lengths after the speed) | Sequencer speed: compare with SM1 by feel or video. Ours: each clip's raw time is the same fraction of its own length as the… | ☐ |
 
-### Combat core (gameplay-critical) (26)
+### Combat core (gameplay-critical) (27)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -953,6 +953,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-F965ACA3` | Executor hit volumes | the normal standing volumes, not the clip's pose (posed volumes deferred to X3h, lead decision 2) | kind: provisional; kind: approximation; confidence: low; notes: ours | ours | Executor hit volumes: compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: the normal standing volumes, not the clip's pose (posed volumes… | ☐ |
+
+*Spec section: Added content: Executions: client presentation (executions X5, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-08D81401` | Proxy claim after respawn | a Classic victim alive again without a live proxy loses its claim on every client, its own included, so its next death is its own | kind: ours | X5 review X5-2 | Proxy claim after respawn: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a Classic victim alive again without a live proxy loses its claim on… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -1798,7 +1804,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (104)
+### HUD and hit feedback (gameplay-critical) (108)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1983,6 +1989,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9DA8E2B5` | Row this install lacks | the own run is still locked and pinned, to the Start's origin and yaw (X3: the server's run plays), until its End or at most 12 s (s) | kind: ours; confidence: medium | X3 (lead 40); 12 s ours | Row this install lacks: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the own run is still locked and pinned, to the Start's origin and yaw… | ☐ |
 | `R-5F3D84A3` | Lost Ends | a run whose three Ends were all lost is over at its own end tick (`ExecutionTrack.EndTick`): the prediction frees the input, the orbit hands back the camera and the marker may show again (ticks) | kind: ours | X3 (lead 40) | Lost Ends: compare with SM1 with side-by-side screenshots in the same spot. Ours: a run whose three Ends were all lost is over at its own end tick… | ☐ |
 | `R-4379D09D` | Shell on the Compatibility renderer | one material per character with plain uniforms (no instance uniform, which the Compatibility renderer does not draw), plain GLSL with no screen or depth texture: the same look in old-GPU mode | kind: ours; confidence: medium | the repo's Compatibility rule (`ClawCrackle`) | Shell on the Compatibility renderer: compare with SM1 with side-by-side screenshots in the same spot. Ours: one material per character with plain uniforms (no instance uniform… | ☐ |
+| `R-3780183D` | Marker after a press | a press of Execute while the dot shows takes that offer (the server spends it, a move fitting or not: one try per corpse), so the dot goes at once; a press before the view tick reaches the kill leaves it (the server refuses it NoOffer and spends only the… | kind: ours | X6 review X6-10; X3's one try per corpse | Marker after a press: compare with SM1 with side-by-side screenshots in the same spot. Ours: a press of Execute while the dot shows takes that offer (the server… | ☐ |
+| `R-FB9A0F98` | Offer kept | of two offers heard, the one with the later kill tick, and of equal kill ticks the lower victim id, is shown (the server's press takes exactly that one); a spent offer is not taken again | kind: ours | X6 review X6-10; `World.ExecutionsClassicPick` | Offer kept: compare with SM1 with side-by-side screenshots in the same spot. Ours: of two offers heard, the one with the later kill tick, and of equal… | ☐ |
+| `R-4AB8907B` | Warfront marker's bystanders | X4's rule itself (`ExecutionBystanders.Warfront`: the other living players, then the player-solid enemies, within the server's bystander reach, the longest slide + two capsule radii + 7 m, 3D) on the crowd as drawn (m) | kind: ours | X6 review X6-12; X4 | Warfront marker's bystanders: compare with SM1 by measuring on a flat spot of the same map. Ours: X4's rule itself (ExecutionBystanders.Warfront: the other living… | ☐ |
+| `R-BCE19019` | Marker in a Chaos run | never (the prompt treats every Warfront run as an Ork run until C2's faction is on the client: `ExecutionsChaosRun` false; the server's Chaos refusal reads `SimConfig.WarfrontFaction`, which also arrives with C2) | kind: ours; confidence: medium | X6 review X6-12, lead 40 | Marker in a Chaos run: compare with SM1 by timing a run over a known distance. Ours: never (the prompt treats every Warfront run as an Ork run until C2's… | ☐ |
 
 ### Sound mix (gameplay-critical) (254)
 
@@ -4361,7 +4371,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (228)
+### General game design (232)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4667,6 +4677,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C46C3B34` | Proxy after the move | a completed move (End Done): the proxy holds the victim clip's last pose, lies (Classic 10 s, ours, accepted by lead 39; Warfront the crowd's lie time), sinks 1.2 m over 1.5 s and is freed; Classic End Killed (the executor died mid-move): the victim's death… (s) | kind: ours; confidence: medium | design (clean-up); lead 39 (the victim stays as a corpse); lie times ours | Proxy after the move: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a completed move (End Done): the proxy holds the victim clip's last… | ☐ |
 | `R-864EEE41` | Stand-in | only when a catalogue row cannot be shown with its own clips on that rig: the character's own heavy strike timed to end on the row's kill event, the victim's own death clip from the kill event; logged once per row as placeholder demonstration; never another… | kind: placeholder | brief (coverage matrix; no lookalikes) | Stand-in: compare with SM1 by feel or video. Ours: only when a catalogue row cannot be shown with its own clips on that… | ☐ |
 | `R-D7B57C02` | Clean-up | an End (as above), an executor no longer in the match, the view leaving (proxies are children of the view); a disconnected client keeps no frame | kind: ours | design | Clean-up: compare with SM1 by feel or video. Ours: an End (as above), an executor no longer in the match, the view… | ☐ |
+| `R-E5F258E6` | Lost End | a live run the server's 2 Hz live list stops announcing for 1.5 s (while the view tick moved on 1.5 s too, so a stall is not silence), or one 1.0 s past its own last tick (`ExecutionTrack.EndTick`, or 12 s for a row this install lacks), ends Invalid on the… (s) | kind: ours; confidence: medium | X5 review X5-1; 1.5 s = three live-list periods (ours) | Lost End: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a live run the server's 2 Hz live list stops announcing for 1.5 s… | ☐ |
+| `R-BF81CD77` | Offer and run clock for the prune | the view tick (the remote players' render tick, the one the marker and the server's press check use) (tick) | kind: ours | X5 review X5-5 | Offer and run clock for the prune: compare with SM1 by timing a run over a known distance. Ours: the view tick (the remote players' render tick, the one the marker… | ☐ |
+| `R-109D0102` | Death-pose hold conditions | held only when a finisher could follow: the match has rows, the killer is a living player who can execute (not an Ork Boy player) with a melee family, and the victim died on the ground (an airborne body falls and ragdolls as usual)… | kind: ours; confidence: medium | X5 review X5-6 | Death-pose hold conditions: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: held only when a finisher could follow: the match has rows, the… | ☐ |
+| `R-7C5599F2` | Executor's charge glow | off while the paired clip places the executor | kind: ours | X5 review X5-6 | Executor's charge glow: compare with SM1 by feel or video. Ours: off while the paired clip places the executor. | ☐ |
 
 *Spec section: Added content: Executions: Warfront (X4)*
 

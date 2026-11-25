@@ -30,6 +30,9 @@ public partial class NetworkView
     readonly List<float> _musouFrames = new();
     readonly List<MusouDeathShown> _musouDeaths = new();   // deaths not yet given a body (kept while the crowd is being made; at most MaxBodies)
 
+    /// <summary>Executions X5 (client/Extras/Executions/ExecutionProxy.cs): this frame's crowd deaths as they are handed out (Warfront: an executed Ork gibbed or thrown; nothing elsewhere).</summary>
+    partial void ExecutionsDeathsHanded(IReadOnlyList<MusouDeathShown> deaths);
+
     /// <summary>Enemy deaths the client has been told of (a test aid's count).</summary>
     internal long MusouDeathsSeen { get; private set; }
     /// <summary>Deaths far and out of view given no body (musou/perf-pass; the log's count).</summary>
@@ -142,6 +145,7 @@ public partial class NetworkView
         MusouDeathsTake(camera);   // this frame's share of the deaths waiting (NetworkView.MusouDeathSpread.cs)
         _musouDeathsHanded.Clear();
         _musouDeathsHanded.AddRange(_musouDeaths);   // their yells and falls (NetworkView.MusouSounds.cs)
+        ExecutionsDeathsHanded(_musouDeaths);   // EXECUTIONS-HOOK: an executed Ork's death this frame (gibbed or thrown: its proxy steps aside; client/Extras/Executions/ExecutionProxy.cs)
         foreach (var d in _musouDeaths)
         {
             float metres = new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera);

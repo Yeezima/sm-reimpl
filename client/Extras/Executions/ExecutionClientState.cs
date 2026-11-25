@@ -30,11 +30,21 @@ public sealed class ExecutionClientState
     public const double OvershieldKeepSeconds = 2.5;
     /// <summary>How long an executor's last End is remembered against late repeats of its Start (seconds, ours: longer than three repeats and a live-list period).</summary>
     public const double EndMemorySeconds = 5.0;
+    /// <summary>
+    /// A live run the server no longer re-announces (its Starts are resent at <see cref="ExecutionWire.LiveListHz"/>, 2 Hz) is over after this long without one (seconds, ours: three live-list
+    /// periods), as long as snapshots kept coming for as long (<see cref="Prune"/>'s tick): a lost End then never leaves the move playing (X5 review, X5-1). Ends <see cref="ExecutionEndReason.Invalid"/>.
+    /// </summary>
+    public const double LiveSilenceSeconds = 1.5;
+    /// <summary>A live run is over this long past its own last tick (<c>Prune</c>'s <c>lastTick</c>: the track's end tick, or 12 s for a row this install lacks) whatever was heard (seconds, ours).</summary>
+    public const double PastEndSeconds = 1.0;
 
     readonly Dictionary<int, ExecutionRun> _live = new();
     readonly List<ExecutionEndedView> _ended = new();
     readonly Dictionary<int, (uint EndTick, double At)> _lastEnd = new();
     readonly Dictionary<ushort, byte> _overshield = new();
+    /// <summary>When (client time and the prune tick) each live run was last announced; synthetic runs (the test aids) are not listed and only expire by their end tick.</summary>
+    readonly Dictionary<int, (double At, double Tick)> _announced = new();
+    double _pruneTick;
     double _overshieldAt = double.NegativeInfinity;
 
     /// <summary>The live runs (by executor id).</summary>
@@ -49,6 +59,8 @@ public sealed class ExecutionClientState
     public int Malformed { get; private set; }
     /// <summary>Starts ignored as repeats or as older than an End heard.</summary>
     public int Repeats { get; private set; }
+    /// <summary>Live runs ended here because their End was lost (<see cref="Prune"/>).</summary>
+    public int Expired { get; private set; }
     /// <summary>Bumped whenever a run starts or ends (the presenter's cheap change check).</summary>
     public int Version { get; private set; }
 
@@ -73,7 +85,7 @@ public sealed class ExecutionClientState
         {
             case ExecutionWire.StartKind when ExecutionWire.TryDecode(payload, out ExecutionStart start): Start(start.ToRun(), now); break;
             case ExecutionWire.EndKind when ExecutionWire.TryDecode(payload, out ExecutionEnd end): End(end, now, ownId); break;
-            case ExecutionWire.OfferKind when ExecutionWire.TryDecode(payload, out ExecutionOffer offer): Offer = new ExecutionOfferView(offer.Victim, offer.KillTick, offer.WindowTicks); break;
+            case ExecutionWire.OfferKind when ExecutionWire.TryDecode(payload, out ExecutionOffer offer): TakeOffer(new ExecutionOfferView(offer.Victim, offer.KillTick, offer.WindowTicks)); break;
             case ExecutionWire.OvershieldKind when ExecutionWire.TryDecode(payload, out OvershieldEntry[] list):
                 _overshield.Clear();
                 foreach (var e in list) _overshield[e.Player] = e.Fraction;
@@ -83,13 +95,43 @@ public sealed class ExecutionClientState
         }
     }
 
-    /// <summary>A Start (also the presenter's tests and the headless self-test feed it directly).</summary>
-    public void Start(in ExecutionRun run, double now)
+    /// <summary>
+    /// An offer heard. The server's press takes the open offer with the latest kill tick and, among equal kill ticks, the lowest victim id (its offers are kept by victim and the first of equal
+    /// ticks wins: <c>World.ExecutionsClassicPick</c>), so the marker keeps the same one (X6 review X6-10): a held offer with a later kill tick, or the same tick and a lower victim, stays. A spent
+    /// offer (<see cref="SpendOffer"/>) is not taken again.
+    /// </summary>
+    void TakeOffer(ExecutionOfferView o)
     {
-        if (_live.TryGetValue(run.Executor, out var held) && held.StartTick >= run.StartTick) { Repeats++; return; }   // a repeat, or older than the move playing
+        if (_spentOffer is { } spent && spent.Victim == o.Victim && spent.KillTick == o.KillTick) return;
+        if (Offer is { } cur && (cur.KillTick > o.KillTick || cur.KillTick == o.KillTick && cur.Victim <= o.Victim)) return;
+        Offer = o;
+    }
+
+    ExecutionOfferView? _spentOffer;
+
+    /// <summary>The own press took the open offer (the server spends it whether a move fits or not: one try per corpse), so the marker hides (X6 review X6-10).</summary>
+    public void SpendOffer()
+    {
+        if (Offer is { } o) _spentOffer = o;
+        Offer = null;
+    }
+
+    /// <summary>
+    /// A Start (also the presenter's tests and the headless self-test feed it directly). <paramref name="announced"/> false: a synthetic run of a test aid, which no live list re-announces (it
+    /// expires only by its end tick, <see cref="Prune"/>).
+    /// </summary>
+    public void Start(in ExecutionRun run, double now, bool announced = true)
+    {
+        if (_live.TryGetValue(run.Executor, out var held) && held.StartTick >= run.StartTick)
+        {
+            if (held.StartTick == run.StartTick && _announced.ContainsKey(run.Executor)) _announced[run.Executor] = (now, _pruneTick);   // the live list: still playing
+            Repeats++;
+            return;   // a repeat, or older than the move playing
+        }
         if (_lastEnd.TryGetValue(run.Executor, out var last) && now - last.At <= EndMemorySeconds && run.StartTick <= last.EndTick) { Repeats++; return; }   // a late repeat of an ended move
         if (_live.ContainsKey(run.Executor)) Close(held, ExecutionEndReason.Invalid, run.StartTick, now);   // a newer move replaces one whose End was lost
         _live[run.Executor] = run;
+        if (announced) _announced[run.Executor] = (now, _pruneTick);
         if (Offer is { } o && run.TargetKind == ExecutionTargetKind.Player && run.Target == o.Victim) Offer = null;   // the offer is taken
         Version++;
     }
@@ -108,6 +150,7 @@ public sealed class ExecutionClientState
     void Close(in ExecutionRun run, ExecutionEndReason reason, uint tick, double now)
     {
         _live.Remove(run.Executor);
+        _announced.Remove(run.Executor);
         _ended.Add(new ExecutionEndedView(run, reason, tick, now));
         Version++;
     }
@@ -128,15 +171,41 @@ public sealed class ExecutionClientState
     /// <summary>Everything cleared (a new connection).</summary>
     public void Clear()
     {
-        _live.Clear(); _ended.Clear(); _lastEnd.Clear(); _overshield.Clear();
+        _live.Clear(); _ended.Clear(); _lastEnd.Clear(); _overshield.Clear(); _announced.Clear();
         _overshieldAt = double.NegativeInfinity;
-        Offer = null; OwnLastDoneTick = null;
+        _pruneTick = 0;
+        Offer = null; _spentOffer = null; OwnLastDoneTick = null;
         Version++;
     }
 
-    /// <summary>Drops ended runs past their fade, a passed offer (by the client's estimate of the server tick, <paramref name="serverTick"/>), stale overshields and old End memories.</summary>
-    public void Prune(double now, double serverTick)
+    /// <summary>
+    /// Drops ended runs past their fade, a passed offer (by the client's view tick, <paramref name="serverTick"/>: the tick the prompt and the server's press check use), stale overshields and old
+    /// End memories, and ends (<see cref="ExecutionEndReason.Invalid"/>) a live run whose End was lost: one the live list stopped announcing for <see cref="LiveSilenceSeconds"/> while the tick moved
+    /// on as far, or one <see cref="PastEndSeconds"/> past its own last tick (<paramref name="lastTick"/>, at <paramref name="tickRate"/>; null: only the silence rule).
+    /// </summary>
+    public void Prune(double now, double serverTick, Func<ExecutionRun, uint>? lastTick = null, int tickRate = 30)
     {
+        _pruneTick = serverTick;
+        if (_live.Count > 0)
+        {
+            double rate = Math.Max(1, tickRate), silenceTicks = LiveSilenceSeconds * rate, pastTicks = PastEndSeconds * rate;
+            List<ExecutionRun>? lost = null;
+            foreach (var (id, run) in _live)
+            {
+                bool silent = _announced.TryGetValue(id, out var a) && now - a.At > LiveSilenceSeconds && serverTick - a.Tick > silenceTicks;
+                bool past = lastTick is not null && serverTick > lastTick(run) + pastTicks;
+                if (silent || past) (lost ??= new()).Add(run);
+            }
+            if (lost is not null)
+                foreach (var run in lost)
+                {
+                    uint at = serverTick > run.StartTick ? (uint)Math.Min(serverTick, uint.MaxValue) : run.StartTick;
+                    Close(run, ExecutionEndReason.Invalid, at, now);
+                    Expired++;
+                    // Remembered like an End, so a straggling repeat does not revive it.
+                    _lastEnd[run.Executor] = (Math.Max(at, run.StartTick), now);
+                }
+        }
         _ended.RemoveAll(e => now - e.HeardAt > EndedKeepSeconds);
         if (Offer is { } o && serverTick > o.KillTick + (double)o.WindowTicks) Offer = null;
         if (_overshield.Count > 0 && now - _overshieldAt > OvershieldKeepSeconds) _overshield.Clear();

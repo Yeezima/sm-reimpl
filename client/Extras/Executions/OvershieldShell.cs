@@ -24,11 +24,6 @@ public sealed class OvershieldShell
     public const float Push = 0.05f;
     /// <summary>The shell's blue (ours; spec/behavior.md "camera, input, HUD and shield (X6)").</summary>
     public static readonly Color Tint = new(0.35f, 0.62f, 1f);
-    /// <summary>
-    /// The overshield look's strength (ours, 1; the owner picks from the comparison set of 0.6, 1 and 1.4): the shell's alpha and the HUD tint's share both scale with it. One value, so the pick is a
-    /// one-line change. The X6 demo's <c>--executions-x6-shell-strength</c> sets it for a capture.
-    /// </summary>
-    public const float DefaultStrength = 1f;
     /// <summary>A fixed strength the test aids' comparison sets (null: the owner's curve by the overshield's fraction, <see cref="OvershieldLook.StrengthAt"/>).</summary>
     public static float? Strength { get; set; }
 
@@ -107,9 +102,11 @@ public sealed class OvershieldShell
             {
                 Name = source.Name + "_shell", Mesh = source.Mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Visible = source.Visible,
             };
-            // Per surface: the shell on armour, nothing on a surface named as cloth, leather or an ornament (OvershieldCoverage).
+            // Per surface: an armour piece is covered whole, whatever its names (X6 review X6-8: a pad named "..._seal" is armour); on any other mesh (worn items, attachments) a surface named
+            // as cloth, leather or an ornament draws nothing (OvershieldCoverage).
+            bool armour = IsArmourPiece(source);
             for (int i = 0; i < source.Mesh.GetSurfaceCount(); i++)
-                mesh.SetSurfaceOverrideMaterial(i, OvershieldCoverage.Excluded(source.Mesh is ArrayMesh am ? am.SurfaceGetName(i) : null) ? Nothing() : material);
+                mesh.SetSurfaceOverrideMaterial(i, !OvershieldCoverage.Covered(source.Mesh is ArrayMesh am ? am.SurfaceGetName(i) : null, armour) ? Nothing() : material);
             if (source.Skin is not null && source.GetParent() == skeleton)
             {
                 mesh.Skin = source.Skin;
@@ -120,11 +117,21 @@ public sealed class OvershieldShell
             shell._pieces.Add((source, mesh));
         }
         if (shell._pieces.Count == 0) { root.QueueFree(); return null; }
+        shell.Stamp(character);
         Created++;
         return shell;
     }
 
-    /// <summary>The armour meshes under the skeleton: every mesh but the weapons' (<c>Weapon_*</c> subtrees), the bone lines and earlier shells.</summary>
+    /// <summary>The meta <c>CharacterViewer.AddPieces</c> sets on every armour piece of the look (its <c>ArmourMeta</c>, "armour_piece"; read here, not written).</summary>
+    const string ArmourPieceMeta = "armour_piece";
+
+    /// <summary>Whether <paramref name="node"/> is one of the look's armour pieces (always covered: the name exclusion is for worn items and attachments only).</summary>
+    static bool IsArmourPiece(Node node) => node.HasMeta(ArmourPieceMeta);
+
+    /// <summary>
+    /// The meshes the shell covers under the skeleton: every armour piece of the look (whatever its name), and every other mesh but the weapons' (<c>Weapon_*</c> subtrees), the bone lines, earlier
+    /// shells and a non-armour node (a worn item or an attachment, or one of its children) named as cloth, leather or an ornament.
+    /// </summary>
     static IEnumerable<MeshInstance3D> ArmourMeshes(Skeleton3D skeleton)
     {
         var stack = new Stack<Node>();
@@ -133,8 +140,9 @@ public sealed class OvershieldShell
         {
             var node = stack.Pop();
             string name = node.Name;
-            // Never a weapon, the bone lines or a shell; never a mesh (or a worn item) named as cloth, leather or an ornament (OvershieldCoverage).
-            if (OvershieldCoverage.Weapon(name) || name == NodeName || name == "Bones" || name.EndsWith("_shell", StringComparison.Ordinal) || OvershieldCoverage.Excluded(name)) continue;
+            // Never a weapon, the bone lines or a shell; the name exclusion only for what is not an armour piece (X6 review X6-8).
+            if (OvershieldCoverage.Weapon(name) || name == NodeName || name == "Bones" || name.EndsWith("_shell", StringComparison.Ordinal)) continue;
+            if (!OvershieldCoverage.Covered(name, IsArmourPiece(node))) continue;
             if (node is MeshInstance3D found && found.Mesh is not null && !IsEffect(found)) yield return found;
             foreach (var child in node.GetChildren()) stack.Push(child);
         }
@@ -148,7 +156,21 @@ public sealed class OvershieldShell
         {
             var names = new List<string>();
             for (int i = 0; i < mesh.Mesh.GetSurfaceCount(); i++) names.Add(mesh.Mesh is ArrayMesh am ? am.SurfaceGetName(i) : "?");
-            yield return $"{mesh.GetParent()?.Name}/{mesh.Name} skin {(mesh.Skin is null ? "no" : "yes")}: {string.Join(", ", names)}";
+            bool armour = IsArmourPiece(mesh);
+            var excluded = armour ? new List<string>() : names.FindAll(n => OvershieldCoverage.Excluded(n));
+            yield return $"covered {(armour ? "armour" : "other")} {mesh.GetParent()?.Name}/{mesh.Name} skin {(mesh.Skin is null ? "no" : "yes")}: {string.Join(", ", names)}" +
+                         (excluded.Count > 0 ? $" (surfaces left out: {string.Join(", ", excluded)})" : "");
+        }
+        // What the walk leaves out (weapons are not listed): non-armour nodes named as cloth, leather or an ornament.
+        var stack = new Stack<Node>();
+        foreach (var child in skeleton.GetChildren()) stack.Push(child);
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            string name = node.Name;
+            if (OvershieldCoverage.Weapon(name) || name == NodeName || name == "Bones" || name.EndsWith("_shell", StringComparison.Ordinal)) continue;
+            if (!OvershieldCoverage.Covered(name, IsArmourPiece(node))) { yield return $"left out {node.GetParent()?.Name}/{name} ({node.GetClass()})"; continue; }
+            foreach (var child in node.GetChildren()) stack.Push(child);
         }
     }
 
@@ -159,6 +181,35 @@ public sealed class OvershieldShell
     public bool Matches(CharacterViewer character)
     {
         if (!GodotObject.IsInstanceValid(_root) || character.Skeleton != _skeleton) return false;
+        // The cheap check every frame (X6 review X6-9): the same look, the skeleton's child count unchanged (a new worn item or a look swap's pieces change it) and every source piece alive
+        // under its parent (a look swap frees the old pieces at once, a worn item swap frees its node). Only when that changed is the skeleton walked again.
+        if (ReferenceEquals(character.Assets, _stampAssets) && _skeleton.GetChildCount() == _stampChildren && SourcesAlive()) return true;
+        bool same = Walk();
+        if (same) Stamp(character);
+        return same;
+    }
+
+    MarineAssets? _stampAssets;
+    int _stampChildren = -1;
+
+    /// <summary>Full walks of the skeleton (<see cref="Matches"/> after a change; the self-test's counter).</summary>
+    public static int Walks { get; private set; }
+
+    void Stamp(CharacterViewer character)
+    {
+        _stampAssets = character.Assets;
+        _stampChildren = _skeleton.GetChildCount();
+    }
+
+    bool SourcesAlive()
+    {
+        foreach (var (source, _) in _pieces) if (!GodotObject.IsInstanceValid(source) || !source.IsInsideTree()) return false;
+        return true;
+    }
+
+    bool Walk()
+    {
+        Walks++;
         int count = 0;
         foreach (var piece in ArmourMeshes(_skeleton))
         {

@@ -18,14 +18,35 @@ public partial class NetworkView
     {
         if (_config is not { } config || config.Extras.HasFlag(ContentExtras.Musou)) return;
         if (_execProxiedVictims.Contains(id)) { if (IsInstanceValid(character)) character.Visible = false; hold = true; return; }   // its proxy draws the body
-        if (own || !_deathCauses.TryGetValue(id, out var cause)) return;
+        if (own || NoExecutionDeathHold || !_deathCauses.TryGetValue(id, out var cause)) return;
         var kill = cause.Kill;
         if (kill.Cause != KillCause.Melee || kill.Killer == id || kill.Killer < 0 || !World.Hostile(ExecTeamOf(kill.Killer), ExecTeamOf(id))) return;
         if (!ExecutionPresentMath.DeathHeld(_connectedFor - cause.At, ExecutionRules.DeathPoseHoldSeconds(config))) return;
+        if (!ExecFinisherCanFollow(config, kill.Killer, state)) return;   // X5 review X5-6: the normal death at once
         hold = true;
         if (!IsInstanceValid(character)) return;
         if (IsOrkCharacter(character) ? OrkDeathHold(id, character, state, own) : MarineDeathHold(id, character, state, own)) return;   // the death clip still plays
         character.Visible = true;   // past the clip's ragdoll tag: the pose it reached stays
+    }
+
+    /// <summary><c>--no-execution-death-hold</c> (A/B test aid): Classic Extended's melee deaths go to their ragdoll at once, as without executions (a finisher still takes the ragdoll over).</summary>
+    static readonly bool NoExecutionDeathHold = CmdFlag("no-execution-death-hold");
+
+    /// <summary>
+    /// Whether a finisher could follow this kill (X5 review X5-6), so the hold is worth its wait: the match has rows, the killer is a known living player who can execute (not an Ork Boy player)
+    /// with a melee family, and the victim died on the ground (an airborne body is never frozen in the air: it falls and ragdolls as usual). The server's alignment can still find no fit; the
+    /// hold is then the window's 0.8 s, as before.
+    /// </summary>
+    bool ExecFinisherCanFollow(SimConfig config, int killer, in PlayerState victim)
+    {
+        if (!victim.Grounded) return false;
+        if (ExecutionRowsOf(config).Rows.Count == 0) return false;
+        PlayerState? k = null;
+        if (_client is not null && killer == _client.PlayerId) k = _client.Predicted;
+        else foreach (var o in _lastOthers) if (o.PlayerId == killer) { k = o; break; }
+        if (k is not { } ks || !ks.Alive) return false;
+        if (!ExecutionTargets.CanExecute(Races.Of(config, ks.Class, ks.Team))) return false;
+        return ExecutionWeapons.FamilyOf(ExecutionPromptRules.MeleeKey(config, ks)) is not null;
     }
 
     Team ExecTeamOf(int id)

@@ -96,4 +96,17 @@ public static class ExecutionPresentMath
 
     /// <summary>Whether a Classic melee victim's death pose is still held <paramref name="sinceDeath"/> seconds after its death (the window, X1's <c>DeathPoseHoldSeconds</c>).</summary>
     public static bool DeathHeld(double sinceDeath, float holdSeconds) => sinceDeath >= 0 && sinceDeath < holdSeconds;
+
+    /// <summary>
+    /// Drops the Classic proxy claim of every player in <paramref name="players"/> who is alive again and has no live proxy (<paramref name="proxyOn"/>), so its next death is its own (X5 review
+    /// X5-2: the victim's own client lists itself here too, not only the others). Returns how many were released.
+    /// </summary>
+    public static int ReleaseClaims(System.Collections.Generic.ISet<int> claims, System.Collections.Generic.IEnumerable<(int Id, bool Alive)> players, Func<int, bool> proxyOn)
+    {
+        if (claims.Count == 0) return 0;
+        int released = 0;
+        foreach (var (id, alive) in players)
+            if (alive && claims.Contains(id) && !proxyOn(id)) { claims.Remove(id); released++; }
+        return released;
+    }
 }

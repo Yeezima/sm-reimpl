@@ -117,6 +117,18 @@ public class ExecutionPromptRuleTests
         Assert.False(OvershieldCoverage.Weapon("Worn_sm_jumppack"));
     }
 
+    /// <summary>X6 review X6-8 (owner: every armour piece is covered): the name exclusion applies only to what is not an armour piece; a weapon is never covered.</summary>
+    [Fact]
+    public void ArmourPiecesAreCoveredWhateverTheirName()
+    {
+        foreach (var name in new[] { "sm_shldr_purity_seal_l", "csm_armour_chain_torso", "sm_trophy_helmet", "sm_fur_shldrr", "sm_belt_legs", "csm_cape_backpack", "Standard_2", null })
+            Assert.True(OvershieldCoverage.Covered(name, armourPiece: true), name ?? "null");
+        foreach (var name in new[] { "Worn_sm_purity_seal", "Worn_csm_chains_RIG_SpineD", "leather_pouch_r" })
+            Assert.False(OvershieldCoverage.Covered(name, armourPiece: false), name);
+        Assert.True(OvershieldCoverage.Covered("Worn_csm_jumpack_mp_basic_RIG_SpineD", armourPiece: false));
+        Assert.False(OvershieldCoverage.Covered("Weapon_melee_sm_mp_melee_chainsword", armourPiece: true));
+    }
+
     [Fact]
     public void OvershieldStrengthFollowsTheOwnersPicks()
     {

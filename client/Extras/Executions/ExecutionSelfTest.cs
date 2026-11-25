@@ -69,7 +69,7 @@ public partial class NetworkView
             _execTestRow = row;
             _execTestAt = _connectedFor;
             _execTestChecked = false;
-            ExecutionsState.Start(_execTestRun.Value, _connectedFor);
+            ExecutionsState.Start(_execTestRun.Value, _connectedFor, announced: false);   // synthetic: no live list re-announces it
             GD.Print($"EXECSELFTEST start {row.Id} (wire {wire}) at tick {_client.Tick}: {row.AttackerClip} / {row.VictimClip}, {row.Seconds:F3} s");
             return;
         }

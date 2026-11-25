@@ -29,6 +29,11 @@ public partial class NetworkView
     /// <summary>The shell comparison's label for the armour (the side: a networked look keeps its own paint; MarineAssets.PaintOverride reaches only looks without one).</summary>
     string ExecutionX6Paint => _client?.Predicted.Team == Team.Chaos ? "chaos" : "loyalist";
 
+    /// <summary>
+    /// The victim id of the test aids' synthetic offers and runs: not a player (like X5's self-test target 60000), so no player's body, proxy claim or death hold is touched; its marker stands
+    /// over the own (standing) player (<see cref="ClassicPrompt"/>).
+    /// </summary>
+    internal const int X6TestTarget = 60001;
 
     /// <summary>The shell's overshield fraction forced by the test aids (null: the real one).</summary>
     float? ExecutionX6ShellOverride;
@@ -75,19 +80,20 @@ public partial class NetworkView
             case 0 when t > 2.0:
                 _execRowsOverride = ExecutionX6Rows(2f);
                 // The kill a few ticks before the view tick and the longest window the wire carries: a loaded machine's frames can be long, and this checks the marker, not the window's length.
-                ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)client.PlayerId, (uint)Math.Max(0, client.RemotePlayers().Tick - 3), 255)), _connectedFor, client.PlayerId);
+                ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)X6TestTarget, (uint)Math.Max(0, client.RemotePlayers().Tick - 3), 255)), _connectedFor, client.PlayerId);
                 _execX6Step++; _execX6At = 0; break;
             case 1 when t > 0.1:
                 ExecutionX6Check("the marker shows for an open offer", ExecutionMarkerShown, $"hidden {_execPromptHidden}, offer {ExecutionsState.Offer?.KillTick}+{ExecutionsState.Offer?.WindowTicks}, view tick {client.RemotePlayers().Tick:F1}");
                 ExecutionX6Check("no text prompt is set", _hudView.ExecutionPrompt is null);
-                // An offer whose window (the match's) ended before the view tick: hidden.
-                ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)client.PlayerId, (uint)Math.Max(0, client.RemotePlayers().Tick - 100), (byte)ExecutionRules.WindowTicks(config))), _connectedFor, client.PlayerId);
+                // The press spends it (X6-10), then an offer whose window (the match's) ended before the view tick: hidden.
+                ExecutionsState.SpendOffer();
+                ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)(X6TestTarget + 1),(uint)Math.Max(0, client.RemotePlayers().Tick - 100), (byte)ExecutionRules.WindowTicks(config))), _connectedFor, client.PlayerId);
                 _execX6Step++; _execX6At = 0; break;
             case 2 when t > 0.3:
                 ExecutionX6Check("the marker hides after the window", !ExecutionMarkerShown, $"hidden {_execPromptHidden}");
                 _execRowsOverride = ExecutionX6Rows(30f);   // a long move: a loaded machine's frames lag the tick clock, and the run must not reach its own end tick before the checks (that expiry is a unit test)
                 _execX6RunTick = client.Tick;
-                ExecutionsState.Start(new ExecutionRun(client.PlayerId, ExecutionTargetKind.Player, client.PlayerId, 0, 1.3f, me.Position, me.Position, me.Yaw, 0, _execX6RunTick, false), _connectedFor);
+                ExecutionsState.Start(new ExecutionRun(client.PlayerId, ExecutionTargetKind.Player, X6TestTarget, 0, 1.3f, me.Position, me.Position, me.Yaw, 0, _execX6RunTick, false), _connectedFor, announced: false);
                 _execX6Step++; _execX6At = 0; break;
             case 3 when t > 0.4:
                 ExecutionX6Check("the camera seam is taken during an own run", ExecutionOrbitActive && ExecutionOrbitsStarted == 1, $"orbit {(ExecutionOrbitActive ? "on" : "off")}, started {ExecutionOrbitsStarted}");
@@ -170,7 +176,7 @@ public partial class NetworkView
     void ExecutionX6DotDemo(GameClient client, SimConfig config, PlayerState me, string dir)
     {
         double t = _execX6At;
-        int victim = client.PlayerId;
+        int victim = X6TestTarget;
         float best = float.MaxValue;
         foreach (var (id, o) in _execOthers)
         {
@@ -178,11 +184,11 @@ public partial class NetworkView
             if (id != client.PlayerId && d < best && d < 25f) (best, victim) = (d, id);
         }
         if (_execX6Step < 5) ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)victim, (uint)Math.Max(0, client.RemotePlayers().Tick), 255)), _connectedFor, client.PlayerId);
-        var feet = victim == client.PlayerId ? me.Position : _execOthers[victim].Position;
-        var dot = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + (victim == client.PlayerId ? MarkerOverOrk : MarkerOverCorpse));   // a standing own player (no other player here): over the head
+        var feet = victim == X6TestTarget ? me.Position : _execOthers[victim].Position;
+        var dot = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + (victim == X6TestTarget ? MarkerOverOrk : MarkerOverCorpse));   // a standing own player (no other player here): over the head
         switch (_execX6Step)
         {
-            case 0 when t > 4.0: _execRowsOverride = ExecutionX6Rows(2f); GD.Print($"EXECX6 dot over player {victim} ({(victim == client.PlayerId ? "own, no other player" : $"{best:F1} m away")})"); ExecutionX6Next(); break;
+            case 0 when t > 4.0: _execRowsOverride = ExecutionX6Rows(2f); GD.Print($"EXECX6 dot over player {victim} ({(victim == X6TestTarget ? "own, no other player" : $"{best:F1} m away")})"); ExecutionX6Next(); break;
             case 1 when t > 0.5: _execX6Camera = ExecutionX6CameraAt(dot, 2.2f, 0.5f); ExecutionX6Next(); break;
             case 2 when t > 0.6: GD.Print($"EXECX6 marker {(ExecutionMarkerShown ? "shown" : "hidden")} at {_execMarker?.GlobalPosition}, camera {_camera?.GlobalPosition}, hidden {_execPromptHidden}"); ExecutionX6Shot(dir, "dot_classic_close"); _execX6Camera = ExecutionX6CameraAt(dot, 7f, 0.5f); ExecutionX6Next(); break;
             case 3 when t > 0.6: ExecutionX6Shot(dir, "dot_classic_mid"); _execX6Camera = null; ExecutionX6Next(); break;
@@ -256,7 +262,7 @@ public partial class NetworkView
             case 0 when t > 4.0:
                 _execRowsOverride = ExecutionX6Rows(30f);
                 _execX6RunTick = client.Tick;
-                ExecutionsState.Start(new ExecutionRun(client.PlayerId, ExecutionTargetKind.Player, client.PlayerId, 0, 1.3f, me.Position, me.Position, me.Yaw, 0, _execX6RunTick, false), _connectedFor);
+                ExecutionsState.Start(new ExecutionRun(client.PlayerId, ExecutionTargetKind.Player, X6TestTarget, 0, 1.3f, me.Position, me.Position, me.Yaw, 0, _execX6RunTick, false), _connectedFor, announced: false);
                 ExecutionX6Next(); break;
             case 1 when t > 1.0: ExecutionX6Shot(dir, "orbit_yaw0"); _execOrbit.Look(MathF.PI * 2f / 3f, 0.25f, _execEl); ExecutionX6Next(); break;
             case 2 when t > 1.0: ExecutionX6Shot(dir, "orbit_yaw120"); _execOrbit.Look(MathF.PI * 2f / 3f, -0.2f, _execEl); ExecutionX6Next(); break;

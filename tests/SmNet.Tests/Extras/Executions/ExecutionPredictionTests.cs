@@ -124,6 +124,25 @@ public class ExecutionPredictionTests
         Assert.Equal(raw, other.Input(raw, 110));
     }
 
+    /// <summary>X6 review X6-10: the Execute presses the marker spends its offer on: rising edges on newly predicted ticks only (replays of older ticks and a held key are not presses).</summary>
+    [Fact]
+    public void ExecutePressesCountRisingEdgesOnce()
+    {
+        var p = new ExecutionPrediction(new ExecutionClientState(), () => Set, () => 4, 30);
+        var up = new PlayerInput(1, 0f, 0f, 0f, InputButtons.None);
+        var down = up with { Buttons = InputButtons.Execute };
+        p.Input(up, 10);
+        p.Input(down, 11);
+        p.Input(down, 12);                  // held
+        Assert.Equal(1, p.Presses);
+        p.Input(down, 11);                  // a replay of an older tick
+        p.Input(up, 12);
+        Assert.Equal(1, p.Presses);
+        p.Input(up, 13);
+        p.Input(down, 14);
+        Assert.Equal(2, p.Presses);
+    }
+
     [Fact]
     public void StoredInputStaysRaw()
     {

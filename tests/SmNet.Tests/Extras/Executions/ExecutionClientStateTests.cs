@@ -156,4 +156,68 @@ public class ExecutionClientStateTests
         Assert.True(s.Malformed > 0);
         s.Apply(ReadOnlySpan<byte>.Empty, 0.0, 1);
     }
+
+    /// <summary>X5 review X5-1: a run whose three Ends were all lost ends Invalid once the 2 Hz live list stops announcing it for 1.5 s (with snapshots still coming), and is not revived by a straggler.</summary>
+    [Fact]
+    public void LostEndExpiresWhenTheLiveListStops()
+    {
+        var s = new ExecutionClientState();
+        s.Prune(0.0, 100);
+        s.Apply(Start(100, 4), 0.0, 1);
+        for (int i = 1; i <= 6; i++) { s.Apply(Start(100, 4), i * 0.5, 1); s.Prune(i * 0.5, 100 + i * 15); }   // the live list keeps it for 3 s
+        Assert.True(s.TryLive(4, out _));
+        s.Prune(4.4, 100 + 132);   // 1.4 s since the last announcement
+        Assert.True(s.TryLive(4, out _));
+        s.Prune(4.6, 100 + 138);   // 1.6 s, and the ticks moved on as far
+        Assert.False(s.TryLive(4, out _));
+        Assert.Equal(ExecutionEndReason.Invalid, Assert.Single(s.Ended).Reason);
+        Assert.Equal(1, s.Expired);
+        s.Apply(Start(100, 4), 4.7, 1);   // a straggling repeat does not revive it
+        Assert.False(s.TryLive(4, out _));
+    }
+
+    /// <summary>A stall (no snapshots: the prune tick stands still) is not silence: the run keeps playing until the ticks move on.</summary>
+    [Fact]
+    public void StallIsNotSilence()
+    {
+        var s = new ExecutionClientState();
+        s.Prune(0.0, 100);
+        s.Apply(Start(100, 4), 0.0, 1);
+        s.Prune(3.0, 110);
+        Assert.True(s.TryLive(4, out _));
+    }
+
+    /// <summary>X5 review X5-1: a run is over a second past its own last tick even if it is still announced; a synthetic run (announced: false) expires only that way.</summary>
+    [Fact]
+    public void RunPastItsEndTickExpires()
+    {
+        var s = new ExecutionClientState();
+        uint LastTick(ExecutionRun r) => r.StartTick + 60;
+        s.Start(new ExecutionRun(4, ExecutionTargetKind.Player, 60000, 0, 1f, default, default, 0f, 0, 100, false), 0.0, announced: false);
+        s.Prune(10.0, 189, LastTick, 30);   // silent for 10 s, but synthetic: kept; 29 ticks past its end (< 30)
+        Assert.True(s.TryLive(4, out _));
+        s.Prune(10.1, 191, LastTick, 30);
+        Assert.False(s.TryLive(4, out _));
+        Assert.Equal(ExecutionEndReason.Invalid, Assert.Single(s.Ended).Reason);
+    }
+
+    /// <summary>X6 review X6-10: the server's press takes the latest kill and, among equal kill ticks, the lowest victim; the marker keeps the same offer. A spent offer is not taken again.</summary>
+    [Fact]
+    public void OfferKeepsTheServersPickAndSpendHidesIt()
+    {
+        var s = new ExecutionClientState();
+        s.Apply(ExecutionWire.Encode(new ExecutionOffer(7, 1000, 24)), 0.0, 1);
+        s.Apply(ExecutionWire.Encode(new ExecutionOffer(9, 1000, 24)), 0.0, 1);   // the same tick, a higher victim: the first stays
+        Assert.Equal(7, s.Offer!.Value.Victim);
+        s.Apply(ExecutionWire.Encode(new ExecutionOffer(3, 1000, 24)), 0.0, 1);   // the same tick, a lower victim: the server's pick
+        Assert.Equal(3, s.Offer!.Value.Victim);
+        s.Apply(ExecutionWire.Encode(new ExecutionOffer(8, 990, 24)), 0.0, 1);    // an older kill heard late
+        Assert.Equal(3, s.Offer!.Value.Victim);
+        s.Apply(ExecutionWire.Encode(new ExecutionOffer(8, 1005, 24)), 0.0, 1);   // a later kill
+        Assert.Equal(8, s.Offer!.Value.Victim);
+        s.SpendOffer();
+        Assert.Null(s.Offer);
+        s.Apply(ExecutionWire.Encode(new ExecutionOffer(8, 1005, 24)), 0.1, 1);   // a repeat of the spent one
+        Assert.Null(s.Offer);
+    }
 }

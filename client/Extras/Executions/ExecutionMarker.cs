@@ -92,14 +92,20 @@ public sealed partial class ExecutionMarker : MeshInstance3D
     /// <summary>Times the marker was placed (the self-test's counter).</summary>
     public int Placed { get; private set; }
 
-    /// <summary>Shows the dot with its centre at <paramref name="dotCentre"/> (Godot space).</summary>
-    public void Show(Vector3 dotCentre)
+    /// <summary>
+    /// Shows the dot with its centre at <paramref name="dotCentre"/> (Godot space), or hides it (null). Named apart from <c>Node3D.Show</c> / <c>Hide</c> (X6 review X6-13), and the node's
+    /// visibility is touched only when it flips, not every frame.
+    /// </summary>
+    public void Place(Vector3? dotCentre)
     {
+        if (dotCentre is not { } at)
+        {
+            if (Visible) Visible = false;
+            return;
+        }
         // The quad's centre sits below the dot's centre: the dot is DotFromTop under the top edge.
-        GlobalPosition = dotCentre + Vector3.Down * (Height * 0.5f - DotFromTop);
-        Visible = true;
+        GlobalPosition = at + Vector3.Down * (Height * 0.5f - DotFromTop);
+        if (!Visible) Visible = true;
         Placed++;
     }
-
-    public void Hide() => Visible = false;
 }

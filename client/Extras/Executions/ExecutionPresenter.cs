@@ -66,6 +66,7 @@ public partial class NetworkView
         var feet = inPlace || pose.InSlide ? pose.Feet : run.Origin;
         float yaw = inPlace || pose.InSlide ? pose.Yaw : run.Yaw;
         character.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), yaw), new Vector3(feet.X, feet.Y, feet.Z));
+        if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { Visible: true } glow) glow.Visible = false;   // X5 review X5-6: the core's charge-glow update is skipped below this hook; no glow left on from a charge
         handled = true;
         if (ExecLog && (!_execPlaceLogged.TryGetValue(state.PlayerId, out double at) || _connectedFor - at >= 1.0))
         {

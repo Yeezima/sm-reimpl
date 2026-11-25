@@ -29,7 +29,7 @@ public partial class NetworkView
 
     partial void ExecutionsFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
     {
-        ExecutionsState.Prune(_connectedFor, _client?.LatestSnapshotTick ?? 0);
+        ExecutionsPrune();
         ExecutionsPresentFrame(me, others, delta);   // X5 (ExecutionPresenter.cs)
         ExecutionsViewFrame(me, others, delta);      // X6 (camera, input, prompt, shield)
     }
@@ -39,8 +39,22 @@ public partial class NetworkView
         if (!ExecutionsOn || _client is not { Status: ClientStatus.Connected } client) return;
         foreach (var section in client.TakeExtras())
             if (section.Tag == ExecutionWire.Tag) ExecutionsState.Apply(section.Payload, _connectedFor, -1);   // an observer: only tag 50 (the other features never drew for it)
-        ExecutionsState.Prune(_connectedFor, client.LatestSnapshotTick);
+        ExecutionsPrune();
         ExecutionsPresentFrame(default, others, delta);
+    }
+
+    /// <summary>
+    /// The state's prune at the view tick (the remote players' render tick: the tick the marker shows the offer at and the server checks a press at; X5 review X5-5), with each live run's own
+    /// last tick (<see cref="ExecutionPrediction.LastTick"/>: the track's end, 12 s for a row this install lacks), so a run whose End was lost ends (X5 review X5-1).
+    /// </summary>
+    void ExecutionsPrune()
+    {
+        if (_client is not { } client) { ExecutionsState.Prune(_connectedFor, 0); return; }
+        double viewTick = client.RemotePlayers().Tick;
+        if (!(viewTick > 0)) viewTick = client.LatestSnapshotTick;
+        int rate = _config?.TickRate ?? 30;
+        var rows = _config is { } c ? ExecutionRowsOf(c) : null;
+        ExecutionsState.Prune(_connectedFor, viewTick, run => ExecutionPrediction.LastTick(run, rows?.AtWire(run.Wire), rate), rate);
     }
 
     partial void ExtrasExecutionPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled)

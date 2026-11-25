@@ -40,6 +40,10 @@ public sealed class ExecutionPrediction
 
     /// <summary>Locked ticks stepped (the first prediction and the replays; a test and log counter).</summary>
     public int LockedSteps { get; private set; }
+    /// <summary>Execute presses seen in the raw input (rising edges, each predicted tick once; X6 review X6-10).</summary>
+    public int Presses { get; private set; }
+    uint _newestTick;
+    bool _executeDown;
     /// <summary>States pinned (the first prediction and the replays).</summary>
     public int Pins { get; private set; }
 
@@ -89,6 +93,14 @@ public sealed class ExecutionPrediction
     /// <summary><see cref="GameClient.ExtrasPredictInput"/>: a held tick's input locked as the server locks it.</summary>
     public PlayerInput Input(PlayerInput input, uint tick)
     {
+        if (tick > _newestTick)
+        {
+            // The own Execute presses (a rising edge on a tick predicted for the first time; replays and the speculative step's repeat are not counted): the marker hides once a press took its offer.
+            bool down = (input.Buttons & InputButtons.Execute) != 0;
+            if (down && !_executeDown) Presses++;
+            _executeDown = down;
+            _newestTick = tick;
+        }
         if (!Holds(tick, out _, out _)) return input;
         LockedSteps++;
         return Lock(input);

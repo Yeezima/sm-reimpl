@@ -88,7 +88,6 @@ public partial class NetworkView
     void ExecutionsPromptFrame(GameClient client, SimConfig config, PlayerState me, IReadOnlyList<PlayerState> others)
     {
         if (_execMarker is null || !GodotObject.IsInstanceValid(_execMarker)) AddChild(_execMarker = new ExecutionMarker());
-        _execMarker.Hide();
         if (_hudView is not null) _hudView.ExecutionPrompt = null;   // no text (owner 2026-11-25): the marker replaces the X5a text prompt
         var rows = ExecutionRowsOf(config).Rows;
         var hidden = ExecutionPromptRules.Common(config, me, Spectate is not null, ExecutionsState.TryLive(client.PlayerId, out var ownRun) && _execPrediction?.Playing(ownRun, client.Tick) != false, rows);
@@ -101,8 +100,10 @@ public partial class NetworkView
         }
         else _execPickedOrk = 0;
         _execPromptHidden = hidden;
-        if (anchor is { } at) _execMarker.Show(at);   // whatever the bindings (owner: no text, pad bound or not)
+        _execMarker.Place(hidden == ExecutionPromptHidden.None ? anchor : null);   // whatever the bindings (owner: no text, pad bound or not); visibility changes only when it flips
     }
+
+    int _execPressesSeen;
 
     /// <summary>Classic PvP Extended: the corpse of the own open offer (the server sends it to the killer alone), while its window is open at the view tick.</summary>
     ExecutionPromptHidden ClassicPrompt(GameClient client, out Vector3? anchor)
@@ -110,10 +111,20 @@ public partial class NetworkView
         anchor = null;
         if (ExecutionsState.Offer is not { } offer) return ExecutionPromptHidden.NoOffer;
         double viewTick = client.RemotePlayers().Tick;
-        if (!(viewTick > 0) || !ExecutionPromptRules.ClassicOpen(offer, viewTick)) return ExecutionPromptHidden.NoOffer;   // X3: a press before the view tick reaches the kill is refused (NoOffer) and spends the edge, so no dot until then
-        if (!_execOthers.TryGetValue(offer.Victim, out var corpse) && !(offer.Victim == client.PlayerId && (ExecutionX6Test || ExecutionX6Demo is not null))) return ExecutionPromptHidden.NoOffer;
-        var feet = offer.Victim == client.PlayerId ? client.Predicted.Position : corpse.Position;   // the own id only under the test aid
-        anchor = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + (offer.Victim == client.PlayerId ? MarkerOverOrk : MarkerOverCorpse));   // the test aids' standing own player: over the head
+        bool open = viewTick > 0 && ExecutionPromptRules.ClassicOpen(offer, viewTick);
+        // A press while the dot shows takes this offer on the server (one try per corpse, a move fitting or not; X6 review X6-10): the dot goes with it. A press before the view tick reaches
+        // the kill is refused NoOffer there and spends only the edge, so it leaves the offer (and the dot to come) alone.
+        int presses = _execPrediction?.Presses ?? 0;
+        if (presses != _execPressesSeen)
+        {
+            _execPressesSeen = presses;
+            if (open) { ExecutionsState.SpendOffer(); return ExecutionPromptHidden.NoOffer; }
+        }
+        if (!open) return ExecutionPromptHidden.NoOffer;   // X3: a press before the view tick reaches the kill is refused (NoOffer) and spends the edge, so no dot until then
+        bool testTarget = offer.Victim >= X6TestTarget && (ExecutionX6Test || ExecutionX6Demo is not null);   // the test aids' non-player victim: the dot over the own standing player
+        if (!_execOthers.TryGetValue(offer.Victim, out var corpse) && !testTarget) return ExecutionPromptHidden.NoOffer;
+        var feet = testTarget ? client.Predicted.Position : corpse.Position;
+        anchor = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + (testTarget ? MarkerOverOrk : MarkerOverCorpse));
         return ExecutionPromptHidden.None;
     }
 
@@ -144,8 +155,9 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// Whether this Warfront run fights Chaos (Chaos C2's renegade roster on the Ork type bytes): executions are refused there until X4b. C2 has no client-visible faction on this base yet, so this is
-    /// false; the integration with C2 reads the run's faction here (one line).
+    /// Whether this Warfront run fights Chaos (Chaos C2's renegade roster on the Ork type bytes): executions are refused there until X4b. The server's refusal reads
+    /// <c>SimConfig.WarfrontFaction</c>, which arrives with C2 (X4 phase 2 wires it; until then only a sim test aid sets a Chaos stage), so with neither on this base this stays false and the dot can
+    /// never promise a press the server refuses here. When C2 lands: <c>_config?.WarfrontFaction == Chaos</c> (one line; X6 review X6-12, lead 40).
     /// </summary>
     static bool ExecutionsChaosRun() => false;
 

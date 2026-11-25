@@ -122,4 +122,14 @@ public class ExecutionPresentMathTests
         Assert.False(ExecutionPresentMath.DeathHeld(0.81, hold));
         Assert.False(ExecutionPresentMath.DeathHeld(-0.1, hold));
     }
+
+    /// <summary>X5 review X5-2: a Classic victim alive again without a live proxy loses its claim, the own player as much as the others; a dead one or one still proxied keeps it.</summary>
+    [Fact]
+    public void AliveVictimsReleaseTheirProxyClaim()
+    {
+        var claims = new HashSet<int> { 1, 2, 3, 4 };
+        int released = ExecutionPresentMath.ReleaseClaims(claims, [(1, true), (2, false), (3, true), (4, true)], id => id == 3);
+        Assert.Equal(2, released);
+        Assert.Equal([2, 3], claims.Order());   // 1 and the own player 4 (listed by the caller like the others) released; 2 dead; 3 still proxied
+    }
 }
