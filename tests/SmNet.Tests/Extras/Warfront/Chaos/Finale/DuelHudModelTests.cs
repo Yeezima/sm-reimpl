@@ -258,7 +258,14 @@ public class DuelHudModelTests
         int relabel = Array.FindIndex(chaos, l => l.Contains("hud.WarfrontRelabel = chaos ?", StringComparison.Ordinal));
         Assert.True(frame > relabel && relabel >= 0, "the duel frame runs after C3's relabel, so the shielded word wins");
         Assert.Equal(1, chaos.Count(l => l.Contains("WarfrontChaosDuelFrame()", StringComparison.Ordinal)));
-    }
+        Assert.Equal(1, chaos.Count(l => l.Contains("hud.WarfrontRelabel = chaos ? WarfrontChaosRelabel : null;", StringComparison.Ordinal)));   // one cached delegate, chosen once (Fable review)
+        // Fable review: the boss column's commander bar hide (both layouts) and the relabel cache's reset, the only Musou lines of C5c
+        var hud = File.ReadAllText(Path.Combine(root, "client/Extras/Musou/MusouHud.cs"));
+        Assert.Contains("public bool WarfrontHideCommander;", hud);
+        Assert.Contains("if (MusouHudLayout.Old) { if (!WarfrontHideCommander) DrawBossBar(vs, d); DrawBossOrkBars(vs, d); }   // WARFRONT-HOOK", hud);
+        Assert.Contains("if (!r.Equals(_relabelFor)) { _relabelled.Clear(); _relabelFor = r; }", hud);
+        var column = File.ReadAllLines(Path.Combine(root, "client/Extras/Musou/MusouHud.BossColumn.cs"));
+        Assert.Equal(1, column.Count(l => l.Contains("&& !WarfrontHideCommander) _bossRows.Add(", StringComparison.Ordinal)));    }
 
     [Fact]
     public void The_shielded_lord_reads_shielded_and_the_other_words_stay_chaos()

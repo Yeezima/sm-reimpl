@@ -74,7 +74,7 @@ public partial class NetworkView
         }
         _musouOnlyChaosSounds = chaos;   // the Ork sound sets are not built in a Chaos battle (the Chaos Marine's is)
         TfwBanners.HideEnemyBanner ??= () => WarfrontChaosDrawn;   // the capture points' Ork totem (waaaghbanner) is not shown to a Chaos army; the Imperial banner still goes up when a point is secured
-        if (_musouHud is { } hud) hud.WarfrontRelabel = chaos ? WarfrontChaosLooksPlan.HudLabel : null;
+        if (_musouHud is { } hud) hud.WarfrontRelabel = chaos ? WarfrontChaosRelabel : null;   // C5c: one cached delegate (the shielded Lord's words in a Chaos fortress before the relay)
         if (_wfBattle is { } battle) battle.Relabel = chaos ? WarfrontChaosLooksPlan.HudLabel : null;   // the fortress strip and banners: KILL THE CHAOS LORD, THE CHAOS LORD IS DEAD
         if (!chaos)
         {

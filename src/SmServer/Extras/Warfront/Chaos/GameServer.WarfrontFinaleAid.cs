@@ -14,7 +14,7 @@ namespace SmServer;
 /// <item>Duel: <c>SM_WF_FINALE_HOLD</c> seconds (default 6) after each entry, <c>won</c> deals the Lord lethal hits from the duelist (the duel's own gate admits only his; the per-hit cap makes it a few ticks), <c>lost</c>
 /// gives every duelist the sim's test kill, so the real handoff, the next entry and finally <c>FinaleLost</c> follow.</item>
 /// </list>
-/// Each step is a <c>test aid SM_WF_FINALE</c> line. Refused (one line) without the developer-tools gate. Use only with a private <c>SM_WF_DIR</c>.
+/// Each step is a <c>test aid SM_WF_FINALE</c> line. Refused (one line) without the developer-tools gate or without a private <c>SM_WF_DIR</c> (<see cref="FinaleAidRefusal"/>).
 /// </summary>
 public sealed partial class GameServer
 {
@@ -27,12 +27,21 @@ public sealed partial class GameServer
     uint _wfFinaleFieldAt, _wfFinaleNextLog, _wfFinaleStrikeAt;
     int _wfFinaleAttempt = -1;
 
+    /// <summary>
+    /// Why the aid refuses to act (null: it may): developer tools on a loopback bind (<see cref="DevToolsOn"/>; a non-loopback bind never has them) and a private run folder (<c>SM_WF_DIR</c> set), so a lost
+    /// relay it forces can never end the owner's real campaign (Fable review, safety).
+    /// </summary>
+    internal static string? FinaleAidRefusal(bool devToolsOn, string? wfDir) =>
+        !devToolsOn ? "it needs --dev-tools on a loopback bind (--bind 127.0.0.1)"
+        : string.IsNullOrWhiteSpace(wfDir) ? "it needs a private run folder (SM_WF_DIR); it never acts on the default campaign"
+        : null;
+
     void WarfrontFinaleAid(WarfrontServerState s)
     {
         if (WfFinaleMode is not { } mode) return;
-        if (!DevToolsOn)
+        if (FinaleAidRefusal(DevToolsOn, Environment.GetEnvironmentVariable("SM_WF_DIR")) is { } why)
         {
-            if (!_wfFinaleRefused) { _wfFinaleRefused = true; WfLog("test aid SM_WF_FINALE refused: it needs --dev-tools on a loopback bind (--bind 127.0.0.1)"); }
+            if (!_wfFinaleRefused) { _wfFinaleRefused = true; WfLog("test aid SM_WF_FINALE refused: " + why); }
             return;
         }
         if (World.Tfw is not { Battle: { ChaosFortress: true } battle, Warfront: { } rules } || World.Musou is not { } musou) { _wfFinaleBattle = null; return; }

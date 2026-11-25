@@ -229,6 +229,14 @@ public sealed class ChaosDuelModel
 
     static string Upper(string? name, ushort id) => string.IsNullOrWhiteSpace(name) ? $"P{id}" : name.Trim().ToUpperInvariant();
 
+    /// <summary>Whether the HUD shows anything at <paramref name="now"/> (the gate of <see cref="Lines"/> without building its strings).</summary>
+    public bool HudShown(double now)
+    {
+        if (State is not { } s || s.Phase == WarfrontDuelPhase.Bodyguard) return false;
+        bool outcome = s.Phase is WarfrontDuelPhase.Won or WarfrontDuelPhase.Lost;
+        return outcome ? now - OutcomeAt < ChaosDuelLook.OutcomeSeconds : now - StateAt <= ChaosDuelLook.StaleSeconds;
+    }
+
     /// <summary>Whether the viewer <paramref name="own"/> should watch the champion (the spectator camera): a duel is on and he is not its champion.</summary>
     public bool Watching(ushort own, double now) => Running(now) && State is { Phase: WarfrontDuelPhase.Duel, Champion: not 0 } s && s.Champion != own;
 }

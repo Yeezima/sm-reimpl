@@ -17,6 +17,8 @@ public sealed partial class GameServer
     WarfrontDuel? _wfDuelSeen;
     int _wfDuelVersion = -1, _wfTelegraphsTaken;
     WarfrontDuelPhase _wfDuelPhaseSeen;
+    WarfrontDuel? _wfDuelLastFor;
+    float _wfDuelLastHealth, _wfDuelLastMax;
     uint _wfDuelEndedAt;
     readonly List<(byte[] Bytes, int Left, uint Next)> _wfTelegraphSends = new();
 
@@ -32,6 +34,9 @@ public sealed partial class GameServer
         if (World.WarfrontFinaleLost) { lost = true; WfLog("chaos finale: the relay ran out: FinaleLost"); return; }
         if (result == TfwMapResult.Left && World.WarfrontDuelActive) { lost = true; WfLog("chaos finale: the last human left during the duel relay: FinaleLost"); }
     }
+
+    /// <summary>Tests (C5c review): what the battle's end maps to here, without a campaign deployment (the harness's forced fortress has none).</summary>
+    internal bool WarfrontChaosFinaleLostForTests(TfwMapResult result) { bool lost = false; WarfrontChaosFinaleLost(result, ref lost); return lost; }
 
     partial void WarfrontChaosDuelCreated()
     {
@@ -98,7 +103,9 @@ public sealed partial class GameServer
         int Pid(ulong? key) => key is { } k && rt is not null && rt.TryId(k, out int id) ? id : 0;
         ulong? next = duel.Next(k => rt is not null && rt.TryId(k, out int id) && World.Players.ContainsKey(id));
         float health = 0f, max = World.Tfw?.Battle?.BossMaxHealth ?? 0f;
-        if (World.Musou is { } musou && musou.TryGet(duel.LordId, out MusouEnemy lord) && lord.Alive) health = lord.Health;
+        if (!ReferenceEquals(duel, _wfDuelLastFor)) { _wfDuelLastFor = duel; _wfDuelLastHealth = 0f; _wfDuelLastMax = 0f; }
+        if (World.Musou is { } musou && musou.TryGet(duel.LordId, out MusouEnemy lord) && lord.Alive) { health = lord.Health; if (max > 0f) { _wfDuelLastHealth = health; _wfDuelLastMax = max; } }
+        else if (duel.Phase == WarfrontDuelPhase.Lost) { health = _wfDuelLastHealth; max = _wfDuelLastMax; }   // C5c review: the battle's leave cleared the pool and the battle the same tick; the Lord stood at his last health
         return WarfrontChaosDuelWire.Of(duel.Phase, Pid(duel.Current), Pid(next), duel.Remaining, duel.Current is null ? -1 : duel.AttemptIndex, duel.LordId, health, max);
     }
 }

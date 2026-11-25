@@ -170,9 +170,12 @@ public sealed partial class World
         && rules.Progression.Campaign.IsConnected(key) && rules.CoopHeld?.Invoke(id) != true;
 
     /// <summary>Whether the Lord's bolt from <paramref name="from"/> reaches the duelist's chest: no wall of the weapons' collision between (no collision: it does; Fable review C5s, finding 7).</summary>
-    bool DuelBoltSees(Vector3 from, Vector3 feet)
+    bool DuelBoltSees(Vector3 from, Vector3 feet) => DuelBoltSees(Collision, from, feet);
+
+    /// <summary><see cref="DuelBoltSees(Vector3, Vector3)"/> on any collision (C5c review: the wall case is tested on a built mesh).</summary>
+    public static bool DuelBoltSees(SmSim.CollisionWorld? collision, Vector3 from, Vector3 feet)
     {
-        if (Collision is not { } world) return true;
+        if (collision is not { } world) return true;
         var to = feet + new Vector3(0f, 0f, 1.2f);
         var ray = to - from;
         float length = ray.Length();

@@ -73,11 +73,15 @@ public partial class NetworkView
         if (shielded != _wfLordShieldedShown) { _wfLordShieldedShown = shielded; GD.Print($"t {now:F1} s: warfront chaos: the Lord's bar {(shielded ? "reads SHIELDED" : "plain")}"); }
         if (_musouHud is { } hud)
         {
-            if (shielded) hud.WarfrontRelabel = ChaosDuelLook.ShieldedRelabel;
-            bool hide = _wfDuel.Running(now) || _wfDuel.Lines(0, _ => "", now).Shown;   // lead 41: the duel strip carries the Lord's bar; the boss column's commander bar steps aside
+            bool hide = _wfDuel.Running(now) || _wfDuel.HudShown(now);   // lead 41: the duel strip carries the Lord's bar; the boss column's commander bar steps aside (no lines built here)
             if (hide != hud.WarfrontHideCommander) { hud.WarfrontHideCommander = hide; GD.Print($"t {now:F1} s: warfront chaos: the boss column's Lord bar {(hide ? "hidden (the duel strip has it)" : "back")}"); }
         }
     }
+
+    static readonly Func<string, string> s_chaosRelabel = SmContent.Extras.Warfront.WarfrontChaosLooksPlan.HudLabel, s_shieldedRelabel = ChaosDuelLook.ShieldedRelabel;
+
+    /// <summary>The Musou HUD's Chaos words (C3's line chooses it once a frame, Fable review): the shielded Lord's in a Chaos fortress before the relay, else C3's; one cached delegate each, so the HUD's word cache is kept until the choice changes.</summary>
+    Func<string, string> WarfrontChaosRelabel => _wfLordShieldedShown ? s_shieldedRelabel : s_chaosRelabel;
 
     /// <summary>The duel model, for the tests and the capture aid.</summary>
     internal ChaosDuelModel WarfrontDuelModel => _wfDuel;
