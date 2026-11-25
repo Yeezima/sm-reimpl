@@ -18,7 +18,7 @@ namespace SmClient;
 /// prediction pins it; the armour tint follows a synthetic overshield; the shell is made and freed. <c>EXECX6</c> lines, then <c>EXECX6 RESULT PASS|FAIL</c>, then the client quits.</item>
 /// <item><c>--executions-x6-demo &lt;dir&gt; --executions-x6-shots dot|ork|shell|orbit</c> (windowed, <c>godot.cmd --windowed</c>): <c>dot</c> the marker over a synthetic Classic offer's player at close
 /// and mid range; <c>ork</c> waits (up to 7 min) for the real Warfront pick and shoots it close and mid; <c>shell</c> the shell and the tint at strengths 0.6, 1 and 1.4 times full, half and low
-/// overshield from one fixed camera (with <c>--executions-x6-paint &lt;scheme&gt;</c> for the armour's paint); <c>orbit</c> the orbit at three yaws and camera frames for an MP4. Then it quits.</item>
+/// overshield from one fixed camera (labelled by the side: loyalist Ultramarines, the lighter armour; Chaos, the darker); <c>orbit</c> the orbit at three yaws and camera frames for an MP4. Then it quits.</item>
 /// </list>
 /// </summary>
 public partial class NetworkView
@@ -26,15 +26,9 @@ public partial class NetworkView
     static readonly bool ExecutionX6Test = CmdFlag("executions-x6-test");
     static readonly string? ExecutionX6Demo = CmdArg("executions-x6-demo");
     static readonly string ExecutionX6Shots = CmdArg("executions-x6-shots") ?? "orbit";
-    /// <summary><c>--executions-x6-paint &lt;scheme&gt;</c>: every marine of this client is painted with that scheme (the shell comparison's dark and light armour).</summary>
-    static readonly string? ExecutionX6Paint = ApplyX6Paint();
+    /// <summary>The shell comparison's label for the armour (the side: a networked look keeps its own paint; MarineAssets.PaintOverride reaches only looks without one).</summary>
+    string ExecutionX6Paint => _client?.Predicted.Team == Team.Chaos ? "chaos" : "loyalist";
 
-    static string? ApplyX6Paint()
-    {
-        var paint = CmdArg("executions-x6-paint");
-        if (paint is { Length: > 0 }) MarineAssets.PaintOverride = paint;
-        return paint;
-    }
 
     /// <summary>The shell's overshield fraction forced by the test aids (null: the real one).</summary>
     float? ExecutionX6ShellOverride;
@@ -69,7 +63,7 @@ public partial class NetworkView
         {
             if (!me.Alive || _local is null) return;
             _execX6At = 0;
-            GD.Print($"EXECX6 start: player {client.PlayerId}, class {Loadouts.ClassOf(config, me.Class)?.Name}, melee {ExecutionPromptRules.MeleeKey(config, me)}, rows {config.Executions.Rows.Count}, paint {ExecutionX6Paint ?? "default"}");
+            GD.Print($"EXECX6 start: player {client.PlayerId}, class {Loadouts.ClassOf(config, me.Class)?.Name}, melee {ExecutionPromptRules.MeleeKey(config, me)}, rows {config.Executions.Rows.Count}, armour {ExecutionX6Paint}");
             if (CmdFlag("executions-x6-survey")) foreach (var line in OvershieldShell.Describe(_local)) GD.Print("EXECX6 mesh " + line);
         }
         _execX6At += delta;
@@ -185,7 +179,7 @@ public partial class NetworkView
         }
         if (_execX6Step < 5) ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)victim, (uint)Math.Max(0, client.RemotePlayers().Tick), 255)), _connectedFor, client.PlayerId);
         var feet = victim == client.PlayerId ? me.Position : _execOthers[victim].Position;
-        var dot = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + MarkerOverCorpse);
+        var dot = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + (victim == client.PlayerId ? MarkerOverOrk : MarkerOverCorpse));   // a standing own player (no other player here): over the head
         switch (_execX6Step)
         {
             case 0 when t > 4.0: _execRowsOverride = ExecutionX6Rows(2f); GD.Print($"EXECX6 dot over player {victim} ({(victim == client.PlayerId ? "own, no other player" : $"{best:F1} m away")})"); ExecutionX6Next(); break;
@@ -221,17 +215,17 @@ public partial class NetworkView
     static readonly float[] X6Strengths = [0.6f, 1.0f, 1.4f];
     static readonly (string Name, float Fraction)[] X6Fractions = [("full", 1f), ("half", 0.5f), ("low", 0.15f)];
 
-    /// <summary>The shell and tint comparison: three strengths times full, half and low overshield, one fixed camera on the own model (front-left, 3.2 m).</summary>
+    /// <summary>The shell and tint comparison: three strengths times full, half and low overshield, one fixed camera on the own model (front-left, 5 m).</summary>
     void ExecutionX6ShellDemo(GameClient client, SimConfig config, PlayerState me, string dir)
     {
         double t = _execX6At;
-        string paint = ExecutionX6Paint ?? "default";
+        string paint = ExecutionX6Paint;
         if (_execX6Step == 0)
         {
             if (t < 4.0) return;
             var chest = _gameSpace!.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z + 1.2f);
             var front = _gameSpace.Transform.Basis * new Vector3(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw), 0f);
-            var eye = chest + front.Rotated(Vector3.Up, 0.6f).Normalized() * 3.2f + Vector3.Up * 0.3f;
+            var eye = chest + front.Rotated(Vector3.Up, 0.6f).Normalized() * 5.0f + Vector3.Up * 0.4f;
             _execX6Camera = new Transform3D(Basis.LookingAt((chest - eye).Normalized(), Vector3.Up), eye);
             ExecutionX6Next();
             return;
