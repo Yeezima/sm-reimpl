@@ -88,7 +88,7 @@ public sealed partial class World
     }
 
     /// <summary>Test seam: starts <paramref name="run"/> (quantized) as if a press had chosen it in this tick's step; the Start is reported by the next step.</summary>
-    public void ExecutionsStartForTests(in ExecutionRun run)
+    internal void ExecutionsStartForTests(in ExecutionRun run)
     {
         var q = ExecutionTrack.Quantize(run);
         _executionRuns[q.Executor] = q;
@@ -98,7 +98,7 @@ public sealed partial class World
     readonly List<ExecutionRun> _pendingTestStarts = new();
 
     /// <summary>Test seam: puts player <paramref name="id"/> at <paramref name="at"/> facing <paramref name="yaw"/> (a teleport, as a dev tool or a respawn would).</summary>
-    public void ExecutionsPlaceForTests(int id, Vector3 at, float yaw)
+    internal void ExecutionsPlaceForTests(int id, Vector3 at, float yaw)
     {
         if (_players.TryGetValue(id, out var p)) _players[id] = p with { Position = at, Yaw = yaw, Velocity = Vector3.Zero };
     }
@@ -219,6 +219,7 @@ public sealed partial class World
     void StartExecution(ExecutionRun run)
     {
         run = ExecutionTrack.Quantize(run);   // the wire's precision, so a client's run decoded from the Start is this one
+        if (_players.TryGetValue(run.Executor, out var armed)) _players[run.Executor] = ExecutionTrack.Disarm(armed);   // the swing, charge or throw under way never lands on the first locked tick
         _executionRuns[run.Executor] = run;
         _executionRunRound[run.Executor] = RoundsBegun;
         _executionStarts.Add(run);

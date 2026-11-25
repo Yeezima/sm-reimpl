@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SmNet.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- cancel-editor: the shipped default table (replace config/cancel-table.json to change a release's defaults) and the baseline of what the code does. -->
     <EmbeddedResource Include="..\..\config\cancel-table.json" LogicalName="cancel-table.json" />
     <EmbeddedResource Include="Data\cancel-baseline.json" LogicalName="cancel-baseline.json" />
