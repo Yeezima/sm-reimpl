@@ -57,7 +57,7 @@ public class ExecutionPromptRuleTests
             if (ExecutionPromptRules.Common(c, me, false, false, Rows) != ExecutionPromptHidden.None) return;
             if (ExecutionPromptRules.Warfront(c, me, inBattle, false, lastDone, tick, shown) != ExecutionPromptHidden.None) return;
             ExecutionPromptRules.Gather(me, shown, near);
-            ExecutionPromptRules.WarfrontPick(me, 0f, c, Rows, null, near, by, null, ref choices);
+            ExecutionPromptRules.PickOrkVictim(me, 0f, c, Rows, null, near, by, null, ref choices);
         }
         var boy = Shown(5, new Vector3(0f, 1.3f, 0f));
         Frame(Me() with { Alive = false }, true, null, 100, [boy]);
@@ -74,7 +74,7 @@ public class ExecutionPromptRuleTests
         Assert.Equal(ExecutionPromptHidden.Executing, ExecutionPromptRules.Common(c, Me(), false, true, Rows));
         Assert.Equal(ExecutionPromptHidden.Puppet, ExecutionPromptRules.Common(c, Me() with { PlayerId = SmSim.Extras.Musou.Campaign.TfwContracts.PuppetIdFirst }, false, false, Rows));
         // An empty gather never calls the choice either.
-        ExecutionPromptRules.WarfrontPick(Me(), 0f, c, Rows, null, [], by, null, ref choices);
+        ExecutionPromptRules.PickOrkVictim(Me(), 0f, c, Rows, null, [], by, null, ref choices);
         Assert.Equal(0, choices);
         // All passed: one choice.
         Frame(Me(), true, null, 100, [boy]);
@@ -115,6 +115,33 @@ public class ExecutionPromptRuleTests
             Assert.Contains(word, OvershieldCoverage.ExcludedWords);
         Assert.True(OvershieldCoverage.Weapon("Weapon_melee_sm_mp_melee_chainsword"));
         Assert.False(OvershieldCoverage.Weapon("Worn_sm_jumppack"));
+    }
+
+    /// <summary>X6 re-review 7: the client's bystander reach is the server's <c>World.ExecutionsBystanderReach</c>.</summary>
+    [Fact]
+    public void BystanderReachIsTheServers()
+    {
+        var c = Config();
+        var w = new World(c, null, [new SpawnPoint(Vector3.Zero, 0f)]);
+        Assert.Equal(w.ExecutionsBystanderReach, ExecutionPromptRules.BystanderReach(c));
+    }
+
+    /// <summary>
+    /// X6 re-review 1 and 4: the press counter is synced every frame; only a new press on a frame after one that showed the Classic dot spends the offer. A press while the dot was hidden
+    /// (refused before the offer on the server: rolling, staggered, airborne, no offer, during a move, before the window), a held key, or a counter reset (a new prediction) spends nothing.
+    /// </summary>
+    [Fact]
+    public void OnlyANewPressAfterAShownDotSpendsTheOffer()
+    {
+        int seen = 0;
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(1, ref seen, shownLastFrame: false));   // pressed while rolling: no dot
+        Assert.Equal(1, seen);
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(1, ref seen, shownLastFrame: true));    // the dot appears later: the old press is not new
+        Assert.True(ExecutionPromptRules.PressSpendsOffer(2, ref seen, shownLastFrame: true));     // a press while it showed
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(2, ref seen, shownLastFrame: true));
+        seen = 0;                                                                                    // reconnect: the new prediction counts from 0
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(0, ref seen, shownLastFrame: true));
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(1, ref seen, shownLastFrame: false));   // the window opens this frame (one-frame race): not spent
     }
 
     /// <summary>X6 review X6-8 (owner: every armour piece is covered): the name exclusion applies only to what is not an armour piece; a weapon is never covered.</summary>
@@ -171,7 +198,7 @@ public class ExecutionPromptRuleTests
         Assert.Equal(5, near.Count);
         var reserved = new HashSet<ushort> { 12 };
         int choices = 0;
-        ushort prompt = ExecutionPromptRules.WarfrontPick(me, me.Yaw, c, Rows, null, near, [], reserved, ref choices);
+        ushort prompt = ExecutionPromptRules.PickOrkVictim(me, me.Yaw, c, Rows, null, near, [], reserved, ref choices);
         // The press (X4: the same call with the seed of the press tick) takes the same Ork.
         var press = ExecutionChoice.ChooseAlignedOrk(me, me.Yaw, "c", "sm_mp_melee_chainsword", near, Rows, c, null, reserved, id => ExecutionChoice.Seed(4321, me.PlayerId, id), []);
         Assert.True(press.Result.Ok);

@@ -42,9 +42,23 @@ public sealed class ExecutionClientState
     readonly List<ExecutionEndedView> _ended = new();
     readonly Dictionary<int, (uint EndTick, double At)> _lastEnd = new();
     readonly Dictionary<ushort, byte> _overshield = new();
-    /// <summary>When (client time and the prune tick) each live run was last announced; synthetic runs (the test aids) are not listed and only expire by their end tick.</summary>
-    readonly Dictionary<int, (double At, double Tick)> _announced = new();
-    double _pruneTick;
+    /// <summary>The silence clock's reading when each live run was last announced; synthetic runs (the test aids) are not listed and only expire by their end tick.</summary>
+    readonly Dictionary<int, double> _announced = new();
+
+    /// <summary>
+    /// The silence clock now, between prunes: the last prune's reading plus the client time since it (prunes run every frame, so this adds at most a frame; a stall adds nothing to the clock
+    /// itself, only this frame's share).
+    /// </summary>
+    double SilenceNow(double now) => double.IsFinite(_prevNow) ? _silenceClock + Math.Max(0.0, now - _prevNow) : _silenceClock;
+    /// <summary>
+    /// The silence clock (seconds): it advances by min(the client time, the snapshot ticks over the rate) between prunes, so only while snapshots flow; a receive stall stops it, and the first
+    /// snapshot after one adds a frame's time, not the stall's (X5 re-review N1).
+    /// </summary>
+    double _silenceClock, _prevNow = double.NaN, _prevSnapshot = double.NaN;
+    /// <summary>Executors whose run this client ended for silence alone (their start tick): a same-start live-list repeat revives it.</summary>
+    readonly Dictionary<int, uint> _silenced = new();
+    readonly List<(ExecutionRun Run, bool Past, uint Last)> _lost = new();
+    int _ownId = -1;
     double _overshieldAt = double.NegativeInfinity;
 
     /// <summary>The live runs (by executor id).</summary>
@@ -61,6 +75,8 @@ public sealed class ExecutionClientState
     public int Repeats { get; private set; }
     /// <summary>Live runs ended here because their End was lost (<see cref="Prune"/>).</summary>
     public int Expired { get; private set; }
+    /// <summary>Runs ended for silence that the live list then announced again (revived).</summary>
+    public int Revived { get; private set; }
     /// <summary>Bumped whenever a run starts or ends (the presenter's cheap change check).</summary>
     public int Version { get; private set; }
 
@@ -81,6 +97,7 @@ public sealed class ExecutionClientState
     /// <summary>Reads one tag-50 payload heard at client time <paramref name="now"/> (seconds); <paramref name="ownId"/> is the own player id (-1: an observer).</summary>
     public void Apply(ReadOnlySpan<byte> payload, double now, int ownId)
     {
+        _ownId = ownId;
         switch (ExecutionWire.KindOf(payload))
         {
             case ExecutionWire.StartKind when ExecutionWire.TryDecode(payload, out ExecutionStart start): Start(start.ToRun(), now); break;
@@ -124,25 +141,33 @@ public sealed class ExecutionClientState
     {
         if (_live.TryGetValue(run.Executor, out var held) && held.StartTick >= run.StartTick)
         {
-            if (held.StartTick == run.StartTick && _announced.ContainsKey(run.Executor)) _announced[run.Executor] = (now, _pruneTick);   // the live list: still playing
+            if (held.StartTick == run.StartTick && _announced.ContainsKey(run.Executor)) _announced[run.Executor] = SilenceNow(now);   // the live list: still playing
             Repeats++;
             return;   // a repeat, or older than the move playing
         }
-        if (_lastEnd.TryGetValue(run.Executor, out var last) && now - last.At <= EndMemorySeconds && run.StartTick <= last.EndTick) { Repeats++; return; }   // a late repeat of an ended move
+        bool revive = _silenced.TryGetValue(run.Executor, out uint silencedStart) && silencedStart == run.StartTick;
+        if (revive)
+        {
+            // A live-list repeat of a move this client ended only for silence (no End heard; X5 re-review 2): the server still plays it, so it plays again, without the fade's ended entry.
+            _silenced.Remove(run.Executor);
+            int executor = run.Executor; uint start = run.StartTick;
+            _ended.RemoveAll(e => e.Run.Executor == executor && e.Run.StartTick == start);
+            Revived++;
+        }
+        else if (_lastEnd.TryGetValue(run.Executor, out var last) && now - last.At <= EndMemorySeconds && run.StartTick <= last.EndTick) { Repeats++; return; }   // a late repeat of an ended move
         if (_live.ContainsKey(run.Executor)) Close(held, ExecutionEndReason.Invalid, run.StartTick, now);   // a newer move replaces one whose End was lost
         _live[run.Executor] = run;
-        if (announced) _announced[run.Executor] = (now, _pruneTick);
+        if (announced) _announced[run.Executor] = SilenceNow(now);
         if (Offer is { } o && run.TargetKind == ExecutionTargetKind.Player && run.Target == o.Victim) Offer = null;   // the offer is taken
         Version++;
     }
 
     void End(in ExecutionEnd end, double now, int ownId)
     {
-        if (_live.TryGetValue(end.Executor, out var run) && run.StartTick <= end.Tick)
-        {
-            Close(run, end.Reason, end.Tick, now);
-            if (end.Executor == ownId && end.Reason == ExecutionEndReason.Done) OwnLastDoneTick = end.Tick;
-        }
+        if (_live.TryGetValue(end.Executor, out var run) && run.StartTick <= end.Tick) Close(run, end.Reason, end.Tick, now);
+        // The own cooldown's start, also from a Done heard after this client had already ended the run for silence or its end tick (X5 re-review 3).
+        if (end.Executor == ownId && end.Reason == ExecutionEndReason.Done && (OwnLastDoneTick is not { } done || end.Tick > done)) OwnLastDoneTick = end.Tick;
+        _silenced.Remove(end.Executor);   // the End settles it: no live-list revival
         // Remembered either way: a Start reordered behind its End is then ignored.
         if (!_lastEnd.TryGetValue(end.Executor, out var last) || end.Tick > last.EndTick || now - last.At > EndMemorySeconds) _lastEnd[end.Executor] = (end.Tick, now);
     }
@@ -171,43 +196,56 @@ public sealed class ExecutionClientState
     /// <summary>Everything cleared (a new connection).</summary>
     public void Clear()
     {
-        _live.Clear(); _ended.Clear(); _lastEnd.Clear(); _overshield.Clear(); _announced.Clear();
+        _live.Clear(); _ended.Clear(); _lastEnd.Clear(); _overshield.Clear(); _announced.Clear(); _silenced.Clear();
         _overshieldAt = double.NegativeInfinity;
-        _pruneTick = 0;
+        _silenceClock = 0; _prevNow = double.NaN; _prevSnapshot = double.NaN;
         Offer = null; _spentOffer = null; OwnLastDoneTick = null;
         Version++;
     }
 
     /// <summary>
-    /// Drops ended runs past their fade, a passed offer (by the client's view tick, <paramref name="serverTick"/>: the tick the prompt and the server's press check use), stale overshields and old
-    /// End memories, and ends (<see cref="ExecutionEndReason.Invalid"/>) a live run whose End was lost: one the live list stopped announcing for <see cref="LiveSilenceSeconds"/> while the tick moved
-    /// on as far, or one <see cref="PastEndSeconds"/> past its own last tick (<paramref name="lastTick"/>, at <paramref name="tickRate"/>; null: only the silence rule).
+    /// Drops ended runs past their fade, a passed offer (by the client's view tick, <paramref name="viewTick"/>: the tick the marker and the server's press check use), stale overshields and old
+    /// End memories, and ends (<see cref="ExecutionEndReason.Invalid"/>) a live run whose End was lost:
+    /// <list type="bullet">
+    /// <item>silence: the live list has not announced it for <see cref="LiveSilenceSeconds"/> while snapshots kept arriving for as long (<paramref name="snapshotTick"/>: the newest snapshot's tick,
+    /// which stands still through a receive stall, unlike the view tick, which runs on with the wall clock; X5 re-review 2). A same-start repeat from the live list revives it;</item>
+    /// <item>past its end: <see cref="PastEndSeconds"/> past its own last tick (<paramref name="lastTick"/>) at the view tick. Final: remembered like an End; the own run's last tick becomes the
+    /// own last Done tick (X5 re-review 3: the server ended it Done there or earlier).</item>
+    /// </list>
     /// </summary>
-    public void Prune(double now, double serverTick, Func<ExecutionRun, uint>? lastTick = null, int tickRate = 30)
+    public void Prune(double now, double viewTick, double snapshotTick, Func<ExecutionRun, uint>? lastTick = null, int tickRate = 30)
     {
-        _pruneTick = serverTick;
+        double clockRate = Math.Max(1, tickRate);
+        if (double.IsFinite(_prevNow) && double.IsFinite(_prevSnapshot))
+            _silenceClock += Math.Max(0.0, Math.Min(now - _prevNow, (snapshotTick - _prevSnapshot) / clockRate));
+        _prevNow = now; _prevSnapshot = snapshotTick;
         if (_live.Count > 0)
         {
-            double rate = Math.Max(1, tickRate), silenceTicks = LiveSilenceSeconds * rate, pastTicks = PastEndSeconds * rate;
-            List<ExecutionRun>? lost = null;
+            double rate = Math.Max(1, tickRate), pastTicks = PastEndSeconds * rate;
+            _lost.Clear();
             foreach (var (id, run) in _live)
             {
-                bool silent = _announced.TryGetValue(id, out var a) && now - a.At > LiveSilenceSeconds && serverTick - a.Tick > silenceTicks;
-                bool past = lastTick is not null && serverTick > lastTick(run) + pastTicks;
-                if (silent || past) (lost ??= new()).Add(run);
+                uint last = lastTick is null ? uint.MaxValue : lastTick(run);
+                bool past = lastTick is not null && viewTick > last + pastTicks;
+                bool silent = !past && _announced.TryGetValue(id, out var a) && _silenceClock - a > LiveSilenceSeconds;
+                if (silent || past) _lost.Add((run, past, last));
             }
-            if (lost is not null)
-                foreach (var run in lost)
+            foreach (var (run, past, last) in _lost)
+            {
+                uint at = viewTick > run.StartTick ? (uint)Math.Min(viewTick, uint.MaxValue) : run.StartTick;
+                Close(run, ExecutionEndReason.Invalid, at, now);
+                Expired++;
+                if (past)
                 {
-                    uint at = serverTick > run.StartTick ? (uint)Math.Min(serverTick, uint.MaxValue) : run.StartTick;
-                    Close(run, ExecutionEndReason.Invalid, at, now);
-                    Expired++;
-                    // Remembered like an End, so a straggling repeat does not revive it.
-                    _lastEnd[run.Executor] = (Math.Max(at, run.StartTick), now);
+                    _lastEnd[run.Executor] = (Math.Max(at, run.StartTick), now);   // remembered like an End: a straggling repeat does not revive it
+                    _silenced.Remove(run.Executor);
+                    if (run.Executor == _ownId && (OwnLastDoneTick is not { } done || last > done)) OwnLastDoneTick = last;
                 }
+                else _silenced[run.Executor] = run.StartTick;
+            }
         }
         _ended.RemoveAll(e => now - e.HeardAt > EndedKeepSeconds);
-        if (Offer is { } o && serverTick > o.KillTick + (double)o.WindowTicks) Offer = null;
+        if (Offer is { } o && viewTick > o.KillTick + (double)o.WindowTicks) Offer = null;
         if (_overshield.Count > 0 && now - _overshieldAt > OvershieldKeepSeconds) _overshield.Clear();
         if (_lastEnd.Count > 0)
         {

@@ -287,6 +287,8 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Spectate.cs", "if (ExtrasSpectateWanted(me) && SpectateFollow(", true),   // FollowCamera: the added content's spectator view before the death camera (a no-op without added content)
         // Executions X6 (2026-11-25): each piece mesh surface named after its install material, so the overshield shell (client/Extras/Executions/OvershieldShell.cs, OvershieldCoverage) can leave cloth out.
         ("client/PieceCache.cs", "mesh.SurfaceSetName(index, surface.Material?.Name ?? \"\");", true),
+        // Executions re-review (2026-11-25): the worn wargear's attachment nodes carry WeaponRig.WornPackMeta, so the overshield shell covers the jump pack whole (owner: the jump pack is covered).
+        ("client/WeaponRig.cs", "if (pack) node.SetMeta(WornPackMeta, true);", true),
     ];
 
     /// <summary>

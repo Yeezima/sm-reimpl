@@ -110,19 +110,37 @@ public static class ExecutionPromptRules
     public static void Bystanders(SimConfig c, in PlayerState me, IReadOnlyList<PlayerState> others, IReadOnlyList<MusouShown> shown, List<Vector3> into)
     {
         into.Clear();
-        var players = new List<(int, PlayerState)>(others.Count + 1) { (me.PlayerId, me) };
+        var players = _scratchPlayers ??= new();
+        var enemies = _scratchEnemies ??= new();
+        players.Clear(); enemies.Clear();   // reused: no per-pick allocation but the rule's own result list
+        players.Add((me.PlayerId, me));
         foreach (var o in others) if (o.PlayerId != me.PlayerId) players.Add((o.PlayerId, o));
-        players.Sort((a, b) => a.Item1.CompareTo(b.Item1));   // the server's order (by id)
-        var enemies = new List<(MusouEnemyType, Vector3)>();
+        players.Sort(ById);   // the server's order (by id)
         foreach (var e in shown) if (e.State != MusouEnemyState.Dying && ExecutionBystanders.Counts(e.Type)) enemies.Add((e.Type, e.Position));
         into.AddRange(ExecutionBystanders.Warfront(me.PlayerId, players, enemies, me.Position, BystanderReach(c)));
+    }
+
+    [ThreadStatic] static List<(int, PlayerState)>? _scratchPlayers;
+    [ThreadStatic] static List<(MusouEnemyType, Vector3)>? _scratchEnemies;
+    static readonly Comparison<(int, PlayerState)> ById = (a, b) => a.Item1.CompareTo(b.Item1);
+
+    /// <summary>
+    /// Whether the own Execute press counter's change spends the Classic offer (X6 review X6-10, re-review 1 and 4): <paramref name="seen"/> is synced to <paramref name="presses"/> every frame,
+    /// and a new press spends it only when the dot showed on the previous frame (<paramref name="shownLastFrame"/>). A press made while something else hid the dot (rolling, staggered, airborne,
+    /// no offer yet, during a move, before the window opened at the view tick) is refused by the server before the offer, so it spends nothing here either.
+    /// </summary>
+    public static bool PressSpendsOffer(int presses, ref int seen, bool shownLastFrame)
+    {
+        bool pressed = presses != seen;
+        seen = presses;
+        return pressed && shownLastFrame;
     }
 
     /// <summary>
     /// The Ork the press would take (0: none fits): <see cref="ExecutionChoice.ChooseAlignedOrk"/> in its prompt mode (no seed: the first fitting move; the Ork chosen is the press's) on the
     /// stand-ins of <see cref="Gather"/>, the reserved Orks (being executed by others) skipped. <paramref name="choices"/> counts the calls (the tests' early-out check).
     /// </summary>
-    public static ushort WarfrontPick(in PlayerState me, float facingYaw, SimConfig c, IReadOnlyList<ExecutionRow> rows, CollisionWorld? world, IReadOnlyList<MusouEnemy> near,
+    public static ushort PickOrkVictim(in PlayerState me, float facingYaw, SimConfig c, IReadOnlyList<ExecutionRow> rows, CollisionWorld? world, IReadOnlyList<MusouEnemy> near,
         IReadOnlyList<Vector3> bystanders, IReadOnlySet<ushort>? reserved, ref int choices)
     {
         if (near.Count == 0 || Loadouts.ClassOf(c, me.Class) is not { } loadout || MeleeKey(c, me) is not { } weapon) return 0;
