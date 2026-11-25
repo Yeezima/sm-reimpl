@@ -52,9 +52,9 @@ public static class ClassicBloodRules
     /// a deeper blood red. Near-full red unshaded goes through the filmic/AgX tonemapper toward orange (measured p95 G/R 0.25 to 0.30 on screen at 0.55 to 0.92); at 0.3 to 0.55 it
     /// measured 0.06 to 0.12 at the hold (the owner's "red or darker").
     /// </summary>
-    public const float RibbonShadeFloor = 0.3f, RibbonShadeTop = 0.55f;
+    public const float RibbonShadeFloor = 0.22f, RibbonShadeTop = 0.55f;   // floor 0.3 before repair 5 (a wider shade range: grit, not a flat fill)
     /// <summary>The thinnest the blood gets inside a patch, as a share of <see cref="RibbonOpacity"/> (ours; repair of review 5): mottled in density as well as shade; the strip pass keeps it red.</summary>
-    public const float RibbonDensityFloor = 0.7f;
+    public const float RibbonDensityFloor = 0.5f;   // 0.7 before repair 5
     /// <summary>A band's half width at the body for a normal hit (m; ours; was 0.075): before the per-band x0.8 to x1.3, the narrowing to 0.6 at the ends and the growth while it hangs.</summary>
     public const float RibbonHalfWidth = 0.12f;
     /// <summary>How tall the stack of bands is across the stroke for a sweep at least (m; ours; was 0.3), scaled by the spread; more bands stand farther apart (<see cref="RibbonBundleFor"/>).</summary>
@@ -65,7 +65,7 @@ public static class ClassicBloodRules
     /// </summary>
     public const float RibbonPitchShare = 1f;
     /// <summary>The most bands in one spray (ours; repair 3, finding 1: 3 for a normal hit, 4 for heavy and lethal ones, which also grow wider and longer).</summary>
-    public const int RibbonMaxBands = 4;
+    public const int RibbonMaxBands = 3;   // 4 before repair 5 (finding 3: a lethal sweep's 4 flat bars could not grow under the height cap; 3 wider bands instead)
     /// <summary>A band's mean full width at the body before the hang's growth (m): twice <see cref="RibbonHalfWidth"/> times the shader's mean per-band factor 0.8 + 0.5 x 0.5.</summary>
     public const float RibbonMeanWidth = 2f * RibbonHalfWidth * 1.05f;
     /// <summary>
@@ -111,15 +111,15 @@ public static class ClassicBloodRules
     /// <summary>
     /// The outer height of the stack across the stroke (m) at <paramref name="s"/> m along it (negative: behind the contact) after <paramref name="hold"/> s of hang
     /// (<see cref="RibbonHangSeconds"/> at most) with the growth share <paramref name="grow"/> (<see cref="RibbonGrow"/>): of the bands that can reach <paramref name="s"/>
-    /// (<see cref="RibbonBandLayout"/> at its farthest), the top and bottom edges of their middles (slot x <paramref name="bundle"/>, x(1 + 0.1 grow s) toward the far end, x(1 + grow
-    /// hold) as it hangs), their seeded offsets and the spread of their lifts, each band at its widest (x1.3, its taper <see cref="RibbonStaggerWidth"/> applied), narrowing to 0.6 at
+    /// (<see cref="RibbonBandLayout"/> at its farthest), the top and bottom edges of their middles (slot x <paramref name="bundle"/> x <see cref="RibbonDiverge"/>, x(1 + grow hold) as it
+    /// hangs), their seeded offsets and the spread of their lifts, each band at its widest (x1.3, its taper <see cref="RibbonStaggerWidth"/> applied), narrowing to 0.6 at
     /// the full reach <paramref name="lenFwd"/> / <paramref name="lenBack"/>. The shader's geometry, the view left out.
     /// </summary>
     public static float RibbonStackHeight(int count, float bundle, float size, float grow, float hold, float s, float lenFwd, float lenBack)
     {
         hold = Math.Clamp(hold, 0f, RibbonHangSeconds);
         float g = 1f + grow * hold;
-        float fan = 1f + 0.1f * grow * s;
+        float fan = RibbonDiverge(s, lenFwd);
         float dn = s >= 0f ? s / MathF.Max(lenFwd, 1e-3f) : -s / MathF.Max(lenBack, 1e-3f);
         float narrow = 1f + (0.6f - 1f) * MathF.Min(dn, 1f);
         float top = float.NegativeInfinity, bottom = float.PositiveInfinity;
@@ -127,9 +127,9 @@ public static class ClassicBloodRules
         for (int ri = 0; ri < Math.Max(1, count); ri++)
         {
             float slot = RibbonSlot(ri, count), c = 2f * MathF.Abs(slot);
-            float shiftHi = lenFwd * (RibbonStaggerOuter * c + RibbonStaggerEchelon * MathF.Abs(slot) + 0.5f * RibbonStaggerJitter);
-            float shiftLo = lenFwd * (RibbonStaggerOuter * c - RibbonStaggerEchelon * MathF.Abs(slot) - 0.5f * RibbonStaggerJitter);
-            float reachFwd = shiftHi + lenFwd * (1f - RibbonStaggerReach * c), reachBack = shiftLo - lenBack * (1f - 2f * RibbonStaggerReach * c);
+            float shiftHi = lenFwd * (RibbonStaggerOuter * c + 0.5f * RibbonStaggerJitter);
+            float shiftLo = lenFwd * (RibbonStaggerOuter * c - 0.5f * RibbonStaggerJitter);
+            float reachFwd = shiftHi + lenFwd * (1f - RibbonStaggerReach * c) * (1f + RibbonStaggerEchelon * MathF.Abs(slot)), reachBack = shiftLo - lenBack * (1f - 2f * RibbonStaggerReach * c);
             if (s > reachFwd || s < reachBack) continue;
             present++;
             float mid = slot * bundle * fan * g;
@@ -144,9 +144,15 @@ public static class ClassicBloodRules
     /// and the whole stroke (<see cref="RibbonStackHeight"/>, sampled from the far end of the near reach to the far end of the farthest band, <see cref="RibbonStaggerOuter"/> and
     /// <see cref="RibbonStaggerEchelon"/> included); 1 (the full 60 %) where it fits. Repair 4, finding N1: a lethal stack of 1.14 m grew to about 1.8 m.
     /// </summary>
-    public static float RibbonGrow(int count, float bundle, float size, float lenFwd, float lenBack)
+    public static float RibbonGrow(int count, float bundle, float size, float lenFwd, float lenBack) =>
+        GrowCache.GetOrAdd((count, (int)MathF.Round(bundle * 1e4f), (int)MathF.Round(size * 1e4f), (int)MathF.Round(lenFwd * 1e3f), (int)MathF.Round(lenBack * 1e3f)), _ => GrowUncached(count, bundle, size, lenFwd, lenBack));
+
+    /// <summary>The growth share per spray shape (repair 5, finding 6: a few hundred stack evaluations per spray otherwise; the shapes repeat: kind, spread and amount).</summary>
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<(int, int, int, int, int), float> GrowCache = new();
+
+    static float GrowUncached(int count, float bundle, float size, float lenFwd, float lenBack)
     {
-        float far = lenFwd * (1f + RibbonStaggerOuter + 0.5f * RibbonStaggerEchelon + 0.5f * RibbonStaggerJitter);
+        float far = lenFwd * (1f + RibbonStaggerOuter + 0.5f * RibbonStaggerJitter) * (1f + 0.5f * RibbonStaggerEchelon);
         float Worst(float grow)
         {
             float w = RibbonStackHeight(count, bundle, size, grow, RibbonHangSeconds, 0f, lenFwd, lenBack);
@@ -162,12 +168,32 @@ public static class ClassicBloodRules
         return lo;
     }
     /// <summary>
+    /// The along-stroke share of the bands' offsets across it (ours; repair 5, the re-review of 272299f4 finding 1: the bands stood a full bundle apart from the body on, a ladder):
+    /// <see cref="RibbonDivergeFrom"/> at the body and behind it, rising linearly to 1 at the far reach <paramref name="lenFwd"/>, so the bands leave the body together and part by angle.
+    /// </summary>
+    public static float RibbonDiverge(float s, float lenFwd) => s <= 0f ? RibbonDivergeFrom : RibbonDivergeFrom + (1f - RibbonDivergeFrom) * Math.Clamp(s / MathF.Max(lenFwd, 1e-3f), 0f, 1f);
+    public const float RibbonDivergeFrom = 0.3f;
+    /// <summary>A sweep's reach past the contact (m; ours: 1.8 before repair 5; the owner's reference sequence of 2026-11-25 shows a long thin streak several body widths out along the swing).</summary>
+    public const float RibbonSweepReach = 2.4f;
+    /// <summary>
+    /// The grit (ours; repair 5, finding 2: solid slabs): a fine noise octave along the band (<see cref="RibbonGritScale"/> per m) opens small holes where it is above
+    /// <see cref="RibbonHoleFrom"/> at the hold, a threshold that falls by <see cref="RibbonHoleLate"/> as the envelope falls, so late patches break into specks; and the ragged edge
+    /// wanders by a finer octave of <see cref="RibbonEdgeGrit"/> of the half width.
+    /// </summary>
+    public const float RibbonGritScale = 26f, RibbonHoleFrom = 0.74f, RibbonHoleLate = 0.15f, RibbonEdgeGrit = 0.16f;
+    /// <summary>A texel's hole factor (the shader's <c>hole</c>): 1 solid, 0 a hole, from its fine noise <paramref name="fine"/> and the envelope <paramref name="env"/>.</summary>
+    public static float RibbonHole(float fine, float env) { float h = RibbonHoleFrom - RibbonHoleLate * (1f - Math.Clamp(env, 0f, 1f)); return 1f - Smooth(h, h + 0.06f, fine); }
+    /// <summary>The mottle floor for a spray of <paramref name="count"/> bands (ours; repair 5, finding 4: a one- or two-band spray's first seed eroded before 0.5 s): one or two bands 0.4, more <see cref="RibbonMottleFloor"/>.</summary>
+    public static float RibbonMottleFloorFor(int count) => count <= 2 ? 0.4f : RibbonMottleFloor;
+    /// <summary>The <paramref name="i"/>-th spray's seed (the shader's <c>seed</c>; ours, repair 5 finding 4): golden-ratio steps from 0.5 (0, 0.137, ... before: the first spray always took 0, a seed that erodes early).</summary>
+    public static float RibbonSeed(int i) => (float)((0.5 + i * 0.6180339887) % 1.0);
+    /// <summary>
     /// The bands' stagger along the stroke (ours; repair 4, re-review of 06ef6bc2 finding N2: the bands were a regular ladder, four equal stripes): the outer bands' middles lie
     /// this share of the far reach past the contact (x |slot| x 2), so the blood fans out past the body from the middle band; <see cref="RibbonStaggerEchelon"/>: one side of the stack
     /// (seeded) leads by that share per slot, so the stack reads as one slanted stroke; <see cref="RibbonStaggerJitter"/>: each band's own seeded shift (share, either way).
     /// The outer bands are also shorter (<see cref="RibbonStaggerReach"/> of the far reach and twice that of the near one) and narrower (<see cref="RibbonStaggerWidth"/>).
     /// </summary>
-    public const float RibbonStaggerOuter = 0.25f, RibbonStaggerEchelon = 0.2f, RibbonStaggerJitter = 0.12f, RibbonStaggerReach = 0.25f, RibbonStaggerWidth = 0.2f;
+    public const float RibbonStaggerOuter = 0.1f, RibbonStaggerEchelon = 0.55f, RibbonStaggerJitter = 0.12f, RibbonStaggerReach = 0.25f, RibbonStaggerWidth = 0.2f;   // repair 5: outer 0.25 -> 0.1, echelon 0.2 -> 0.55 and on the far reach (the bands leave the body together)
 
     /// <summary>
     /// One band's layout along the stroke (the shader's math): its shift along the stroke and its own reach past and behind its middle (m), and its width factor, from its slot
@@ -177,8 +203,8 @@ public static class ClassicBloodRules
     public static (float Shift, float Fwd, float Back, float Width) RibbonBandLayout(float slot, float h1, float h2, float h3, float lead, float lenFwd, float lenBack)
     {
         float c = 2f * MathF.Abs(slot);
-        float shift = lenFwd * (RibbonStaggerOuter * c + RibbonStaggerEchelon * slot * lead + RibbonStaggerJitter * (h2 - 0.5f));
-        float fwd = lenFwd * (0.6f + 0.4f * h1) * (1f - RibbonStaggerReach * c);
+        float shift = lenFwd * (RibbonStaggerOuter * c + RibbonStaggerJitter * (h2 - 0.5f));
+        float fwd = lenFwd * (0.6f + 0.4f * h1) * (1f - RibbonStaggerReach * c) * (1f + RibbonStaggerEchelon * slot * lead);
         float back = lenBack * (0.45f + 0.55f * h2) * (1f - 2f * RibbonStaggerReach * c);
         return (shift, fwd, back, (0.8f + 0.5f * h3) * (1f - RibbonStaggerWidth * c));
     }
@@ -203,8 +229,8 @@ public static class ClassicBloodRules
     public static float RibbonThreshold(float age) => 1f - (1f - RibbonErodeFloor) * MathF.Pow(RibbonEnvelope(age), RibbonErodeCurve);
 
     /// <summary>A band texel's score (the shader's <c>score</c>) from its shape <paramref name="prof"/> across, <paramref name="taper"/> along, and its mottle and grain noise (0..1).</summary>
-    public static float RibbonScore(float prof, float taper, float n, float grain) =>
-        prof * taper * (RibbonMottleFloor + (1f - RibbonMottleFloor) * Smooth(0.15f, 0.85f, 0.75f * n + 0.25f * grain));
+    public static float RibbonScore(float prof, float taper, float n, float grain, float floor = RibbonMottleFloor) =>
+        prof * taper * (floor + (1f - floor) * Smooth(0.15f, 0.85f, 0.75f * n + 0.25f * grain));
     /// <summary>The half width is kept under this share of the curve's local radius (ours; repair of review 5, finding 2: a wide camera-facing strip on a bend folded into stepped edges).</summary>
     public const float RibbonFoldShare = 0.7f;
     /// <summary>The share of its width a band keeps when seen along its length (its tangent toward the camera; ours; repair of review 5, finding 2), smoothly up to all of it side-on.</summary>
@@ -288,14 +314,14 @@ public static class ClassicBloodRules
     /// inner 35 % of each band's reach) that is. <paramref name="seeds"/> sprays of <paramref name="count"/> sweep bands are averaged, each band laid out by <see cref="RibbonBandLayout"/>.
     /// Used by the tests to hold the covered area to the envelope; it ignores the anti-aliased rim (a pixel wide) and the view.
     /// </summary>
-    public static (float Area, float Core) RibbonCoverage(float age, int count = NormalRibbons, float grow = 1f, int seeds = 6, int along = 60, int across = 24)
+    public static (float Area, float Core) RibbonCoverage(float age, int count = NormalRibbons, float grow = 1f, int seeds = 6, int along = 60, int across = 24, int firstSeed = 0)
     {
-        float thr = RibbonThreshold(age);
+        float thr = RibbonThreshold(age), env = RibbonEnvelope(age), floor = RibbonMottleFloorFor(count);
         double tot = 0, cov = 0, ctot = 0, ccov = 0;
         var (lenBack, lenFwd) = RibbonReach(RibbonKind.Sweep, 1f);
-        for (int sd = 0; sd < seeds; sd++)
+        for (int sd = firstSeed; sd < firstSeed + seeds; sd++)
         {
-            float seed = (float)((sd * 0.137) % 1.0);
+            float seed = RibbonSeed(sd);
             var rng = new Random(5413 + sd);
             float lead = sd % 2 == 0 ? 1f : -1f;
             for (int ri = 0; ri < count; ri++)
@@ -312,12 +338,13 @@ public static class ClassicBloodRules
                     for (int j = 0; j < across; j++)
                     {
                         float x = -1f + 2f * (j + 0.5f) / across;
-                        float edge = 0.62f + 0.38f * VNoise(s * 5f + ri * 7.3f + seed * 13f, ri * 3.1f + MathF.Sign(x) * 4.7f);
+                        float edge = 0.62f + 0.38f * VNoise(s * 5f + ri * 7.3f + seed * 13f, ri * 3.1f + MathF.Sign(x) * 4.7f) + RibbonEdgeGrit * (VNoise(s * 17f + ri * 2.3f + seed * 3f, MathF.Sign(x) * 6.1f + ri) - 0.5f);
                         float prof = 1f - Smooth(edge - 0.45f, edge, MathF.Abs(x));
                         float taper = 1f - Smooth(0.4f, 1f, end);
                         float n = 0.6f * VNoise(s * 2.4f + seed * 17f + ri * 5.3f, x * 1.1f + ri * 9.1f + age * 0.4f) + 0.4f * VNoise(s * 7.5f - seed * 7f + ri * 2.7f, x * 2.4f - age * 0.7f);
                         float grain = VNoise(s * 16f + ri * 3.7f, x * 5f + seed * 11f);
-                        bool blood = RibbonScore(prof, taper, n, grain) > thr;
+                        float fine = VNoise(s * RibbonGritScale + ri * 4.1f + seed * 19f, x * 7f + seed * 5f);
+                        bool blood = RibbonScore(prof, taper, n, grain, floor) * RibbonHole(fine, env) > thr;
                         tot += w; if (blood) cov += w;
                         if (MathF.Abs(x) < 0.35f && end < 0.35f) { ctot++; if (blood) ccov++; }
                     }
@@ -337,7 +364,7 @@ public static class ClassicBloodRules
         double a = H(ix, iy), b = H(ix + 1, iy), c = H(ix, iy + 1), d = H(ix + 1, iy + 1);
         return (float)((a + (b - a) * ux) + ((c + (d - c) * ux) - (a + (b - a) * ux)) * uy);
     }
-    public static float RibbonWidthScale(float amount) => 1f + 0.12f * MathF.Max(0f, amount - 1f);
+    public static float RibbonWidthScale(float amount) => 1f + 0.3f * MathF.Max(0f, amount - 1f);   // 0.12 before repair 5 (heavy x1.15, lethal x1.33: wider, not a fourth band)
 
     /// <summary>
     /// The reach (m) behind the contact (the side the weapon or shot came from) and past it, per kind: a sweep lays blood about 0.9 body heights past the body and part of that on the near
@@ -350,7 +377,7 @@ public static class ClassicBloodRules
             RibbonKind.Thrust => (0.35f, 1.5f),
             RibbonKind.Gunfire => (0.3f, 1.5f),
             RibbonKind.Charge => (0.3f, 1.4f),
-            _ => (0.9f, 1.8f),
+            _ => (0.9f, RibbonSweepReach),
         };
         float k = 1f + 0.1f * MathF.Max(0f, amount - 1f);
         return (b * k, f * k);

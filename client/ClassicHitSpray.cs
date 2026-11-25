@@ -226,7 +226,7 @@ void fragment() {
     {
         if (_sprays[0] is null) return;
         var s = Take();
-        s.On = true; s.Age = 0.0; s.Life = 0.25f; s.Weapon = null; s.Origin = at; s.Known = Slots - 1;
+        s.On = true; s.Age = 0.0; s.Life = 1f; s.Weapon = null; s.Origin = at; s.Known = Slots - 1;   // a second (0.25 s before repair 5, finding 5), in front of the camera (the caller)
         s.Node.GlobalTransform = new Transform3D(Basis.Identity, at);
         s.Material.SetShaderParameter(PCount, 0f);
         s.Node.Visible = true;

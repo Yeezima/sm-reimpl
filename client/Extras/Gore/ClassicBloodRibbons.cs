@@ -37,6 +37,7 @@ uniform float len_fwd = 1.8;
 uniform float count = 7.0;
 uniform float bundle = 0.756;              // the stack's height across the stroke (m; ClassicBloodRules.RibbonBundleFor: at least a band's width between neighbours)
 uniform float size = 1.0;
+uniform float mfloor = 0.25;              // the mottle floor (ClassicBloodRules.RibbonMottleFloorFor: higher for one- or two-band sprays)
 uniform float grow = 1.0;                 // the share of the hang's 60 % growth this spray takes (ClassicBloodRules.RibbonGrow: the stack stays under its height cap)
 uniform float seed = 0.0;
 uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
@@ -77,8 +78,8 @@ void vertex() {
         float slot = count > 1.0 ? (ri + 0.5) / count - 0.5 : 0.0;
         float c2 = 2.0 * abs(slot);
         float lead = fract(seed * 7.31) < 0.5 ? -1.0 : 1.0;
-        float shift = len_fwd * ({{F(ClassicBloodRules.RibbonStaggerOuter)}} * c2 + {{F(ClassicBloodRules.RibbonStaggerEchelon)}} * slot * lead + {{F(ClassicBloodRules.RibbonStaggerJitter)}} * (h2 - 0.5));
-        float fwd = len_fwd * (0.6 + 0.4 * h1) * (1.0 - {{F(ClassicBloodRules.RibbonStaggerReach)}} * c2);
+        float shift = len_fwd * ({{F(ClassicBloodRules.RibbonStaggerOuter)}} * c2 + {{F(ClassicBloodRules.RibbonStaggerJitter)}} * (h2 - 0.5));
+        float fwd = len_fwd * (0.6 + 0.4 * h1) * (1.0 - {{F(ClassicBloodRules.RibbonStaggerReach)}} * c2) * (1.0 + {{F(ClassicBloodRules.RibbonStaggerEchelon)}} * slot * lead);   // the leading side reaches farther: slanted far ends
         float back = len_back * (0.45 + 0.55 * h2) * (1.0 - {{F(2f * ClassicBloodRules.RibbonStaggerReach)}} * c2);
         float sl = mix(-back, fwd, UV.x);
         float s = shift + sl;
@@ -95,7 +96,8 @@ void vertex() {
         // apart toward the far end, the bundle growing as it hangs (review 3: the reference's bands, its height +63 %), by the share `grow` that keeps the stack under
         // {{F(ClassicBloodRules.RibbonStackMax)}} m (RibbonGrow); neighbours at least a band's width apart (repair 3), so the stroke's direction reads
         vec3 across3 = normalize(up2 + side * 0.5 * (h3 - 0.5));
-        float off = (slot * bundle + (h4 - 0.5) * 0.06) * (1.0 + 0.1 * grow * s) * (1.0 + grow * hold);
+        float div = s <= 0.0 ? {{F(ClassicBloodRules.RibbonDivergeFrom)}} : mix({{F(ClassicBloodRules.RibbonDivergeFrom)}}, 1.0, clamp(s / max(len_fwd, 1e-3), 0.0, 1.0));   // ClassicBloodRules.RibbonDiverge: the bands leave the body together and part by angle (repair 5)
+        float off = (slot * bundle * div + (h4 - 0.5) * 0.06) * (1.0 + grow * hold);
         p += across3 * off + vec3(0.0, 1.0, 0.0) * 0.2 * hold * (1.0 + 0.8 * grow * (h1 - 0.5));   // a lift of about 5 % of his height, no droop (the bands' lifts differ less as the growth is held back)
         vec3 pv = (MODELVIEW_MATRIX * vec4(p, 1.0)).xyz;
         vec3 tv = (MODELVIEW_MATRIX * vec4(p + tng * 0.05, 1.0)).xyz - pv;
@@ -126,7 +128,8 @@ float vnoise(vec2 p) {
 void fragment() {
     float x = UV.y * 2.0 - 1.0;
     // the band's shape as a field, 1 in its middle to 0 at its ragged edge and its staggered ends (the reference's broad mottled bands)
-    float edge = 0.62 + 0.38 * vnoise(vec2(v_s * 5.0 + v_ri * 7.3 + seed * 13.0, v_ri * 3.1 + sign(x) * 4.7));
+    float edge = 0.62 + 0.38 * vnoise(vec2(v_s * 5.0 + v_ri * 7.3 + seed * 13.0, v_ri * 3.1 + sign(x) * 4.7))
+               + {{F(ClassicBloodRules.RibbonEdgeGrit)}} * (vnoise(vec2(v_s * 17.0 + v_ri * 2.3 + seed * 3.0, sign(x) * 6.1 + v_ri)) - 0.5);   // a finer octave on the ragged edge (repair 5)
     float prof = 1.0 - smoothstep(edge - 0.45, edge, abs(x));
     float taper = 1.0 - smoothstep(0.4, 1.0, v_end);
     float n = 0.6 * vnoise(vec2(v_s * 2.4 + seed * 17.0 + v_ri * 5.3, x * 1.1 + v_ri * 9.1 + age * 0.4))
@@ -138,7 +141,11 @@ void fragment() {
     // mottled score stays above a threshold the envelope lowers (ClassicBloodRules.RibbonScore and RibbonThreshold), else clear; the bands break into shrinking patches and specks from
     // the edges inward and vanish, the covered area following the envelope (repair 3: RibbonCoverage, tested). Only a pixel-wide anti-aliased rim is in between, where the strip feathers with it:
     // the ground and the blood blended, no darker contour (repair 4, finding N3).
-    float score = prof * taper * mix({{F(ClassicBloodRules.RibbonMottleFloor)}}, 1.0, smoothstep(0.15, 0.85, 0.75 * n + 0.25 * grain));
+    float score = prof * taper * mix(mfloor, 1.0, smoothstep(0.15, 0.85, 0.75 * n + 0.25 * grain));
+    // grit (repair 5, ClassicBloodRules.RibbonHole): small holes where a fine octave is high, more of them as the envelope falls, so late patches break into specks
+    float fine = vnoise(vec2(v_s * {{F(ClassicBloodRules.RibbonGritScale)}} + v_ri * 4.1 + seed * 19.0, x * 7.0 + seed * 5.0));
+    float hthr = {{F(ClassicBloodRules.RibbonHoleFrom)}} - {{F(ClassicBloodRules.RibbonHoleLate)}} * (1.0 - clamp(env, 0.0, 1.0));
+    score *= 1.0 - smoothstep(hthr, hthr + 0.06, fine);
     float thr = 1.0 - {{F(1f - ClassicBloodRules.RibbonErodeFloor)}} * pow(max(env, 0.0), {{F(ClassicBloodRules.RibbonErodeCurve)}});
     float cov = clamp((score - thr) / max(1.5 * fwidth(score), 1e-4) + 0.5, 0.0, 1.0);
     // inside a patch the blood is mottled in density too: where it is thinner, the ground shows through as its own red only (the strip pass), so it reads as darker red, never pink
@@ -171,7 +178,7 @@ void fragment() {
 
     static ArrayMesh? _mesh;
     static Shader? _shader, _stripShader;
-    static readonly StringName PAge = "age", PCtrl = "ctrl", PBack = "len_back", PFwd = "len_fwd", PCount = "count", PBundle = "bundle", PSize = "size", PSeed = "seed", PGrow = "grow", PTint = "tint", POpacity = "opacity";
+    static readonly StringName PAge = "age", PCtrl = "ctrl", PBack = "len_back", PFwd = "len_fwd", PCount = "count", PBundle = "bundle", PSize = "size", PSeed = "seed", PGrow = "grow", PFloor = "mfloor", PTint = "tint", POpacity = "opacity";
 
     sealed class Spray
     {
@@ -188,7 +195,9 @@ void fragment() {
     readonly Vector3[] _ctrl = new Vector3[2 * Half + 1];
     readonly System.Numerics.Vector3[] _ctrlN = new System.Numerics.Vector3[2 * Half + 1];
     (double T, System.Numerics.Vector3 P)[] _pathN = new (double, System.Numerics.Vector3)[64];
-    int _made, _next, _events;
+    int _made, _next, _events = 1;   // the first spray takes RibbonSeed(1), not RibbonSeed(0), a seed whose one- and two-band sprays erode early (repair 5, finding 4)
+    /// <summary>The prewarm spray while it lives: kept in front of the camera every frame (repair 5, finding 5), so its pipelines are built whatever the camera does.</summary>
+    Spray? _warm;
     /// <summary>Sprays started, live sprays reused because every one was live (for logs and tests).</summary>
     public int Started { get; private set; }
     public int Evicted { get; private set; }
@@ -267,6 +276,7 @@ void fragment() {
         var s = Take();
         s.On = true; s.Age = ClassicBloodRules.RibbonSeconds - 1.0;   // drawn (empty) for a second: both passes' pipelines are built in the background meanwhile (repair 4, finding N6)
         s.Node.GlobalTransform = new Transform3D(Basis.Identity, at);
+        _warm = s;
         s.Set(PCount, 0f);
         s.Set(PAge, (float)s.Age);
         s.Node.Visible = true;
@@ -287,6 +297,7 @@ void fragment() {
             new System.Numerics.Vector3(dir.X, dir.Y, dir.Z), back, fwd, _ctrlN);
         for (int i = 0; i < _ctrl.Length; i++) _ctrl[i] = new Vector3(_ctrlN[i].X, _ctrlN[i].Y, _ctrlN[i].Z);
         var s = Take();
+        if (ReferenceEquals(s, _warm)) _warm = null;
         s.On = true; s.Age = preAge;
         s.Node.GlobalTransform = new Transform3D(Basis.Identity, contact);
         s.Set(PCtrl, _ctrl);
@@ -299,7 +310,8 @@ void fragment() {
         s.Set(PBundle, bundle);
         s.Set(PGrow, ClassicBloodRules.RibbonGrow(count, bundle, size, fwd, back));
         s.Set(PSize, size);
-        s.Set(PSeed, (float)((_events++ * 0.137) % 1.0));
+        s.Set(PSeed, ClassicBloodRules.RibbonSeed(_events++));   // golden-ratio steps from 0.5 (repair 5, finding 4: the first spray always took seed 0, which erodes early)
+        s.Set(PFloor, ClassicBloodRules.RibbonMottleFloorFor(count));
         s.Set(PTint, new Color(ClassicBloodRules.BloodRgb.R, ClassicBloodRules.BloodRgb.G, ClassicBloodRules.BloodRgb.B));   // = ClassicHitSpray.BloodTint; blood only (tested)
         s.Set(POpacity, ClassicBloodRules.RibbonOpacity);
         s.Set(PAge, (float)s.Age);
@@ -314,7 +326,8 @@ void fragment() {
             var s = _sprays[i];
             if (!s.On) continue;
             s.Age += delta;
-            if (s.Age >= ClassicBloodRules.RibbonSeconds) { s.On = false; s.Node.Visible = false; continue; }
+            if (s.Age >= ClassicBloodRules.RibbonSeconds) { s.On = false; s.Node.Visible = false; if (ReferenceEquals(s, _warm)) _warm = null; continue; }
+            if (ReferenceEquals(s, _warm) && GetViewport()?.GetCamera3D() is { } cam) s.Node.GlobalTransform = new Transform3D(Basis.Identity, cam.GlobalPosition - cam.GlobalTransform.Basis.Z * 3f);
             s.Set(PAge, (float)s.Age);
         }
     }

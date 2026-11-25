@@ -225,8 +225,9 @@ public class ClassicBloodRulesTests
         Assert.True(RibbonRenderPriority > 0 && RibbonRenderPriority <= 127);
         // heavier and lethal hits still show more by coverage (bands x width x reach), not brightness
         float Footprint(float amount) => RibbonCount(amount) * RibbonWidthScale(amount) * RibbonReach(RibbonKind.Sweep, amount).Forward;
-        Assert.True(Footprint(1.5f) > 1.3f * Footprint(1f));
-        Assert.True(Footprint(2.1f) > 1.5f * Footprint(1f) && Footprint(2.1f) > Footprint(1.5f));
+        // since repair 5 (finding 3) at most 3 bands: heavy and lethal hits are wider (x1.15, x1.33) and longer instead of a fourth band
+        Assert.True(Footprint(1.5f) > 1.15f * Footprint(1f));
+        Assert.True(Footprint(2.1f) > 1.4f * Footprint(1f) && Footprint(2.1f) > Footprint(1.5f));
     }
 
     [Fact]
@@ -239,7 +240,7 @@ public class ClassicBloodRulesTests
         {
             float grow = RibbonGrow(count, RibbonBundleFor(count, ClassicHitDirRules.SweepSpread, 1f), 1f, sweepFwd, sweepBack);
             var held = RibbonCoverage(0.2f, count, grow);
-            Assert.True(held.Core >= 0.8f, $"{count} bands: the middle is blood at the hold ({held.Core:F2})");
+            Assert.True(held.Core >= 0.7f, $"{count} bands: the middle is blood at the hold ({held.Core:F2})");   // 0.8 before repair 5: the grit opens small holes in it
             Assert.InRange(held.Area / ((1f + grow * 0.2f) * (1f + 0.27f * 0.2f)), 0.25f, 0.6f);   // the hang's growth to 0.2 s taken out: the soft rim and the thinnest mottle are clear: a ragged band, not a slab
             // the drawn area grows while it hangs (wider, longer) to its most at about 0.3 s: the envelope is a share of that (the reference's red excess, % of peak)
             var peak = (Area: MathF.Max(held.Area, RibbonCoverage(0.3f, count, grow).Area), held.Core);
@@ -260,7 +261,10 @@ public class ClassicBloodRulesTests
         // the shader uses the same rule (its threshold is built from these constants)
         var src = RepoFile("client", "Extras", "Gore", "ClassicBloodRibbons.cs");
         Assert.Contains("float thr = 1.0 - {{F(1f - ClassicBloodRules.RibbonErodeFloor)}} * pow(max(env, 0.0), {{F(ClassicBloodRules.RibbonErodeCurve)}});", src);
-        Assert.Contains("float score = prof * taper * mix({{F(ClassicBloodRules.RibbonMottleFloor)}}, 1.0, smoothstep(0.15, 0.85, 0.75 * n + 0.25 * grain));", src);
+        Assert.Contains("float score = prof * taper * mix(mfloor, 1.0, smoothstep(0.15, 0.85, 0.75 * n + 0.25 * grain));", src);
+        Assert.Contains("score *= 1.0 - smoothstep(hthr, hthr + 0.06, fine);", src);
+        Assert.Contains("float fine = vnoise(vec2(v_s * {{F(ClassicBloodRules.RibbonGritScale)}} + v_ri * 4.1 + seed * 19.0, x * 7.0 + seed * 5.0));", src);
+        Assert.Contains("s.Set(PFloor, ClassicBloodRules.RibbonMottleFloorFor(count));", src);
         Assert.Equal(1f, RibbonThreshold(-0.05f), 4);
         Assert.Equal(RibbonErodeFloor, RibbonThreshold(0.2f), 3);
     }
@@ -292,12 +296,13 @@ public class ClassicBloodRulesTests
         Assert.True(RibbonStackMax <= 1.25f);
         Assert.Equal(3, RibbonCount(1f));
         Assert.Equal(RibbonMaxBands, RibbonCount(ClassicHitDirRules.LethalAmount));
-        Assert.True(RibbonMaxBands <= 4);
+        Assert.True(RibbonMaxBands <= 3);
         // a normal sweep still grows the full 60 % while it hangs (review 3's +63 %) unless that would pass the cap; a lethal one gives up most of it (it starts tall)
         var (sb, sf) = RibbonReach(RibbonKind.Sweep, ClassicHitDirRules.LethalAmount);
         int lethalBands = RibbonBands(RibbonKind.Sweep, ClassicHitDirRules.SweepSpread, ClassicHitDirRules.LethalAmount);
         float ls = RibbonWidthScale(ClassicHitDirRules.LethalAmount);
-        Assert.True(RibbonGrow(lethalBands, RibbonBundleFor(lethalBands, ClassicHitDirRules.SweepSpread, ls), ls, sf, sb) < 0.5f);
+        // repair 5 (finding 3): with the bands parting by angle and 3 wider bands, a lethal sweep grows again while it hangs (it gave up nearly all of it with 4 bars)
+        Assert.True(RibbonGrow(lethalBands, RibbonBundleFor(lethalBands, ClassicHitDirRules.SweepSpread, ls), ls, sf, sb) >= 0.5f);
         // the shader takes the stack's height, its band count and its growth share from these rules
         var src = RepoFile("client", "Extras", "Gore", "ClassicBloodRibbons.cs");
         Assert.Contains("uniform float bundle", src);
@@ -305,7 +310,8 @@ public class ClassicBloodRulesTests
         Assert.Contains("int count = ClassicBloodRules.RibbonBands(kind, spread, amount);", src);
         Assert.Contains("float bundle = ClassicBloodRules.RibbonBundleFor(count, spread, size);", src);
         Assert.Contains("s.Set(PGrow, ClassicBloodRules.RibbonGrow(count, bundle, size, fwd, back));", src);
-        Assert.Contains("float off = (slot * bundle + (h4 - 0.5) * 0.06) * (1.0 + 0.1 * grow * s) * (1.0 + grow * hold);", src);
+        Assert.Contains("float off = (slot * bundle * div + (h4 - 0.5) * 0.06) * (1.0 + grow * hold);", src);
+        Assert.Contains("float div = s <= 0.0 ? {{F(ClassicBloodRules.RibbonDivergeFrom)}} : mix({{F(ClassicBloodRules.RibbonDivergeFrom)}}, 1.0, clamp(s / max(len_fwd, 1e-3), 0.0, 1.0));", src);
         Assert.Contains("* mix(1.0, 0.6, min(dn, 1.0)) * (1.0 + grow * hold);", src);
         Assert.Contains("0.2 * hold * (1.0 + 0.8 * grow * (h1 - 0.5))", src);   // the lifts RibbonStackHeight allows for (RibbonLiftSpread 0.16 = 0.2 x 0.8, by the growth share)
         Assert.DoesNotContain("{{F(ClassicBloodRules.RibbonBundle)}}", src);
@@ -335,8 +341,8 @@ public class ClassicBloodRulesTests
         Assert.Equal(2, RibbonBands(RibbonKind.Charge, ClassicHitDirRules.ChargeSpread, 1f));
         Assert.Equal(2, RibbonBands(RibbonKind.Charge, ClassicHitDirRules.ChargeSpread, ClassicHitDirRules.LethalAmount));
         Assert.Equal(3, RibbonBands(RibbonKind.Sweep, ClassicHitDirRules.SweepSpread, 1f));
-        Assert.Equal(4, RibbonBands(RibbonKind.Sweep, ClassicHitDirRules.SweepSpread, ClassicHitDirRules.HeavyAmount));
-        Assert.Equal(4, RibbonBands(RibbonKind.Sweep, ClassicHitDirRules.SweepSpread, ClassicHitDirRules.LethalAmount));
+        Assert.Equal(3, RibbonBands(RibbonKind.Sweep, ClassicHitDirRules.SweepSpread, ClassicHitDirRules.HeavyAmount));   // 4 before repair 5: wider, not more
+        Assert.Equal(3, RibbonBands(RibbonKind.Sweep, ClassicHitDirRules.SweepSpread, ClassicHitDirRules.LethalAmount));
         // a normal thrust's stack is one band (0.25 m), a shot's two (0.5 m), a sweep's three (0.76 m)
         Assert.InRange(Stack(RibbonKind.Thrust, ClassicHitDirRules.ThrustSpread, 1f), 0.2f, 0.3f);
         Assert.InRange(Stack(RibbonKind.Gunfire, 0.3f, 1f), 0.45f, 0.55f);
@@ -356,12 +362,13 @@ public class ClassicBloodRulesTests
                 var bands = new (float Shift, float Fwd, float Back, float Width)[count];
                 for (int ri = 0; ri < count; ri++) bands[ri] = RibbonBandLayout(RibbonSlot(ri, count), 0.5f, 0.5f, 0.5f, lead, fwd, back);
                 // the outer bands start past the body and are shorter and narrower than the middle ones: the blood fans out past the body from the middle
-                Assert.True(bands[0].Shift > bands[count / 2].Shift + 0.15f * fwd || bands[^1].Shift > bands[count / 2].Shift + 0.15f * fwd);
+                // repair 5: the bands leave the body together (their middles at most 0.1 of the reach apart along it) and part by angle; one side reaches farther (slanted far ends)
+                Assert.True(MathF.Abs(bands[0].Shift - bands[count / 2].Shift) <= 0.1f * fwd);
                 Assert.True(bands[0].Fwd + bands[0].Back < bands[count / 2].Fwd + bands[count / 2].Back);
                 Assert.True(bands[0].Width < bands[count / 2].Width && bands[^1].Width < bands[count / 2].Width);
                 // one side leads (seeded): the two outer bands are offset along the stroke, the stack reads slanted
-                Assert.True(MathF.Abs(bands[0].Shift - bands[^1].Shift) >= 0.1f * fwd);
-                Assert.Equal(lead > 0f, bands[^1].Shift > bands[0].Shift);
+                Assert.True(MathF.Abs((bands[0].Shift + bands[0].Fwd) - (bands[^1].Shift + bands[^1].Fwd)) >= 0.2f * fwd);
+                Assert.Equal(lead > 0f, bands[^1].Shift + bands[^1].Fwd > bands[0].Shift + bands[0].Fwd);
                 // every band still crosses the body or starts at it (the blood is laid through the contact, not detached from it)
                 foreach (var b in bands) Assert.True(b.Shift - b.Back <= 0.05f * fwd, $"a band starts {b.Shift - b.Back:F2} m past the contact");
             }
@@ -371,8 +378,14 @@ public class ClassicBloodRulesTests
         Assert.Equal(1f, one.Width / (0.8f + 0.5f * 0.5f), 3);
         // the shader lays the bands out the same way
         var src = RepoFile("client", "Extras", "Gore", "ClassicBloodRibbons.cs");
-        Assert.Contains("float shift = len_fwd * ({{F(ClassicBloodRules.RibbonStaggerOuter)}} * c2 + {{F(ClassicBloodRules.RibbonStaggerEchelon)}} * slot * lead + {{F(ClassicBloodRules.RibbonStaggerJitter)}} * (h2 - 0.5));", src);
-        Assert.Contains("float fwd = len_fwd * (0.6 + 0.4 * h1) * (1.0 - {{F(ClassicBloodRules.RibbonStaggerReach)}} * c2);", src);
+        Assert.Contains("float shift = len_fwd * ({{F(ClassicBloodRules.RibbonStaggerOuter)}} * c2 + {{F(ClassicBloodRules.RibbonStaggerJitter)}} * (h2 - 0.5));", src);
+        Assert.Contains("float fwd = len_fwd * (0.6 + 0.4 * h1) * (1.0 - {{F(ClassicBloodRules.RibbonStaggerReach)}} * c2) * (1.0 + {{F(ClassicBloodRules.RibbonStaggerEchelon)}} * slot * lead);", src);
+        // the across-stroke offsets grow from 0.3 of the bundle at the body to all of it at the far reach
+        Assert.Equal(RibbonDivergeFrom, RibbonDiverge(0f, 2f));
+        Assert.Equal(RibbonDivergeFrom, RibbonDiverge(-0.5f, 2f));
+        Assert.Equal(1f, RibbonDiverge(2f, 2f));
+        Assert.Equal(1f, RibbonDiverge(3f, 2f));
+        Assert.InRange(RibbonDivergeFrom, 0.2f, 0.4f);
         Assert.Contains("float back = len_back * (0.45 + 0.55 * h2) * (1.0 - {{F(2f * ClassicBloodRules.RibbonStaggerReach)}} * c2);", src);
         Assert.Contains("float s = shift + sl;", src);
         Assert.Contains("(0.8 + 0.5 * h3) * (1.0 - {{F(ClassicBloodRules.RibbonStaggerWidth)}} * c2)", src);
@@ -505,6 +518,35 @@ public class ClassicBloodRulesTests
     }
 
     [Fact]
+    public void The_bands_are_gritty_at_the_hold_and_break_into_specks_late_and_every_early_seed_lasts()
+    {
+        // repair 5, re-review of 272299f4 finding 2: solid slabs, no grit; a fine octave opens 5 to 15 % small holes at the hold and more as the envelope falls
+        static double H(double px, double py) { double v = Math.Sin(px * 127.1 + py * 311.7) * 43758.5453; return v - Math.Floor(v); }
+        static float VN(float x, float y)
+        {
+            double ix = Math.Floor(x), iy = Math.Floor(y), fx = x - ix, fy = y - iy;
+            double ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+            double a = H(ix, iy), b = H(ix + 1, iy), c = H(ix, iy + 1), d = H(ix + 1, iy + 1);
+            return (float)((a + (b - a) * ux) + ((c + (d - c) * ux) - (a + (b - a) * ux)) * uy);
+        }
+        float Holes(float env) { int n = 0, h = 0; for (int i = 0; i < 400; i++) for (int j = 0; j < 100; j++) { n++; if (RibbonHole(VN(i * 0.37f, j * 0.53f), env) < 0.5f) h++; } return h / (float)n; }
+        Assert.InRange(Holes(1f), 0.05f, 0.15f);
+        Assert.True(Holes(0.2f) > 1.5f * Holes(1f), "late patches break into specks");
+        Assert.InRange(RibbonDensityFloor, 0.4f, 0.6f);   // a wider density range (0.7 before)
+        Assert.True(RibbonShadeTop - RibbonShadeFloor >= 0.3f);   // a wider shade range (0.25 before)
+        // finding 4: a one- or two-band spray's seeds each still show blood at 0.6 s (the first seed of the old sequence, 0, had eroded before 0.5 s); the first spray takes seed 1
+        for (int count = 1; count <= 2; count++)
+            for (int sd = 1; sd <= 12; sd++)
+            {
+                float peak = MathF.Max(RibbonCoverage(0.2f, count, 1f, 1, firstSeed: sd).Area, RibbonCoverage(0.3f, count, 1f, 1, firstSeed: sd).Area);
+                float at = RibbonCoverage(0.6f, count, 1f, 1, firstSeed: sd).Area / peak;
+                Assert.True(at >= 0.05f, $"{count} band(s), seed {sd}: {at:F3} of its peak left at 0.6 s");
+            }
+        Assert.Contains("int _made, _next, _events = 1;", RepoFile("client", "Extras", "Gore", "ClassicBloodRibbons.cs"));
+        Assert.True(RibbonMottleFloorFor(1) > RibbonMottleFloorFor(3));
+    }
+
+    [Fact]
     public void A_headshot_decal_pairs_only_with_the_killers_own_shot_within_the_window_whichever_comes_first()
     {
         Assert.True(HeadshotPairs(shooter: 3, killer: 3, apart: 0.0, window: 1.0));
@@ -518,11 +560,11 @@ public class ClassicBloodRulesTests
     public void Thrusts_and_shots_reach_mostly_past_the_body_sweeps_both_sides_and_heavier_hits_lay_more()
     {
         var sweep = RibbonReach(RibbonKind.Sweep, 1f); var thrust = RibbonReach(RibbonKind.Thrust, 1f); var gun = RibbonReach(RibbonKind.Gunfire, 1f);
-        Assert.InRange(sweep.Forward, 1.6f, 2.0f);   // about 0.9 body heights past the body (the reference)
+        Assert.InRange(sweep.Forward, 2.2f, 2.6f);   // repair 5: a long streak several body widths out along the swing (the owner's reference sequence, 2026-11-25; 1.8 m before)
         Assert.True(sweep.Back > 2f * thrust.Back && sweep.Back > 2f * gun.Back);
         Assert.True(RibbonReach(RibbonKind.Sweep, 2.1f).Forward > sweep.Forward);
         Assert.Equal(3, RibbonCount(1f));   // the most a normal hit lays: a sweep's 3 broad bands (review 3's reference showed 2 to 3); narrower strokes lay fewer (RibbonBands)
-        Assert.True(RibbonCount(1f) < RibbonCount(1.5f) && RibbonCount(1.5f) <= RibbonCount(2.1f) && RibbonCount(2.1f) <= RibbonMaxBands && RibbonCount(100f) == RibbonMaxBands && RibbonMaxBands <= MaxRibbons);
+        Assert.True(RibbonCount(1f) <= RibbonCount(1.5f) && RibbonCount(1.5f) <= RibbonCount(2.1f) && RibbonCount(2.1f) <= RibbonMaxBands && RibbonCount(100f) == RibbonMaxBands && RibbonMaxBands <= MaxRibbons);
         Assert.True(RibbonWidthScale(2.1f) > RibbonWidthScale(1f));
     }
 }
