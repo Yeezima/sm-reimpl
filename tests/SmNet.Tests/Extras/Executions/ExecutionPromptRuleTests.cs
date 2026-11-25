@@ -57,7 +57,7 @@ public class ExecutionPromptRuleTests
             if (ExecutionPromptRules.Common(c, me, false, false, Rows) != ExecutionPromptHidden.None) return;
             if (ExecutionPromptRules.Warfront(c, me, inBattle, false, lastDone, tick, shown) != ExecutionPromptHidden.None) return;
             ExecutionPromptRules.Gather(me, shown, near);
-            ExecutionPromptRules.WarfrontPick(me, 0f, c, Rows, null, near, by, null, ref choices);
+            ExecutionPromptRules.PickOrkVictim(me, 0f, c, Rows, null, near, by, null, ref choices);
         }
         var boy = Shown(5, new Vector3(0f, 1.3f, 0f));
         Frame(Me() with { Alive = false }, true, null, 100, [boy]);
@@ -74,7 +74,7 @@ public class ExecutionPromptRuleTests
         Assert.Equal(ExecutionPromptHidden.Executing, ExecutionPromptRules.Common(c, Me(), false, true, Rows));
         Assert.Equal(ExecutionPromptHidden.Puppet, ExecutionPromptRules.Common(c, Me() with { PlayerId = SmSim.Extras.Musou.Campaign.TfwContracts.PuppetIdFirst }, false, false, Rows));
         // An empty gather never calls the choice either.
-        ExecutionPromptRules.WarfrontPick(Me(), 0f, c, Rows, null, [], by, null, ref choices);
+        ExecutionPromptRules.PickOrkVictim(Me(), 0f, c, Rows, null, [], by, null, ref choices);
         Assert.Equal(0, choices);
         // All passed: one choice.
         Frame(Me(), true, null, 100, [boy]);
@@ -198,7 +198,7 @@ public class ExecutionPromptRuleTests
         Assert.Equal(5, near.Count);
         var reserved = new HashSet<ushort> { 12 };
         int choices = 0;
-        ushort prompt = ExecutionPromptRules.WarfrontPick(me, me.Yaw, c, Rows, null, near, [], reserved, ref choices);
+        ushort prompt = ExecutionPromptRules.PickOrkVictim(me, me.Yaw, c, Rows, null, near, [], reserved, ref choices);
         // The press (X4: the same call with the seed of the press tick) takes the same Ork.
         var press = ExecutionChoice.ChooseAlignedOrk(me, me.Yaw, "c", "sm_mp_melee_chainsword", near, Rows, c, null, reserved, id => ExecutionChoice.Seed(4321, me.PlayerId, id), []);
         Assert.True(press.Result.Ok);

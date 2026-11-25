@@ -140,7 +140,7 @@ public static class ExecutionPromptRules
     /// The Ork the press would take (0: none fits): <see cref="ExecutionChoice.ChooseAlignedOrk"/> in its prompt mode (no seed: the first fitting move; the Ork chosen is the press's) on the
     /// stand-ins of <see cref="Gather"/>, the reserved Orks (being executed by others) skipped. <paramref name="choices"/> counts the calls (the tests' early-out check).
     /// </summary>
-    public static ushort WarfrontPick(in PlayerState me, float facingYaw, SimConfig c, IReadOnlyList<ExecutionRow> rows, CollisionWorld? world, IReadOnlyList<MusouEnemy> near,
+    public static ushort PickOrkVictim(in PlayerState me, float facingYaw, SimConfig c, IReadOnlyList<ExecutionRow> rows, CollisionWorld? world, IReadOnlyList<MusouEnemy> near,
         IReadOnlyList<Vector3> bystanders, IReadOnlySet<ushort>? reserved, ref int choices)
     {
         if (near.Count == 0 || Loadouts.ClassOf(c, me.Class) is not { } loadout || MeleeKey(c, me) is not { } weapon) return 0;
