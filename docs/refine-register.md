@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4102 spec table rows: **3029 tagged**, 702 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 1 malformed (not classified). Part C lists 850 rows of the changes document.
+Scanned 4102 spec table rows: **3030 tagged**, 702 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,15 +51,15 @@ Scanned 4102 spec table rows: **3029 tagged**, 702 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 180 | 178 | 66 | 75 | 0 |
+| General game design | 181 | 179 | 66 | 76 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3029** | 2720 | 2225 | 914 | 37 |
+| **All areas** | **3030** | 2721 | 2225 | 915 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1835 |
+| kind: ours | 1836 |
 | confidence: low | 1069 |
 | confidence: medium | 1045 |
 | notes: ours | 476 |
@@ -70,7 +70,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
-| notes: provisional | 44 |
+| notes: provisional | 45 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
@@ -4316,7 +4316,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (180)
+### General game design (181)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4561,6 +4561,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3203B820` | Shape | one flat quad per hit on the streak's plane; up to 3 exit branches fanned by the half-fan (upper +1, middle +0.35, lower -0.25 of it, seeded +-15 %), a fourth below them (-0.75) on a heavy or killing hit; one entry stub behind the wound; each branch narrow at… | kind: ours; confidence: medium | ours | Shape: compare with SM1 by feel or video. Ours: one flat quad per hit on the streak's plane; up to 3 exit branches… | ☐ |
 | `R-83AB040B` | Grit | 256 x 256 tileable noise made in code (coarse blotches, fine grain, a smear stretched along U), sampled 4:1 along each branch; a texel is blood where 0.3 field + 0.55 blotch + 0.15 smear beats 1 - fill, with pinholes where the grain beats 1 - 0.45 grit; a… | kind: ours; confidence: medium | ours | Grit: compare with SM1 by feel or video. Ours: 256 x 256 tileable noise made in code (coarse blotches, fine grain, a… | ☐ |
 | `R-1ED6EC7C` | Colour | repair 4's two passes: a strip (blend_mul: the red under a texel kept at 0.125, green and blue removed, at 7 x the blood opacity on Forward+ (0.75 to 1 by coverage); on Compatibility, whose multiply blend darkened even where it multiplied by 1, the strip is a… (linear RGB) | notes: ours | owner card "Keep our darker red"; values ours | Colour: compare with SM1 by feel or video. Ours: repair 4's two passes: a strip (blend_mul: the red under a texel kept… | ☐ |
+| `R-CA2A6ABA` | Width and stub by plane and source (iteration after the gate repair, lead 41) | the streak's width x 1.45 for a sweep (its oblique swing plane); for the others 1.25 - 0.75 x abs(normal . toward camera) (0.55 to 1: a face-on plane showed two to three times the reference's area), an explosion 0.75 of that; the entry stub x 0.72 for a… (share) | kind: ours; notes: provisional | ours (tuned on the scoring tools' area and entry measures) | Width and stub by plane and source (iteration after the…: compare with SM1 by measuring on a flat spot of the same map. Ours: the streak's width x 1.45 for a sweep (its oblique swing plane); for… | ☐ |
 | `R-21291506` | Size by weapon | light 0.75 (pistols, knife, a light first melee step), normal 1 (bolter, standard sweeps), heavy 1.35 (lascannon, heavy bolter, autocannon, missiles, sniper rifles (lead 41 decision, provisional), hammers, mauls, power axes, heavy or charged steps, charges… (share) | kind: ours; confidence: medium | owner card ("Same shape, scaled by weapon"; "bigger on death"); the values ours | Size by weapon: compare with SM1 by measuring on a flat spot of the same map. Ours: light 0.75 (pistols, knife, a light first melee step), normal 1… | ☐ |
 | `R-BE0A0331` | Body height | Classic 2.0 m; Warfront the enemy type's chest height / 0.6 (Boy 1.83 m, Gretchin 1.17 m, Nob 2.33 m) (m) | kind: ours; confidence: medium | ours | Body height: compare with SM1 by measuring on a flat spot of the same map. Ours: Classic 2.0 m; Warfront the enemy type's chest height / 0.6 (Boy 1.83… | ☐ |
 | `R-E03817BA` | Plane | a sweep: the swing plane from the weapon's drawn path 0.08 s either side of the contact (else the vertical plane through the axis); a thrust, a shot, a charge and an explosion: the vertical plane rolled round the axis by a seeded 13 to 40 deg; an explosion's… (deg) | kind: ours; confidence: medium | ours (design state/design-gore-streak-1125.md) | Plane: compare with SM1 by feel or video. Ours: a sweep: the swing plane from the weapon's drawn path 0.08 s either… | ☐ |
@@ -6639,12 +6640,4 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-0D99C328` | Pool and budget | Added content: Gore streak (gore-streak, 2026-11-25; owner decision "gore must match the reference sequence"; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
 | `R-370B07DC` | `gore streak:` log line | Added content: Gore streak (gore-streak, 2026-11-25; owner decision "gore must match the reference sequence"; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
 | `R-E57CA83A` | Capture aid `--gore-streak-capture <case>` | Added content: Gore streak (gore-streak, 2026-11-25; owner decision "gore must match the reference sequence"; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
-
-### Malformed spec rows
-
-Rows whose cell count differs from their table's header. Their cells are shifted, so they are not classified. Fix them in the spec.
-
-| Line | Section | Parameter | Problem |
-|---:|---|---|---|
-| 7191 | Added content: Gore streak (gore-streak, 2026-11-25; owner decision "gore must match the reference sequence"; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) | Width and stub by plane and source (iteration after the gate repair, lead 41) | 10 cells, header has 8 |
 
