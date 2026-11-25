@@ -177,6 +177,9 @@ public static class BuiltMaskOverrides
         // toward the median (edges and scratches stay) and wear flecks split off as trim or kept baked join the plate (80 texels; legs and backpack, rubbed to bare metal in larger flecks, 200). Legs and backpack keep a softer contrast.
         .. Each(["sm_armour_blacktemp_legl", "sm_armour_blacktemp_legr", "sm_armour_blacktemp_backpack", "sm_armour_black_temp_legl", "sm_armour_black_temp_legr",
                  "sm_armour_black_temp_backpack"], [], "Black Templars legs and backpack: wear blotches flattened", contrast: 0.7f, minIsland: 200, flatten: 0.85f),
+        // The legs' boot rims were a soft primary + tertiary blend (a magenta fringe in test_rgb): every leg texel goes wholly to the region it is mostly in.
+        .. Each(["sm_armour_blacktemp_legl", "sm_armour_blacktemp_legr", "sm_armour_black_temp_legl", "sm_armour_black_temp_legr"], Harden(0f, 0f, 1f, 1f),
+            "Black Templars legs: regions crisp"),
         .. Each(["sm_armour_blacktemp_helmet", "sm_armour_black_temp_helmet", "sm_armour_blacktemp_arml", "sm_armour_black_temp_arml", "sm_armour_blacktemp_armr",
                  "sm_armour_black_temp_armr", "sm_armour_blacktemp_torso", "sm_armour_black_temp_torso"], [],
             "Black Templars helmet, arms and torso: wear blotches flattened", minIsland: 80, flatten: 0.85f),
@@ -241,7 +244,7 @@ public static class BuiltMaskOverrides
         // raggedly. The disc is primary, its outer rim (a ring 0.045 wide) and the silver skull emblem tertiary; the engraved runes stay as shading.
         .. Each(["csm_armour_basic_shldrl", "csm_armour_berserker_shldrl", "csm_armour_raptor_shldrl"],
             [.. GildedDisc(0f, 0.01f, 0.98f, 0.85f), new MaskRegionOverride(0.18f, 0.21f, 0.76f, 0.73f, MaskRegion.Tertiary, new TexelFilter(MinLum: 60f, MaxChroma: 14f), Ellipse: true)],
-            "Campaign Chaos left pads: gilded disc primary, rim and emblem tertiary"),
+            "Campaign Chaos left pads: gilded disc primary, rim and emblem tertiary", contrast: 0.7f),
         // Campaign basic right pad (re-gate: "R pad dome mottled dark/primary"): the same gilded disc (a compass star engraved on it) split 43 / 57 between primary and
         // tertiary in patches; the disc is primary, its rim tertiary.
         new("csm_armour_basic_shldrr", null, null, GildedDisc(0.03f, 0f, 0.98f, 0.76f), "Campaign basic right pad: gilded disc primary, rim tertiary"),
@@ -371,8 +374,8 @@ public static class BuiltMaskOverrides
             new MaskRegionOverride(0.175f, 0.32f, 0.825f, 0.86f, MaskRegion.Tertiary, new TexelFilter(MaxLum: 60f), Ellipse: true),
         ], "Space Wolves left pad: disc field primary, wolf tertiary, crisp", MinIsland: 40),
         // Space Wolves arms (re-gate: "R arm flat and bright"): over a quarter of the arm's texels reached the highlight ceiling (p75 115 of a ceiling of 116, regular
-        // arm p75 101); the shading keeps 55 % of its distance from the target.
-        .. Each(["sm_armour_mp_spacewolves_arml", "sm_armour_mp_spacewolves_armr"], [], "Space Wolves arms: softer shading (no flat highlight)", contrast: 0.55f),
+        // arm p75 101); the shading keeps 30 % of its distance from the target (55 % left p75 at 112).
+        .. Each(["sm_armour_mp_spacewolves_arml", "sm_armour_mp_spacewolves_armr"], [], "Space Wolves arms: softer shading (no flat highlight)", contrast: 0.3f),
         new("sm_armour_mp_spacewolves_shldrr", null, null,
             [new MaskRegionOverride(0.17f, 0.32f, 0.83f, 0.87f, MaskRegion.Tertiary, Hue(-0.4f, 1.05f, 28f, 15f), Ellipse: true)], "Space Wolves right pad: red chevrons tertiary"),
 
