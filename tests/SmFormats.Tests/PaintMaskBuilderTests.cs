@@ -289,6 +289,62 @@ public sealed class PaintMaskBuilderTests
     }
 
     [Fact]
+    public void Region_overrides_from_and_outside_select_texels_by_region_and_ellipse()
+    {
+        // Round 3, second worker: From narrows a region to texels the mask so far puts mostly in that region; Outside inverts the ellipse.
+        int w = 8, h = 8;
+        var m = new byte[w * h * 4];
+        for (int i = 0; i < w * h; i++) m[i * 4] = (byte)(i % 2 == 0 ? 255 : 40);   // even texels primary, odd texels painted under half (baked)
+        var mask = new PaintMaskBuilder.MaskOnly(w, h, m, 80f, 80f, 60f, 0.5f, 0f, 0f);
+        var dif = new SmFormats.Dds.DdsImage(w, h, new byte[w * h * 4]);
+        var all = new bool[w * h]; Array.Fill(all, true);
+        var o = BuiltMaskOverrides.Apply(mask, dif, [new MaskRegionOverride(0f, 0f, 1f, 1f, MaskRegion.Secondary, From: MaskRegion.Baked)], all);
+        Assert.Equal((255, 0), (o.Mask[0], o.Mask[1]));            // texel 0 was primary: kept
+        Assert.Equal((0, 255), (o.Mask[4], o.Mask[5]));            // texel 1 was baked: now secondary
+        var e = BuiltMaskOverrides.Apply(mask, dif, [new MaskRegionOverride(0f, 0f, 1f, 1f, MaskRegion.Tertiary, Ellipse: true, Outside: true)], all);
+        Assert.Equal(255, e.Mask[2]);                              // corner (0,0): outside the ellipse
+        int c = (4 * w + 4) * 4;
+        Assert.Equal(m[c + 2], e.Mask[c + 2]);                     // centre: inside, unchanged
+        Assert.Equal(MaskRegion.Baked, BuiltMaskOverrides.RegionOf(40, 40, 40));
+        Assert.Equal(MaskRegion.Tertiary, BuiltMaskOverrides.RegionOf(10, 20, 200));
+    }
+
+    [Fact]
+    public void Built_pieces_are_shaded_to_the_regular_piece_of_their_race_and_slot()
+    {
+        // Round 3, second worker: per race and slot luminance targets (measured on the regular masked armour); the restore switch gives the single first-build value.
+        Assert.Equal(50f, BakedArmourPaint.LuminanceTargets("csm_armour_berserker_torso").Primary);
+        Assert.Equal(74f, BakedArmourPaint.LuminanceTargets("csm_armour_raptor_legl").Secondary);
+        Assert.Equal(98f, BakedArmourPaint.LuminanceTargets("sm_armour_mp_dlc2_set2_shldrl").Primary);
+        Assert.Equal(PaintMaskBuilder.Targets.Default, BakedArmourPaint.LuminanceTargets(null));
+        try
+        {
+            BakedArmourPaint.OldBrightness = true;
+            Assert.Equal(PaintMaskBuilder.Targets.Default, BakedArmourPaint.LuminanceTargets("csm_armour_berserker_torso"));
+        }
+        finally { BakedArmourPaint.OldBrightness = false; }
+        // A darker target gives a darker grey diffuse for the same mask.
+        var (dif, spc) = Synthetic();
+        var mask = PaintMaskBuilder.BuildMask(dif, spc, null);
+        var bright = PaintMaskBuilder.WithGrey(dif, mask, new(90f, 90f, 62f));
+        var dark = PaintMaskBuilder.WithGrey(dif, mask, new(50f, 50f, 62f));
+        int plate = (40 * W + 10) * 4;
+        Assert.True(dark.Diffuse[plate] < bright.Diffuse[plate]);
+        Assert.Equal(PaintMaskBuilder.WithGrey(dif, mask).Diffuse, PaintMaskBuilder.WithGrey(dif, mask, PaintMaskBuilder.Targets.Default).Diffuse);
+    }
+
+    [Fact]
+    public void Every_region_override_names_an_armour_package_and_a_region_inside_the_texture()
+    {
+        Assert.All(BuiltMaskOverrides.All, e =>
+        {
+            Assert.Matches("^c?sm_armour_", e.Package);
+            Assert.InRange(e.Brightness, 0.5f, 1.5f);
+            Assert.All(e.Regions, r => Assert.True(r.U0 >= 0f && r.V0 >= 0f && r.U1 <= 1f && r.V1 <= 1f && r.U0 < r.U1 && r.V0 < r.V1, $"{e.Package}: {r}"));
+        });
+    }
+
+    [Fact]
     public void Dds_round_trip_keeps_the_first_level_and_writes_a_full_mip_chain()
     {
         var (dif, _) = Synthetic();

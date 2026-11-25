@@ -257,7 +257,40 @@ public static class BuiltMaskOverrides
             new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Primary, Hue(0.2f, 1.1f, 15f)),
             new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Tertiary, new TexelFilter(MinLum: 45f, MaxChroma: 12f)),
         ], "Corvus right pad: red base plate primary, silver wings tertiary"),
+
+        // Legion of the Damned (dlc1_set1; owner: flames secondary). The flames' dark red outlines (chroma 8 to 20, too dull for the secondary-hue rule) stayed baked
+        // between the black field and the flame ("flame bases fade into the field"): in the flame bands warm texels with some chroma are flame (secondary) and the
+        // remaining baked texels field (primary). Right pad: the bone skull below the dome was rim (secondary, drawn in the bright rim colour: "over-saturated"); it is
+        // tertiary like the scroll.
+        .. Each(["sm_armour_mp_dlc1_set1_shldrl"],
+            [new MaskRegionOverride(0f, 0.08f, 1f, 0.31f, MaskRegion.Secondary, Hue(0.3f, 1.4f, 8f, 8f), From: MaskRegion.Baked),
+             new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Primary, From: MaskRegion.Baked)], "Legion of the Damned left pad: flame outlines secondary"),
+        .. Each(["sm_armour_mp_dlc1_set1_legl", "sm_armour_mp_dlc1_set1_legr"],
+            [new MaskRegionOverride(0f, 0.82f, 1f, 1f, MaskRegion.Secondary, Hue(0.3f, 1.4f, 8f, 8f), From: MaskRegion.Baked),
+             new MaskRegionOverride(0f, 0.82f, 1f, 1f, MaskRegion.Primary, From: MaskRegion.Baked)], "Legion of the Damned legs: flame outlines secondary"),
+        new("sm_armour_mp_dlc1_set1_shldrr", null, null,
+            [new MaskRegionOverride(0f, 0.55f, 0.36f, 0.9f, MaskRegion.Tertiary, new TexelFilter(MinLum: 50f, MaxChroma: 30f)), Whole(MaskRegion.Tertiary, new TexelFilter(MinLum: 50f, MaxChroma: 30f))],
+            "Legion of the Damned right pad: skull tertiary"),
+
+        // Alpha Legion Champion (chaos dlc1_set1) legs and arms: the teal scale panels (hue past -2.3 rad, beyond the plate hue match) and parts of the blue plates
+        // stayed baked ("right leg teal scale baked"; the "faint baked blue" in the Word Bearers row), and the silver trim bands were unpainted. Blue and teal are the
+        // plate (legs: secondary, arms: primary, the regular Chaos channels); the grey trim is tertiary like the regular Chaos trim.
+        .. Each(["csm_armour_mp_dlc1_set1_legl", "csm_armour_mp_dlc1_set1_legr"],
+            [Whole(MaskRegion.Secondary, AlBlueTeal, from: null), Whole(MaskRegion.Tertiary, ChaosSilver)], "Alpha Legion legs: blue and teal plate, silver trim tertiary"),
+        .. Each(["csm_armour_mp_dlc1_set1_arml", "csm_armour_mp_dlc1_set1_armr", "csm_armour_mp_dlc1_set1_torso", "csm_armour_mp_dlc1_set1_bp"],
+            [Whole(MaskRegion.Primary, AlBlueTeal, from: null), Whole(MaskRegion.Tertiary, ChaosSilver)], "Alpha Legion arms, torso and backpack: blue and teal plate, silver trim tertiary"),
+
+        // dlc2_set3 / dlc3_set2 helmet (byte-identical textures): its baked plate is a light, even grey, so the shaded crown drew flat and brighter than the regular
+        // pieces beside it ("helmet crown flat / over-bright"); its targets are scaled down. Partial: the texture has little shading to keep.
+        .. Each(["csm_armour_mp_dlc2_set1_helmet", "csm_armour_mp_dlc3_set1_helmet"], [], "dlc2_set3 / dlc3_set2 helmet: as bright as the body") is var h
+            ? h.Select(o => o with { Brightness = 0.82f }) : [],
     ];
+
+    /// <summary>Alpha Legion blue and teal plate paint (hue from 2.6 round through pi to -1.0 rad).</summary>
+    static TexelFilter AlBlueTeal => new(MinLum: 10f, MinHue: 2.6f, MaxHue: -1.0f, MinChroma: 8f);
+
+    /// <summary>Grey silver trim (light, nearly colourless).</summary>
+    static TexelFilter ChaosSilver => new(MinLum: 45f, MaxChroma: 8f);
 
     /// <summary>The campaign raptor's yellow and orange plate paint.</summary>
     static TexelFilter RaptorYellow => Hue(1.0f, 1.8f, 55f, 60f);
