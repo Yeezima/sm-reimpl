@@ -44,6 +44,9 @@ public static class WarfrontBreachRules
     /// <summary>A breach stands on an enemy source, or when the source itself is too near something, on a ring round it this far out (ours: 10 m, then 20 m, 8 spots each).</summary>
     public const float RingStep = 10f;
     public const int Rings = 2, RingSpots = 8;
+    /// <summary>A ring spot (Fable review 3; ours): on the source's floor, within this height of its foot; reached on foot from the source within this many times the ring's radius; the walk's search is bounded by this many nodes.</summary>
+    public const float RingVertical = 1.5f, RingDetour = 2.5f;
+    public const int RingPathExpandedMost = 20_000;
     /// <summary>The most breaches a battle has (the wire's limit, <c>WarfrontChaosWire.MaxBreaches</c>).</summary>
     public const int MaxBreaches = 8;
     /// <summary>The salt of the placement rolls (the battle's own <c>TfwBattle.Roll</c> mixing).</summary>

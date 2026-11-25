@@ -114,7 +114,7 @@ public class ChaosWireTests : IDisposable
     }
 
     /// <summary>A Warfront stage of <paramref name="config"/> on the test arena, one identified client, a battle landed in the stage's own world; every tag-51 section the client got.</summary>
-    static (List<byte[]> Sections, GameServer Server) Stage(SimConfig config, double seconds)
+    static (List<byte[]> Sections, GameServer Server, Action<double> Run) Stage(SimConfig config, double seconds)
     {
         var map = GameServer.TfwGameMap(TfwTestArena.Data, "wf_b1");
         var h = new Harness(LinkConditions.Perfect, 5, 1, config, new ServerOptions { Match = new MatchRules { CountdownTime = 1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } }, map: map,
@@ -127,7 +127,7 @@ public class ChaosWireTests : IDisposable
         int id = h.Clients[0].PlayerId;
         Assert.True(h.Server.World.Tfw!.Enqueue(id, new TfwCommandRecord(1, TfwCommand.Deploy, 0)));
         Run(seconds);
-        return (got, h.Server);
+        return (got, h.Server, Run);
     }
 
     static SimConfig StageConfig(SimConfig c) => c with { Extras = c.Extras | ContentExtras.Musou | ContentExtras.Warfront };
@@ -135,7 +135,7 @@ public class ChaosWireTests : IDisposable
     [Fact]
     public void A_chaos_stage_sends_the_breach_list()
     {
-        var (got, server) = Stage(StageConfig(BreachRig.Chaos()), 14);
+        var (got, server, _) = Stage(StageConfig(BreachRig.Chaos()), 14);
         var battle = server.World.Tfw!.Battle;
         Assert.NotNull(battle);
         Assert.NotNull(battle.ChaosBreaches);
@@ -146,9 +146,26 @@ public class ChaosWireTests : IDisposable
     }
 
     [Fact]
+    public void A_closure_is_sent_three_times_three_ticks_apart()
+    {
+        var (got, server, run) = Stage(StageConfig(BreachRig.Chaos()), 8);
+        var breaches = server.World.WarfrontChaosBreaches!;
+        var breach = breaches.All[0];
+        uint tick = server.World.Tick;
+        Assert.Equal(breach.Id, breaches.TryClose(breach.Centre, 7, tick));
+        got.Clear();
+        run(1);
+        var sections = got.Select(b => WarfrontChaosWire.TryDecode(b, out var s) ? s : default).ToList();
+        var closures = sections.Where(s => s.Kind == WarfrontChaosWire.KindClosure).Select(s => s.Closed).ToList();
+        Assert.Equal(WarfrontChaosWire.ClosureRepeats, closures.Count);
+        Assert.All(closures, c => Assert.Equal(new WarfrontChaosWire.Closure(tick, breach.Id, 7), c));
+        Assert.Contains(sections, s => s.Kind == WarfrontChaosWire.KindBreaches && s.Breaches!.Single(x => x.Id == breach.Id).State == WarfrontBreachState.Closed);
+    }
+
+    [Fact]
     public void OrkStageNeverSendsTag51()
     {
-        var (got, server) = Stage(StageConfig(BreachRig.Orks()), 9);
+        var (got, server, _) = Stage(StageConfig(BreachRig.Orks()), 9);
         Assert.NotNull(server.World.Tfw!.Battle);
         Assert.Null(server.World.WarfrontChaosBreaches);
         Assert.Empty(got);

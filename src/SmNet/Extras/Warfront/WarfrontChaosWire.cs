@@ -8,7 +8,7 @@ namespace SmNet.Extras.Warfront;
 /// <list type="bullet">
 /// <item>kind 1, the breach list, on every change and once a second: <c>[u8 1][u8 n]{[u8 id][i16 x dm][i16 y dm][i16 z dm][u8 state 0 opening, 1 open, 2 closed][u8 Daemons alive]}</c>,
 /// n at most <see cref="MaxBreaches"/>, 2 + 9 n bytes; the position is the breach's foot in decimetres (its centre is <see cref="WarfrontBreachRules.CentreHeight"/> above it); n = 0 when the
-/// battle has none any more (its end);</item>
+/// battle has none any more (its end; sent three times, three ticks apart);</item>
 /// <item>kind 2, a closure, sent three times (the client keeps the first of a (tick, id) pair): <c>[u8 2][u32 world tick][u8 breach id][u16 the player who closed it]</c>, 8 bytes;</item>
 /// <item>kinds 16 to 31 are C5's finale (<c>WarfrontChaosDuelWire</c>, its own file); this decoder refuses them so they are forwarded.</item>
 /// </list>
