@@ -1,17 +1,22 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using SmClient.ImpactRules;
 using SmSim;
 using Xunit;
+using Xunit.Abstractions;
 using static SmClient.ImpactRules.GoreStreakRules;
 
 namespace SmNet.Tests;
 
-/// <summary>gore-streak (owner 2026-11-25): the engine-free rules of the blood streak — the per-frame table, who draws it, its size, its plane, its grit and its colour.</summary>
-public class GoreStreakRulesTests
+/// <summary>
+/// gore-streak (owner 2026-11-25; ribbon rebuild 2026-11-26): the engine-free rules of the blood streak ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â the per-frame table, the ribbons (band layout, geometry, timing, the
+/// fragment's filament texture and erosion), who draws it, its size, its plane, its colour and Warfront's budget.
+/// </summary>
+public class GoreStreakRulesTests(ITestOutputHelper output)
 {
-    static readonly byte[] GritTex = GritTexels();
+    static readonly byte[] Tex = FilamentTexels();
     static readonly Vector3 Up = Vector3.UnitY;
 
     // ---- the table ----
@@ -26,142 +31,197 @@ public class GoreStreakRulesTests
     }
 
     [Fact]
-    public void Frame_zero_is_a_small_swipe_short_on_the_entry_side_and_the_spray_spreads_through_frame_two()
+    public void Frame_zero_is_one_thin_swipe_short_on_the_entry_side_then_the_bands_grow_and_spread_through_frame_two()
     {
         Assert.True(Keys[0].Entry < Keys[0].Exit);
-        Assert.True(Keys[0].Branches < 2f);                          // one swipe (and a hairline)
+        Assert.Equal(1f, Keys[0].Branches);                           // one swipe: no side band yet
+        Assert.True(Keys[0].Exit <= 1.6f);                            // frame 0: a short swipe (its tapered, eroded tip reads about 1.25 H)
         Assert.True(Keys[1].Exit > Keys[0].Exit && Keys[2].Exit >= Keys[1].Exit);
-        Assert.True(Keys[1].Fan > 10f && Keys[2].Fan > 10f);      // fanned out on the plane
-        Assert.True(Keys[2].Width > Keys[0].Width);
-        for (int i = 0; i < Keys.Length; i++) Assert.True(Keys[i].Entry < Keys[i].Exit, $"frame {i}: entry shorter than exit");
+        Assert.True(Keys[2].Width > 2.5f * Keys[0].Width);           // thin swipe, then wide bands
+        Assert.True(Keys[2].Fan > Keys[0].Fan && Keys[2].Fan is >= 12f and <= 25f);   // the upper band rising off the main (12 to 15 degrees on screen at the reference's oblique view; ours 20 in the plane)
+        Assert.True(Grow(Keys[2]) >= 1f && Grow(Keys[0]) == 0f);
+        for (int i = 0; i < Keys.Length; i++) Assert.True(Keys[i].Entry <= 0.56f * Keys[i].Exit, $"frame {i}: entry at most about 0.55 of the exit");
     }
 
     [Fact]
-    public void From_frame_three_the_outer_parts_fade_it_grows_again_at_four_while_fading_and_then_fades_out()
+    public void From_frame_three_the_outer_parts_fade_four_grows_again_while_fading_then_the_bands_break_into_patches_and_fade_out()
     {
-        Assert.Equal(0f, Keys[2].Outer);
-        Assert.True(Keys[3].Outer > 0f);
-        Assert.True(Keys[4].Exit >= Keys[3].Exit && Keys[4].Width > Keys[3].Width && Keys[4].Fan >= Keys[3].Fan, "frame 4 grows again");
-        Assert.True(Keys[4].Opacity < Keys[3].Opacity, "while still fading");
-        for (int i = 4; i < Keys.Length - 1; i++)
+        Assert.True(Keys[3].Outer > 0f && Keys[2].Outer == 0f);
+        Assert.True(Keys[4].Exit > Keys[3].Exit && Keys[4].Width > Keys[3].Width && Keys[4].Fan > Keys[3].Fan);
+        Assert.True(Keys[4].Opacity < Keys[3].Opacity);
+        for (int i = 1; i < Keys.Length; i++)
         {
-            Assert.True(Keys[i + 1].Opacity <= Keys[i].Opacity, $"opacity falls after {i}");
-            Assert.True(Keys[i + 1].Fill <= Keys[i].Fill, $"fill falls after {i}");
-            Assert.True(Keys[i + 1].Grit >= Keys[i].Grit, $"pinholes grow after {i}");
+            Assert.True(Keys[i].Opacity <= Keys[i - 1].Opacity, $"frame {i}: opacity never rises");
+            Assert.True(Keys[i].Fill <= Keys[i - 1].Fill, $"frame {i}: the erosion never heals");
+            Assert.True(Keys[i].Exit >= Keys[i - 1].Exit - 1e-4f, $"frame {i}: the blood hangs in place, the reach never shrinks");
         }
-        // the gate repair's fade (lead 41): opacity about 0.65 / 0.5 / 0.4 / 0.25 / 0.12 / 0.05 over frames 5 to 10, the area eroding with it
-        float[] fade = [0.65f, 0.5f, 0.45f, 0.4f, 0.32f, 0.22f];   // iteration 1: frames 9 and 10 keep sparse visible dots (lead 41)
-        for (int i = 0; i < fade.Length; i++) Assert.Equal(fade[i], Keys[5 + i].Opacity, 2);
-        Assert.True(Keys[^1].Fill <= 0.32f);   // sparse dots stay at frame 10 (iteration 2)
+        Assert.True(Keys[5].Fill > 0.75f && Keys[6].Fill < 0.7f);   // whole bands through frame 5, patches from frame 6
+        Assert.True(Keys[^1].Fill < 0.12f);
+        Assert.Equal(0f, Sample(LifeSeconds).Opacity);
+        Assert.Equal(0f, Sample(-0.01f).Opacity);
+        Assert.True(Sample(1.05f).Opacity < Keys[^1].Opacity);
     }
 
     [Fact]
-    public void The_entry_stub_stays_under_about_half_the_exit_and_hangs_in_place()
-    {
-        for (int i = 0; i < Keys.Length; i++) Assert.True(Keys[i].Entry <= 0.56f * Keys[i].Exit, $"frame {i}: entry {Keys[i].Entry} vs exit {Keys[i].Exit}");
-        for (int i = 3; i < 8; i++) Assert.True(MathF.Abs(Keys[i].Entry - Keys[2].Entry) <= 0.1f, $"frame {i}: the stub does not slide outward");
-    }
-
-    [Fact]
-    public void Frames_one_to_five_fan_out_widely_with_an_upward_branch_and_the_root_holds_through_frame_four()
-    {
-        for (int i = 1; i <= 5; i++) Assert.InRange(Keys[i].Fan * BranchShares[0].Angle, 17f, 45f);
-        Assert.True(BranchShares[0].Angle > 0f && BranchShares[2].Angle < 0f, "branches on both sides of the axis");
-        for (int i = 0; i <= 3; i++) Assert.Equal(1f, Keys[i].Root);
-        Assert.True(Keys[^1].Root == 0f);
-    }
-
-    [Fact]
-    public void Every_branch_leaves_the_wound_as_one_solid_mass_in_frames_zero_to_four()
-    {
-        // along each exit branch and the stub, the first fifth of its reach is covered (the root term), whatever the grit
-        for (int f = 0; f <= 4; f++)
-            for (int seed = 1; seed <= 4; seed++)
-            {
-                var k = Keys[f];
-                for (int b = 0; b < 3; b++)
-                {
-                    if (Math.Clamp(k.Branches - b, 0f, 1f) < 0.99f) continue;
-                    var (ang, reach, _) = Branch(b, seed, k.Fan, 0f);
-                    for (float u = 0.03f; u <= 0.2f; u += 0.04f)
-                    {
-                        float s = u * k.Exit * reach;
-                        var (cov, _, _) = Coverage(k, s * MathF.Cos(ang), s * MathF.Sin(ang), seed, 0f, 0f, 3, GritTex, GritSize);
-                        Assert.True(cov > 0.8f, $"frame {f} seed {seed} branch {b} at {u:F2}: cov {cov:F2}");
-                    }
-                }
-            }
-    }
-
-    [Fact]
-    public void Edges_are_feathered_and_a_soft_halo_lies_under_the_cores()
-    {
-        Assert.True(Feather >= 0.03f);
-        var k = Keys[2];
-        var p = Field(k, 0.8f, 0.8f * MathF.Tan(Branch(0, 1, k.Fan, 0f).Angle) + k.Width * 1.2f, 1, 0f, 0f, 3);
-        Assert.True(p.Halo > 0f, "the halo reaches past the core's edge");
-        Assert.True(HaloAlpha * k.Opacity < 0.3f, "the halo is low alpha");
-    }
-
-    [Fact]
-    public void Sample_hits_the_keys_interpolates_between_them_and_is_empty_outside_the_life()
+    public void Sample_hits_the_keys_and_interpolates_between_them()
     {
         for (int i = 0; i < Keys.Length; i++) Assert.Equal(Keys[i].Exit, Sample(Keys[i].T).Exit, 4);
-        var mid = Sample(0.025f);
-        Assert.Equal((Keys[0].Exit + Keys[1].Exit) / 2f, mid.Exit, 3);
-        Assert.Equal(0f, Sample(-0.01f).Opacity);
-        Assert.Equal(0f, Sample(LifeSeconds).Opacity);
-        Assert.True(Sample(1.05f).Opacity < Keys[^1].Opacity);
-        Assert.Equal(0f, Sample(float.NaN).Opacity);
+        var mid = Sample(0.075f);
+        Assert.Equal((Keys[1].Width + Keys[2].Width) / 2f, mid.Width, 4);
     }
 
-    // ---- the shape ----
+    // ---- the ribbons ----
 
     [Fact]
-    public void The_drawn_spray_reaches_farther_on_the_exit_side_and_its_area_rises_to_frame_two_then_dips_at_three_regrows_at_four_and_fades()
+    public void Each_band_has_its_own_angle_length_and_width_main_longest_upper_rising_entry_behind_and_short()
     {
-        float[] area = new float[Keys.Length], exit = new float[Keys.Length], entry = new float[Keys.Length];
+        for (int seed = 1; seed < 40; seed++)
+            foreach (int f in new[] { 2, 4, 5 })
+            {
+                var k = Keys[f];
+                var main = BandOf(Band.Main, k, seed, 0f);
+                var upper = BandOf(Band.Upper, k, seed, 0f);
+                var entry = BandOf(Band.Entry, k, seed, 0f);
+                var lower = BandOf(Band.Lower, k, seed, 0f);
+                Assert.True(main.Length > upper.Length && main.Length > entry.Length && main.Length > lower.Length, $"seed {seed} f{f}: the main band is the longest");
+                Assert.InRange(upper.Length / main.Length, 0.5f, 0.7f);                      // about 0.55 to 0.65 of the main
+                Assert.True(entry.Length <= 0.6f * main.Length, $"seed {seed} f{f}: entry {entry.Length:F2} vs main {main.Length:F2}");
+                float up = (upper.Angle - main.Angle) * 180f / MathF.PI;
+                Assert.InRange(up, 15f, 32f);                                                 // rising off the main by about 12 to 15 degrees (plus the main's lean)
+                Assert.True(MathF.Abs(main.Angle) * 180f / MathF.PI < 6f);                   // the main band on the attack axis
+                Assert.InRange(MathF.Abs(entry.Angle) * 180f / MathF.PI, 172f, 188f);        // behind the wound
+                Assert.True(lower.Angle < main.Angle);                                         // the fourth band below
+                Assert.True(upper.HalfWidth < main.HalfWidth && entry.HalfWidth < main.HalfWidth);
+                Assert.True(upper.Root > 0f && entry.Root == 0f);                             // the upper band leaves the main just past the wound
+            }
+    }
+
+    [Fact]
+    public void Frame_zero_draws_only_the_swipe_and_the_side_bands_grow_in_by_frame_two()
+    {
+        var f0u = BandOf(Band.Upper, Keys[0], 3, 0f);
+        Assert.Equal(0f, f0u.Length);
+        Assert.Equal(0f, f0u.Alpha);
+        var f1u = BandOf(Band.Upper, Keys[1], 3, 0f);
+        var f2u = BandOf(Band.Upper, Keys[2], 3, 0f);
+        Assert.True(f1u.Length > 0f && f2u.Length > f1u.Length && f2u.HalfWidth > f1u.HalfWidth);
+        // the upper band fades ahead of the main between frames 2 and 4; the entry band is gone by frame 9
+        Assert.True(BandOf(Band.Upper, Keys[4], 3, 0f).Alpha < BandOf(Band.Main, Keys[4], 3, 0f).Alpha);
+        Assert.True(BandOf(Band.Entry, Keys[9], 3, 0f).Alpha < 0.2f);
+        Assert.Equal(1f, BandOf(Band.Entry, Keys[5], 3, 0f).Alpha);
+    }
+
+    [Fact]
+    public void A_ribbon_runs_from_its_root_along_its_angle_tapers_at_both_ends_and_bends_with_the_arc()
+    {
+        var b = BandOf(Band.Upper, Keys[4], 5, 0f);
+        var (x0, y0) = RibbonPoint(b, 0f, 0f);
+        Assert.Equal(b.Root, x0, 4); Assert.Equal(0f, y0, 4);
+        var (x1, y1) = RibbonPoint(b, 1f, 0f);
+        Assert.Equal(b.Length, MathF.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0)), 3);
+        Assert.Equal(b.Angle, MathF.Atan2(y1 - y0, x1 - x0), 3);
+        float W(float u) { var (ax, ay) = RibbonPoint(b, u, -1f); var (bx, by) = RibbonPoint(b, u, 1f); return MathF.Sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)); }
+        Assert.True(W(0f) < W(0.65f) && W(1f) < W(0.65f));
+        Assert.Equal(2f * b.HalfWidth * EdgePad, W(0.65f), 3);
+        // a bent band's middle leaves the straight line
+        var bent = BandOf(Band.Main, Keys[4], 5, 0.4f);
+        var (mx, my) = RibbonPoint(bent, 0.5f, 0f);
+        var straight = BandOf(Band.Main, Keys[4], 5, 0f);
+        var (sx, sy) = RibbonPoint(straight, 0.5f, 0f);
+        Assert.True(MathF.Abs(my - sy) + MathF.Abs(mx - sx) > 0.05f);
+    }
+
+    [Fact]
+    public void The_drawn_streak_follows_the_reference_area_curve_and_reach_and_kills_are_bigger()
+    {
+        // face-on area in H^2 (the scoring tools' reference: 0.07 at frame 0, 0.25 to 0.37 in frames 1 to 5 peaking at 2, dipping at 3, regrowing at 4, about 0.006 at frame 10)
+        var area = new float[Keys.Length];
         for (int f = 0; f < Keys.Length; f++)
+        {
+            float sum = 0f, ex = 0f, en = 0f, al = 0f; int pa = 0;
             for (int seed = 1; seed <= 4; seed++)
             {
-                var m = Measure(Keys[f].T + 1e-4f, seed, 0f, 0f, 3, GritTex, GritSize, 0.025f);
-                area[f] += m.Area / 4f; exit[f] += m.ExitReach / 4f; entry[f] += m.EntryReach / 4f;
+                var m = Measure(Keys[f].T, seed, 0f, false, Tex, FilamentSize);
+                sum += m.Area; ex += m.ExitReach; en += m.EntryReach; pa += m.MainPatches; al += m.MeanAlpha;
             }
-        for (int f = 0; f <= 8; f++) Assert.True(entry[f] < exit[f], $"frame {f}: entry {entry[f]:F2} < exit {exit[f]:F2}");
-        Assert.True(area[0] < area[1] && area[1] < area[2], $"grows: {area[0]:F3} {area[1]:F3} {area[2]:F3}");
-        Assert.True(area[3] < area[2], $"dips at 3: {area[3]:F3} < {area[2]:F3}");
-        Assert.True(area[4] > area[3], $"regrows at 4: {area[4]:F3} > {area[3]:F3}");
-        for (int f = 5; f < Keys.Length - 1; f++) Assert.True(area[f + 1] <= area[f] * 1.03f, $"fades after {f}: {area[f + 1]:F3} <= {area[f]:F3}");   // the late frames hold sparse dots (iteration 4)
-        Assert.True(area[10] < 0.25f * area[2], $"frame 10 holds only sparse dots: {area[10]:F3} vs {area[2]:F3}");
-    }
-
-    [Fact]
-    public void A_heavy_or_lethal_streak_has_a_fourth_branch_and_more_area()
-    {
-        float three = 0f, four = 0f;
-        for (int seed = 1; seed <= 4; seed++)
-        {
-            three += Measure(0.2f, seed, 0f, 0f, 3, GritTex, GritSize, 0.025f).Area;
-            four += Measure(0.2f, seed, 0f, 0f, 4, GritTex, GritSize, 0.025f).Area;
+            area[f] = sum / 4f;
+            output.WriteLine($"f{f}: area {area[f]:F3} exit {ex / 4f:F2} entry {en / 4f:F2} ratio {en / MathF.Max(ex, 1e-3f):F2} main patches {pa / 4f:F1} mean alpha {al / 4f:F2}");
         }
-        Assert.True(four > three);
+        Assert.InRange(area[0], 0.03f, 0.11f);
+        for (int f = 1; f <= 5; f++) Assert.InRange(area[f], 0.18f, 0.45f);
+        Assert.True(area[2] > area[1] && area[3] < area[2] && area[4] > area[3], "peak at 2, dip at 3, regrow at 4");
+        for (int f = 6; f < Keys.Length; f++) Assert.True(area[f] < area[f - 1], $"frame {f}: falling");
+        Assert.True(area[10] < 0.03f);
+        var m0 = Measure(Keys[0].T, 2, 0f, false, Tex, FilamentSize);
+        Assert.InRange(m0.ExitReach, 1.0f, 1.6f);
+        Assert.True(m0.EntryReach < 0.6f * m0.ExitReach);
+        // from frame 6 the main band breaks into patches
+        int patches = 0;
+        for (int seed = 1; seed <= 6; seed++) patches += Measure(Keys[6].T, seed, 0f, false, Tex, FilamentSize).MainPatches;
+        Assert.InRange(patches / 6f, 3f, 9f);
+        // a kill: the same layout, a fourth band, larger in table units only through its width; its scale makes it bigger in metres
+        var kill = Measure(Keys[4].T, 2, 0f, true, Tex, FilamentSize, new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, Scale(Weight.Normal, true), 2, 0f, 0f, true).WidthMul);
+        var hit = Measure(Keys[4].T, 2, 0f, false, Tex, FilamentSize);
+        Assert.True(kill.Area > hit.Area);
     }
 
     [Fact]
-    public void The_shape_stays_inside_the_quad()
+    public void Bands_are_translucent_with_lighter_filament_cores_and_a_ragged_edge()
     {
-        // no covered or halo texel outside the quad at any key (sampled just outside its edges), and the quad no larger than it needs (finding M2)
-        foreach (var k in Keys)
-            for (int seed = 1; seed <= 3; seed++)
-                for (float t = -1f; t <= 1f; t += 0.05f)
-                {
-                    foreach (var (x, y) in new[] { (QuadFwd + 0.01f, t * QuadSide), (-QuadBack - 0.01f, t * QuadSide), (t * QuadFwd, QuadSide + 0.01f), (t * QuadFwd, -QuadSide - 0.01f) })
-                    {
-                        var p = Field(k, x, y, seed, 0f, 0f, 4);
-                        Assert.True(p.Field <= 0f && p.Halo <= 0.01f, $"key {k.T}: blood at ({x:F2},{y:F2})");
-                    }
-                }
-        Assert.True((QuadFwd + QuadBack) * 2f * QuadSide < 14f, $"quad {QuadFwd + QuadBack:F2} x {2f * QuadSide:F2}");
+        var k = Keys[2];
+        var b = BandOf(Band.Main, k, 4, 0f);
+        float centre = 0f, edge = 0f, min = 1f, max = 0f; int n = 0;
+        for (float u = 0.35f; u < 0.75f; u += 0.01f)
+        {
+            var c = TexelAt(k, b, Band.Main, u, 0.05f, 4, Tex, FilamentSize);
+            var e = TexelAt(k, b, Band.Main, u, 0.95f, 4, Tex, FilamentSize);
+            centre += c.Alpha; edge += e.Alpha; n++;
+            min = MathF.Min(min, c.Alpha); max = MathF.Max(max, c.Alpha);
+        }
+        Assert.True(centre / n > 2f * edge / n, $"centre {centre / n:F2} vs edge {edge / n:F2}");
+        Assert.True(centre / n * CoreAlpha < 0.75f, "translucent, not a filled slab");
+        Assert.True(max - min > 0.15f, $"filaments vary the opacity along the band ({min:F2}..{max:F2})");
+        Assert.Equal(0f, TexelAt(k, b, Band.Main, 0.5f, 1.3f, 4, Tex, FilamentSize).Alpha, 3);   // outside the nominal edge: nothing
+    }
+
+    [Fact]
+    public void The_filament_texture_is_deterministic_tileable_and_spread()
+    {
+        Assert.Equal(Tex, FilamentTexels());
+        Assert.Equal(FilamentSize * FilamentSize * 4, Tex.Length);
+        var (a0, b0, c0) = TexSample(Tex, FilamentSize, 0.001f, 0.37f);
+        var (a1, b1, c1) = TexSample(Tex, FilamentSize, 1.001f, 0.37f);
+        Assert.Equal(a0, a1, 4); Assert.Equal(b0, b1, 4); Assert.Equal(c0, c1, 4);
+        for (int ch = 0; ch < 3; ch++)
+        {
+            int lo = 0, hi = 0;
+            for (int i = ch; i < Tex.Length; i += 4) { if (Tex[i] < 64) lo++; if (Tex[i] > 192) hi++; }
+            Assert.True(lo > Tex.Length / 4 / 20 && hi > Tex.Length / 4 / 40, $"channel {ch} spread: {lo} low, {hi} high");
+        }
+        int seam = 0, inside = 0;
+        for (int y = 0; y < FilamentSize; y++)
+        {
+            seam += Math.Abs(Tex[(y * FilamentSize + FilamentSize - 1) * 4] - Tex[(y * FilamentSize) * 4]);
+            inside += Math.Abs(Tex[(y * FilamentSize + 100) * 4] - Tex[(y * FilamentSize + 101) * 4]);
+        }
+        Assert.True(seam < inside * 2 + FilamentSize * 4, $"seam {seam} vs inside {inside}");
+        // filaments: thin ridges (a minority of texels bright), stretched 10 to 14 to 1 on a band by the UV mapping
+        int bright = 0;
+        for (int i = 0; i < Tex.Length; i += 4) if (Tex[i] > 160) bright++;
+        Assert.InRange(bright / (float)(Tex.Length / 4), 0.05f, 0.45f);
+        float stretch = FilAlongH / (2f * Keys[4].Width / (2f * FilAcrossTiles));
+        Assert.InRange(stretch, 10f, 14f);
+    }
+
+    [Fact]
+    public void The_shader_carries_the_table_and_the_band_layouts()
+    {
+        // the shader source is built from these tables (GoreStreakView.ShaderCode); a spot check that the numbers the tests rely on are the ones it draws with
+        Assert.Equal(4, Bands.Length);
+        Assert.Equal(MaxBranches, Bands.Length);
+        Assert.True(Segments >= 8);
+        Assert.Equal(3, BandCount(false));
+        Assert.Equal(4, BandCount(true));
     }
 
     // ---- who draws it ----
@@ -289,33 +349,6 @@ public class GoreStreakRulesTests
         Assert.Equal(edgeOn, CameraBias(edgeOn, axis, axis));   // looking straight down the axis: unchanged
     }
 
-    // ---- grit ----
-
-    [Fact]
-    public void The_grit_is_deterministic_tileable_and_spread()
-    {
-        var again = GritTexels();
-        Assert.Equal(GritTex, again);
-        Assert.Equal(GritSize * GritSize * 4, GritTex.Length);
-        for (int ch = 0; ch < 3; ch++)
-        {
-            // the wrap: the sample just past the right edge equals the left edge's continuation
-            var (a0, b0, c0) = GritSample(GritTex, GritSize, 0.001f, 0.37f);
-            var (a1, b1, c1) = GritSample(GritTex, GritSize, 1.001f, 0.37f);
-            Assert.Equal(a0, a1, 4); Assert.Equal(b0, b1, 4); Assert.Equal(c0, c1, 4);
-            int lo = 0, hi = 0;
-            for (int i = ch; i < GritTex.Length; i += 4) { if (GritTex[i] < 64) lo++; if (GritTex[i] > 192) hi++; }
-            Assert.True(lo > GritTex.Length / 4 / 20 && hi > GritTex.Length / 4 / 20, $"channel {ch} spread: {lo} low, {hi} high");
-        }
-        // the wrap in the texels themselves: no seam (the neighbour across the edge differs no more than inside)
-        int seam = 0, inside = 0;
-        for (int y = 0; y < GritSize; y++)
-        {
-            seam += Math.Abs(GritTex[(y * GritSize + GritSize - 1) * 4] - GritTex[(y * GritSize) * 4]);
-            inside += Math.Abs(GritTex[(y * GritSize + 100) * 4] - GritTex[(y * GritSize + 101) * 4]);
-        }
-        Assert.True(seam < inside * 2 + GritSize * 4, $"seam {seam} vs inside {inside}");
-    }
 
     // ---- colour ----
 
@@ -327,35 +360,32 @@ public class GoreStreakRulesTests
     [InlineData(0.05f, 0.05f, 0.05f)] // dark
     public void Inside_a_streak_the_colour_is_red_or_darker_never_white_or_pink(float r, float g, float b)
     {
-        foreach (var (shade, perAlpha, compat) in new[] { (CompatibilityShade, CompatibilityStripPerAlpha, true), (ForwardShade, StripPerAlpha, false) })
+        foreach (var (shade, perAlpha, max) in new[] { (CompatibilityShade, CompatibilityStripPerAlpha, CompatibilityStripMax), (ForwardShade, StripPerAlpha, StripMax) })
             foreach (float dens in new[] { 0.45f, 0.8f, 1f })
             {
-                // a dense covered texel: only the blood's own green and blue
-                var c = Composite((r, g, b), 0.95f, 1f, dens, shade, perAlpha, compat);
+                // a dense texel: only the blood's own green and blue
+                var c = Composite((r, g, b), 1f, dens, shade, perAlpha, max);
                 Assert.True(c.G <= 0.15f * c.R + 1e-4f && c.B <= 0.15f * c.R + 1e-4f, $"({c.R:F3},{c.G:F3},{c.B:F3}) over ({r},{g},{b}) dens {dens}");
-                // a soft texel (the halo, a fading core, 0.3 opacity and up): stripped toward red, never pink (the scoring tools' pink: min(G,B)/R over 0.7)
-                foreach (float alpha in new[] { 0.3f, 0.5f })
+                // a translucent texel (0.35 opacity and up): green and blue stripped, never pink (the scoring tools' pink: min(G,B)/R over 0.7)
+                foreach (float alpha in new[] { 0.35f, 0.5f })
                 {
-                    var f = Composite((r, g, b), alpha, 0.2f, dens, shade, perAlpha, compat);
+                    var f = Composite((r, g, b), alpha, dens, shade, perAlpha, max);
                     Assert.True(MathF.Min(f.G, f.B) <= 0.7f * f.R + 1e-4f || f.R < 0.02f, $"alpha {alpha}: ({f.R:F3},{f.G:F3},{f.B:F3}) over ({r},{g},{b})");
                 }
             }
     }
 
     [Fact]
-    public void The_strip_fades_with_the_opacity_so_a_faint_texel_never_goes_near_black()
+    public void The_strip_takes_only_green_and_blue_so_a_translucent_band_never_goes_near_black()
     {
-        Assert.Equal(0f, Strip(0f, 1f));
-        Assert.Equal(1f, Strip(0.5f, 1f));
-        Assert.True(Strip(0.1f, 1f) < 0.75f);
-        var grey = Composite((0.5f, 0.5f, 0.5f), 0.1f, 1f, 0.8f);
-        Assert.True(grey.R > 0.2f, $"a faint texel over grey keeps much of the grey's level: {grey.R:F3}");
-        // Compatibility's late frames (opacity 0.4 and 0.25 over the grey) stay visibly red: above the scoring tools' value floor, red-dominant
-        foreach (float alpha in new[] { 0.4f, 0.25f })
+        Assert.Equal(0f, Strip(0f));
+        Assert.Equal(StripMax, Strip(1f));
+        Assert.True(Strip(0.02f) < 0.3f);   // it ramps in from nothing
+        foreach (float alpha in new[] { 0.1f, 0.25f, 0.5f, 0.8f })
         {
-            var late = Composite((0.5f, 0.5f, 0.5f), alpha, 0.5f, 0.7f, CompatibilityShade, CompatibilityStripPerAlpha, compat: true);
-            Assert.True(late.R > 0.2f && late.R - MathF.Max(late.G, late.B) > 0.1f,   // the scoring tools' red mask: value over 0.2, red excess over 0.08
-                 $"alpha {alpha}: ({late.R:F3},{late.G:F3},{late.B:F3})");
+            var grey = Composite((0.5f, 0.5f, 0.5f), alpha, 0.7f);
+            Assert.True(grey.R > 0.3f, $"alpha {alpha}: the red under the blood is kept ({grey.R:F3})");
+            Assert.True(grey.R - MathF.Max(grey.G, grey.B) > 0.08f || alpha < 0.15f, $"alpha {alpha}: red-dominant over grey");
         }
     }
 
@@ -368,8 +398,6 @@ public class GoreStreakRulesTests
             Assert.True(ClassicBloodRules.IsBloodOnly(c, ClassicBloodRules.BloodRgb.R));
             Assert.True(c.R <= 0.56f);
         }
-        // the absolute level (gate repair 8, owner: keep our darker red, about (150, 0, 0) on screen): Compatibility shows the albedo as is, Forward+ through linear-to-display
-        // (its tonemapper and exposure lifted the earlier albedo to about (229, 20, 0); ForwardShade brings it back)
         float compat = Colour(0.6f, CompatibilityShade).R * 255f, forward = ToSrgb(Colour(0.6f, ForwardShade).R) * 255f;
         Assert.InRange(compat, 90f, 170f);
         Assert.InRange(forward, 90f, 170f);
@@ -391,15 +419,40 @@ public class GoreStreakRulesTests
     }
 
     [Fact]
-    public void A_spent_slot_is_retired_and_the_unit_is_capped()
+    public void A_victims_streak_is_replaced_within_a_quarter_second_not_stacked()
+    {
+        Assert.True(Replaces(10.0, 10.1));
+        Assert.True(Replaces(10.0, 10.0 + ReplaceSeconds - 0.01));
+        Assert.False(Replaces(10.0, 10.0 + ReplaceSeconds));
+        Assert.True(Replaces(10.1, 10.0));   // a tracer still in flight
+    }
+
+    [Fact]
+    public void A_spent_slot_is_retired_and_heavy_hits_grow_in_width_not_length()
     {
         Assert.False(Spent(double.NegativeInfinity, 100.0));
         Assert.False(Spent(10.0, 10.5));
         Assert.True(Spent(10.0, 10.0 + LifeSeconds));
-        var big = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2.33f, Scale(Weight.Heavy, true), 1, 0f, 0f, true);
-        Assert.Equal(MaxUnitMetres, big.Unit);
+        Assert.Equal(1.5f, MaxScale);
+        Assert.Equal(MaxScale, Scale(Weight.Heavy, true));
+        // a heavy hit: length within 1.1, the rest of the scale in width
+        var heavy = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, Scale(Weight.Heavy, false), 1, 0f, 0f, false, Heavy: true);
+        Assert.Equal(2f * LengthCap, heavy.Unit, 4);
+        Assert.Equal(HeavyScale / LengthCap, heavy.WidthMul, 4);
+        Assert.True(heavy.Fourth);
+        Assert.True(Keys[0].Exit * heavy.LenScale <= 1.75f && Keys[8].Exit * heavy.LenScale <= 2.9f);   // geometric reach (the tapered, eroded tips read about 0.8 of it)
+        // a kill: the same layout scaled up to 1.4 in length, a fourth band
+        var kill = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, Scale(Weight.Normal, true), 1, 0f, 0f, true);
+        Assert.Equal(2f * LethalLengthCap, kill.Unit, 4);
+        Assert.Equal(LethalScale / LethalLengthCap, kill.WidthMul, 4);
+        Assert.True(kill.Fourth);
+        // a normal hit; the unit caps (Classic 3 m, Warfront 2.2 m)
         var normal = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, 1f, 1, 0f, 0f, false);
         Assert.Equal(2f, normal.Unit);
+        Assert.False(normal.Fourth);
+        var bigOrk = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 3.4f, Scale(Weight.Heavy, true), 1, 0f, 0f, true, UnitCap: WarfrontUnitMetres);
+        Assert.Equal(WarfrontUnitMetres, bigOrk.Unit);
+        Assert.Equal(MaxUnitMetres, new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 3f, 1.4f, 1, 0f, 0f, true).Unit);
     }
 
     [Fact]
@@ -410,12 +463,40 @@ public class GoreStreakRulesTests
         for (int i = 0; i < 100; i++) if (b.Take(0.0)) taken++;
         Assert.Equal((int)WarfrontBurst, taken);
         Assert.False(b.Take(0.0));
+        Assert.False(b.Has(0.0));
         Assert.True(b.Take(1.0 / WarfrontPerSecond + 1e-6));
-        int second = 0;
-        for (double t = 2.0; t < 3.0; t += 1.0 / 240.0) if (b.Take(t)) second++;
-        Assert.InRange(second, (int)WarfrontPerSecond - 2, (int)(WarfrontPerSecond + WarfrontBurst) + 1);
         Assert.False(EnemyReady(1.0, 1.1));
         Assert.True(EnemyReady(1.0, 1.0 + WarfrontEnemySeconds));
-        Assert.True(WarfrontLiveMax <= 150);
+        Assert.Equal(64, WarfrontLiveMax);
+        Assert.Equal(48, WarfrontOwnLiveMax);
+    }
+
+    [Fact]
+    public void Warfront_streaks_admit_own_hits_first_and_nearest_first_within_the_own_window_and_the_live_caps()
+    {
+        // 12 own hits and 30 others in one frame, the others nearer
+        var asks = new List<StreakAsk>();
+        for (int i = 0; i < 12; i++) asks.Add(new StreakAsk(true, false, 10f + i, i));
+        for (int i = 0; i < 30; i++) asks.Add(new StreakAsk(false, false, 1f + i * 0.1f, 100 + i));
+        var bucket = new Bucket(WarfrontPerSecond, WarfrontBurst);
+        var got = AdmitStreaks(asks, 0, 0, 0, bucket, 0.0);
+        var own = got.Where(i => i < 100).ToList();
+        Assert.Equal(WarfrontOwnPerWindow, own.Count);
+        Assert.Equal(Enumerable.Range(0, WarfrontOwnPerWindow), own);                    // the nearest own ones, first
+        Assert.Equal(got.Take(WarfrontOwnPerWindow), own);                                // own before the others
+        Assert.Equal((int)WarfrontBurst, got.Count - own.Count);                          // the others through the bucket
+        // a killing own hit wins over a nearer non-killing one
+        var lethal = new List<StreakAsk> { new(true, false, 2f, 1), new(true, true, 30f, 2) };
+        Assert.Equal(2, AdmitStreaks(lethal, 0, 0, 0, new Bucket(1f, 1f), 0.0)[0]);
+        // the caps: the own window spent, the own live cap, the total live cap
+        Assert.Empty(AdmitStreaks([new(true, false, 1f, 1)], WarfrontOwnPerWindow, 0, 0, new Bucket(1f, 1f), 0.0));
+        Assert.Empty(AdmitStreaks([new(true, false, 1f, 1)], 0, WarfrontOwnLiveMax, 0, new Bucket(1f, 1f), 0.0));
+        Assert.Empty(AdmitStreaks([new(true, false, 1f, 1), new(false, false, 1f, 2)], 0, 0, WarfrontLiveMax, new Bucket(1f, 1f), 0.0));
+        // the bucket's token is taken last: an own ask over the own cap costs no token, a dropped other ask none either
+        var b2 = new Bucket(1f, 1f);
+        AdmitStreaks([new(true, false, 1f, 1)], WarfrontOwnPerWindow, 0, 0, b2, 0.0);
+        Assert.True(b2.Has(0.0));
+        AdmitStreaks([new(false, false, 1f, 1)], 0, 0, WarfrontLiveMax, b2, 0.0);
+        Assert.True(b2.Has(0.0));
     }
 }

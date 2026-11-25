@@ -27,7 +27,7 @@ public partial class NetworkView
     double _streakCaptureAt;
     int _streakCaptureVictim;
     Vector3 _lastStreakOrigin, _lastStreakAxis;
-    float _lastStreakUnit;
+    float _lastStreakUnit, _lastStreakFacing;
     readonly StringBuilder _streakCaptureFrames = new();
 
     /// <summary>Called from the Classic prewarm (NetworkView.ClassicBlood.cs): starts the capture once when asked.</summary>
@@ -271,6 +271,7 @@ public partial class NetworkView
   "renderer": "{{renderer}}",
   "size": [{{width}}, {{height}}],
   "streak_unit_m": {{J(_lastStreakUnit)}},
+  "plane_facing": {{J(_lastStreakFacing)}},
   "frames": [
     {{_streakCaptureFrames}}
   ]

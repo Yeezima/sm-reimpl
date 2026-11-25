@@ -47,6 +47,7 @@ public partial class NetworkView
         TfwFrame(me, others, delta, _tfwSections);
         WeatherFrame(me, delta);   // weather (client/Extras/Weather): the clock, the look through the lighting grade, rain
         WarfrontFrame(me, delta);   // WARFRONT-HOOK: the stage flow (commands, panels, rejoin; client/Extras/Warfront/Stage)
+        StreakWarfrontFrame();   // gore-streak: Warfront's streak prewarm before the first hit (Extras/Gore/NetworkView.WarfrontStreak.cs)
         SpearPoseFrame(me, others, delta);   // Musou's power spear: its clips between strikes, the fades and the spear on the hands (Musou/Arsenal/Spear/NetworkView.SpearPose.cs)
     }
 

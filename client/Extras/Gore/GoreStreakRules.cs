@@ -7,20 +7,21 @@ namespace SmClient.ImpactRules;
 
 /// <summary>
 /// gore-streak (added content: gore; owner 2026-11-25, decisions/2026-11-25-gore-reference-sequence.md in the coordination repository): the engine-free rules of the blood streak every
-/// health hit plays in Warfront and in Classic PvP with the Extended profile's gore. One streak is one flat spray on a tilted plane through the wound: frame 0 a small swipe, short on the
-/// entry side and long on the exit side; it expands and spreads outward on that plane through frames 1 and 2; the outer parts begin fading at frame 3 and grow again while fading at
-/// frame 4; it erodes into patches, blobs and a faint haze until it is gone at <see cref="LifeSeconds"/>.
+/// health hit plays in Warfront and in Classic PvP with the Extended profile's gore. One streak is a few thin ribbons on a tilted plane through the wound (ribbon rebuild, owner card
+/// 2026-11-26): frame 0 a small swipe, short on the entry side and long on the exit side; the bands expand and spread outward on that plane through frames 1 and 2; their outer parts
+/// begin fading at frame 3 and grow again while fading at frame 4; from frame 6 each band breaks into patches and blobs and fades until it is gone at <see cref="LifeSeconds"/>.
 /// <list type="bullet">
-/// <item><see cref="Keys"/> and <see cref="Sample"/>: the per-frame table (an interpretation of the owner's reference frames, provisional until the owner sees the first capture sheet;
-/// spec/behavior.md "Gore streak"). The shader of <c>GoreStreakView</c> carries the same table (generated from it) and the same shape (<see cref="Coverage"/> mirrors it for the tests).</item>
+/// <item><see cref="Keys"/> and <see cref="Sample"/>: the per-frame table (an interpretation of the owner's reference frames, provisional; spec/behavior.md "Gore streak"). The shader
+/// of <c>GoreStreakView</c> carries the same table and band layouts (generated from them); <see cref="BandOf"/>, <see cref="RibbonPoint"/> and <see cref="TexelAt"/> mirror its vertex and
+/// fragment math for the tests.</item>
 /// <item><see cref="Draws"/>, <see cref="Excluded"/>: who draws it (Warfront, and Classic with <see cref="ContentExtras.Gore"/>; never Faithful or Musou alone) and what never does
 /// (plasma, melta and any other cone weapon such as a flamer).</item>
-/// <item><see cref="WeightOf"/>, <see cref="Scale"/>: same shape, scaled by weapon (owner card answer), bigger on a kill.</item>
+/// <item><see cref="WeightOf"/>, <see cref="Scale"/>, <see cref="LengthScale"/>: same shape, scaled by weapon (owner card answer), heavy weapons wider rather than longer, bigger on a kill.</item>
 /// <item><see cref="Plane"/>, <see cref="CameraBias"/>, <see cref="ExplosionAxis"/>: the plane the streak lies on (along the attack's path, never axis-aligned).</item>
-/// <item><see cref="GritTexels"/>: the tileable grit noise the shader erodes the spray with (made in code at startup; nothing is copied from any footage).</item>
+/// <item><see cref="FilamentTexels"/>: the flow-warped filament texture the bands are drawn with (made in code at startup; nothing is copied from any footage).</item>
 /// <item><see cref="Composite"/>: the colour through the strip and blend passes: our darker blood red (owner card "Keep our darker red"), never white, pink or additive.</item>
 /// </list>
-/// Every scale, size and budget here is ours (spec kind "ours"); the per-frame table is kind "interpretation", confidence "provisional".
+/// Every scale, size and budget here is ours (spec kind "ours"); the per-frame table and the band layouts are kind "interpretation", confidence "provisional".
 /// </summary>
 public static class GoreStreakRules
 {
@@ -31,37 +32,38 @@ public static class GoreStreakRules
 
     /// <summary>One row of the per-frame table (lengths and widths in victim body heights H; fan in degrees; shares 0..1).</summary>
     /// <param name="T">Seconds after contact.</param>
-    /// <param name="Exit">Reach of the longest exit branch (H).</param>
-    /// <param name="Entry">Reach of the entry stub behind the wound (H).</param>
-    /// <param name="Fan">Half-fan of the exit branches (degrees: the upper branch's angle from the exit axis).</param>
-    /// <param name="Width">Half width of the main branch at its widest (H).</param>
-    /// <param name="Fill">Share of the shape that is blood (the erosion threshold is 1 - Fill).</param>
-    /// <param name="Opacity">Opacity of a covered texel.</param>
+    /// <param name="Exit">Reach of the main band ahead of the wound (H).</param>
+    /// <param name="Entry">Reach of the entry band behind the wound (H).</param>
+    /// <param name="Fan">The upper band's angle from the main band (degrees; the main band leans the other way by 0.12 of it, the lower band by 0.7).</param>
+    /// <param name="Width">Half width of the main band at its widest (H).</param>
+    /// <param name="Fill">Share of a band the patch erosion keeps (1 whole; the erosion threshold is 1 - Fill).</param>
+    /// <param name="Opacity">Opacity of a band.</param>
     /// <param name="Grit">Pinhole amount (0 none, 1 most): it grows as the spray fades.</param>
-    /// <param name="Branches">Exit branches drawn (fractional: the last one thinner).</param>
-    /// <param name="Outer">How much the outer part of every branch has faded (0 none).</param>
-    /// <param name="Root">How solid the first third of every branch is held (1 frames 0-4: one mass leaving the wound; 0 once it breaks up).</param>
+    /// <param name="Branches">1 one swipe; 2 the upper (and on a heavy or killing hit the lower) band fully grown.</param>
+    /// <param name="Outer">How much the outer part of every band has faded (0 none).</param>
+    /// <param name="Root">How whole the first part of every band is held (1 frames 0-4: one mass leaving the wound; 0 once it breaks up).</param>
     public readonly record struct Key(float T, float Exit, float Entry, float Fan, float Width, float Fill, float Opacity, float Grit, float Branches, float Outer, float Root);
 
     /// <summary>
-    /// The per-frame table (interpretation of reference frames 0..10, provisional; design state/design-gore-streak-1125.md), calibrated (lead 40, 2026-11-25) so the drawn shape's measured
-    /// exit and entry reach and covered area per body height (<see cref="Measure"/>) follow the reference's measured curves from the scoring tools (exit about 1.25 H at frame 0 rising to
-    /// about 2 H, area peaking at frame 2, dipping at 3, regrowing at 4, then falling to nothing). The geometric reaches here are longer than the measured ones: the tips taper and erode.
-    /// The blood hangs in place (the reach creeps a little, it never travels); the entry stub fades out after frame 8. Tunable: the shader is generated from this table.
+    /// The per-frame table (interpretation of reference frames 0..10, provisional; design state/design-gore-streak-1125.md and the ribbon rebuild), set so the drawn bands' measured exit and
+    /// entry reach and area per body height follow the reference's measured curves from the scoring tools (exit about 1.25 H at frame 0 rising to about 2 H, area about 0.07 H^2 at
+    /// frame 0, 0.25 to 0.37 H^2 in frames 1 to 5 peaking at 2, dipping at 3, regrowing at 4, then falling to about 0.006 H^2 at frame 10). The blood hangs in place (the reach creeps a
+    /// little, it never travels); the entry band fades out after frame 8. Tunable: the shader is generated from this table.
     /// </summary>
     public static readonly Key[] Keys =
     [
-        new(0.00f, 1.30f, 0.50f,    6f, 0.043f, 0.60f, 1.00f, 0.05f, 1.3f, 0.00f, 1.00f),
-        new(0.05f, 1.60f, 0.70f,   22f, 0.121f, 0.62f, 1.00f, 0.08f, 3.0f, 0.00f, 1.00f),
-        new(0.10f, 1.85f, 0.80f,   28f, 0.140f, 0.58f, 0.95f, 0.12f, 3.0f, 0.00f, 1.00f),
-        new(0.18f, 1.85f, 0.82f,   27f, 0.155f, 0.48f, 0.85f, 0.20f, 3.0f, 0.30f, 1.00f),
-        new(0.27f, 1.95f, 0.85f,   34f, 0.177f, 0.52f, 0.75f, 0.28f, 3.0f, 0.20f, 0.90f),
-        new(0.37f, 2.00f, 0.86f,   32f, 0.186f, 0.47f, 0.65f, 0.36f, 3.0f, 0.18f, 0.60f),
-        new(0.48f, 2.05f, 0.86f,   30f, 0.191f, 0.45f, 0.50f, 0.44f, 3.0f, 0.12f, 0.30f),
-        new(0.60f, 2.05f, 0.85f,   30f, 0.195f, 0.43f, 0.45f, 0.52f, 3.0f, 0.08f, 0.10f),
-        new(0.72f, 2.10f, 0.80f,   28f, 0.200f, 0.42f, 0.40f, 0.60f, 3.0f, 0.05f, 0.00f),
-        new(0.85f, 2.10f, 0.50f,   26f, 0.200f, 0.40f, 0.32f, 0.66f, 3.0f, 0.05f, 0.00f),
-        new(0.98f, 2.10f, 0.35f,   24f, 0.200f, 0.30f, 0.22f, 0.70f, 3.0f, 0.05f, 0.00f),
+        //   T      Exit   Entry  Fan   Width   Fill   Opac   Grit   Br    Outer  Root
+        new(0.00f, 1.50f, 0.45f,  6f, 0.030f, 1.00f, 0.95f, 0.00f, 1.0f, 0.00f, 1.00f),
+        new(0.05f, 1.75f, 0.65f, 12f, 0.063f, 1.00f, 0.90f, 0.05f, 1.7f, 0.00f, 1.00f),
+        new(0.10f, 2.02f, 0.72f, 17f, 0.076f, 1.00f, 0.85f, 0.10f, 2.0f, 0.00f, 1.00f),
+        new(0.18f, 2.04f, 0.78f, 17f, 0.078f, 0.95f, 0.75f, 0.15f, 2.0f, 0.75f, 0.90f),
+        new(0.27f, 2.22f, 0.86f, 20f, 0.090f, 0.92f, 0.66f, 0.20f, 2.0f, 0.30f, 0.70f),
+        new(0.37f, 2.32f, 0.92f, 20f, 0.092f, 0.80f, 0.58f, 0.28f, 2.0f, 0.20f, 0.40f),
+        new(0.48f, 2.45f, 0.92f, 19f, 0.092f, 0.62f, 0.50f, 0.36f, 2.0f, 0.10f, 0.00f),
+        new(0.60f, 2.52f, 0.88f, 19f, 0.092f, 0.45f, 0.42f, 0.44f, 2.0f, 0.10f, 0.00f),
+        new(0.72f, 2.60f, 0.84f, 19f, 0.092f, 0.35f, 0.36f, 0.50f, 2.0f, 0.10f, 0.00f),
+        new(0.85f, 2.62f, 0.20f, 19f, 0.090f, 0.22f, 0.30f, 0.56f, 2.0f, 0.12f, 0.00f),
+        new(0.98f, 2.62f, 0.10f, 19f, 0.085f, 0.05f, 0.18f, 0.60f, 2.0f, 0.15f, 0.00f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -123,8 +125,13 @@ public static class GoreStreakRules
 
     /// <summary>The scale of each weight (ours): light 0.75, normal 1, heavy 1.35.</summary>
     public const float LightScale = 0.75f, NormalScale = 1f, HeavyScale = 1.35f;
-    /// <summary>A killing hit's extra scale and the largest scale (ours; owner: "bigger on death").</summary>
-    public const float LethalScale = 1.4f, MaxScale = 2f;
+    /// <summary>A killing hit's extra scale and the largest scale (ours; owner: "bigger on death"; lead 41 for the ribbons: at most 1.5 in all).</summary>
+    public const float LethalScale = 1.4f, MaxScale = 1.5f;
+    /// <summary>
+    /// How much of a streak's scale goes into its length (ribbon rebuild, lead 41: a heavy weapon's spray grows in width and area, its length scale capped at <see cref="LengthCap"/>, so a
+    /// lascannon's frame 0 stays within about 1.3 H and frames 2 to 8 within about 2 H; a kill's at <see cref="LethalLengthCap"/>, the same layout bigger); the width takes the whole scale.
+    /// </summary>
+    public const float LengthCap = 1.1f, LethalLengthCap = 1.3f;
 
     /// <summary>A streak's scale: its weight's, times <see cref="LethalScale"/> on a kill, at most <see cref="MaxScale"/>.</summary>
     public static float Scale(Weight w, bool lethal)
@@ -132,7 +139,8 @@ public static class GoreStreakRules
         float s = w switch { Weight.Light => LightScale, Weight.Heavy => HeavyScale, _ => NormalScale };
         return MathF.Min(MaxScale, lethal ? s * LethalScale : s);
     }
-
+    /// <summary>The share of <paramref name="scale"/> its length takes (<see cref="LengthCap"/>, a kill's <see cref="LethalLengthCap"/>).</summary>
+    public static float LengthScale(float scale, bool lethal) => MathF.Min(scale, lethal ? LethalLengthCap : LengthCap);
     /// <summary>
     /// A hit's weight (ours): explosions and charges heavy; gunfire heavy for the lascannon, heavy bolter, autocannon and missiles, light for pistols, else normal; melee heavy for a
     /// heavy or charged step and for hammers, mauls and power axes (a chain axe is the Chaos chainsword: normal), light for the knife and a light first step, else normal.
@@ -161,24 +169,29 @@ public static class GoreStreakRules
     /// <summary>One streak to draw (Godot world, Y up): the wound, the exit axis and the plane's normal (unit, perpendicular), the body height, scale, seed, how aged it starts, the bend and whether it killed.</summary>
     /// <param name="PreAge">Seconds it starts already aged (negative: it waits that long, a tracer in flight).</param>
     /// <param name="Bend">The melee arc's curvature (-0.4..0.4; 0 straight).</param>
-    public readonly record struct Streak(Vector3 Origin, Vector3 Axis, Vector3 Normal, float BodyHeight, float Scale, int Seed, float PreAge, float Bend, bool Lethal, bool Heavy = false, float WidthShare = 1f, float EntryShare = 1f)
+    /// <param name="Heavy">A heavy weapon's hit: the fourth (lower) band, as a kill.</param>
+    /// <param name="WidthShare">The width share for the source and the plane's facing (<see cref="WidthShareOf"/>).</param>
+    /// <param name="UnitCap">The largest metres per table unit (<see cref="MaxUnitMetres"/>, Warfront <see cref="WarfrontUnitMetres"/>).</param>
+    public readonly record struct Streak(Vector3 Origin, Vector3 Axis, Vector3 Normal, float BodyHeight, float Scale, int Seed, float PreAge, float Bend, bool Lethal, bool Heavy = false, float WidthShare = 1f, float EntryShare = 1f, float UnitCap = MaxUnitMetres)
     {
-        /// <summary>The metres per table unit (H x scale, at most <see cref="MaxUnitMetres"/>).</summary>
-        public float Unit => MathF.Min(BodyHeight * Scale, MaxUnitMetres);
+        /// <summary>The length's share of the scale (<see cref="LengthScale"/>).</summary>
+        public float LenScale => LengthScale(Scale, Lethal);
+        /// <summary>The metres per table unit (H x the length scale, at most <see cref="UnitCap"/>).</summary>
+        public float Unit => MathF.Min(BodyHeight * LenScale, UnitCap);
+        /// <summary>The bands' width multiplier in table units: the width share times the scale's part beyond the length's (a heavy hit wider, not longer).</summary>
+        public float WidthMul => WidthShare * Scale / MathF.Max(LenScale, 1e-3f);
+        /// <summary>Whether it draws the fourth (lower) band.</summary>
+        public bool Fourth => Lethal || Heavy;
         /// <summary>The plane's second axis (across the exit axis, in the plane).</summary>
         public Vector3 Across => Vector3.Normalize(Vector3.Cross(Normal, Axis));
     }
 
     /// <summary>
-    /// The width share of a streak whose plane faces the camera by <paramref name="facing"/> (|normal . toward camera|, 0..1; iteration 1 after the gate repair: a plane seen face-on showed
-    /// two to three times the reference's area, an oblique one, as a sweep's, matched): full width when oblique, down to <see cref="MinFacingWidth"/> face-on (ours).
+    /// The width share of a streak whose plane faces the camera by <paramref name="facing"/> (|normal . toward camera|, 0..1): full width when oblique, down to <see cref="MinFacingWidth"/>
+    /// face-on (ours: a face-on band shows its whole width, an oblique one less).
     /// </summary>
     public static float FacingWidth(float facing) => Math.Clamp(1.25f - 0.75f * Math.Clamp(facing, 0f, 1f), MinFacingWidth, 1f);
-    /// <summary>
-    /// A streak's width share for its <paramref name="source"/> and plane facing (iteration 2): a sweep keeps its full width (its swing plane is oblique and its area matched the reference;
-    /// the facing rule shrank it to about 0.6 of the reference), an explosion takes <see cref="ExplosionWidth"/> of the facing share (its heavy scale and face-on radial plane gave 1.7 times
-    /// the reference's area), the others the facing share (ours).
-    /// </summary>
+    /// <summary>A streak's width share for its <paramref name="source"/> and plane facing (ours, from the captures): a sweep's oblique swing plane keeps <see cref="SweepWidth"/>, the others the facing share.</summary>
     public static float WidthShareOf(Source source, float facing, bool heavy = false) => source switch
     {
         Source.Sweep => SweepWidth,
@@ -186,15 +199,9 @@ public static class GoreStreakRules
         Source.Gunfire when heavy => FacingWidth(facing) * HeavyGunfireWidth,
         _ => FacingWidth(facing),
     };
-    /// <summary>Heavy gunfire's width share (iteration 4: the lascannon's heavy scale gave about 1.8 times the reference's area).</summary>
-    public const float HeavyGunfireWidth = 0.65f;
-    public const float ExplosionWidth = 0.75f;
-    /// <summary>A sweep's width share (iteration 3: with the translucent cores the oblique sweep fell to about half the reference's area on screen).</summary>
-    public const float SweepWidth = 1.9f;
-    public const float MinFacingWidth = 0.55f;
-    /// <summary>The entry stub's share for a source (a sweep's stub measured 0.6 to 0.74 of its exit on screen, the oblique plane foreshortening the exit more: 0.72 for sweeps; ours).</summary>
-    public static float EntryShareOf(Source source) => source switch { Source.Sweep => 0.72f, Source.Explosion => 0.8f, _ => 1f };
-
+    public const float HeavyGunfireWidth = 0.85f, ExplosionWidth = 0.8f, SweepWidth = 1f, MinFacingWidth = 1f;
+    /// <summary>The entry band's share for a source (ours).</summary>
+    public static float EntryShareOf(Source source) => source switch { Source.Explosion => 0.8f, _ => 1f };
     /// <summary>A seeded hash in [0, 1) (stable across platforms).</summary>
     public static float Hash01(int seed, int salt)
     {
@@ -217,7 +224,7 @@ public static class GoreStreakRules
     /// <summary>An explosion's streak leaves the victim lifted this far above the level (degrees; ours).</summary>
     public const float ExplosionLiftDegrees = 15f;
     /// <summary>How much the view's direction pulls the plane's normal toward the camera (ours), and the smallest |normal . toward camera| it keeps (the streak never seen edge-on).</summary>
-    public const float CameraPull = 0.5f, MinFacing = 0.3f;
+    public const float CameraPull = 2f, MinFacing = 0.75f;
 
     /// <summary>A unit vector perpendicular to <paramref name="axis"/> (the "up-most" one: in the vertical plane through the axis; any when the axis is vertical).</summary>
     static Vector3 Perp(Vector3 axis, Vector3 up)
@@ -295,175 +302,131 @@ public static class GoreStreakRules
         return n;
     }
 
-    // ---- the shape (mirrored by the shader) ----
+    // ---- the ribbons (mirrored by the shader) ----
 
-    /// <summary>The most exit branches (the fourth only on a heavy or killing hit).</summary>
+    /// <summary>
+    /// The ribbons of one streak (ribbon rebuild, owner card 2026-11-26 "Rebuild as ribbons"): every streak is a few thin tilted strips on its plane, each its own mesh instance with
+    /// its own length, angle, width and timing: the main band on the attack axis (the longest), an upper branch rising from just past the wound, the entry band behind the wound (short),
+    /// and on a heavy or killing hit a fourth, lower branch. Never one filled slab.
+    /// </summary>
+    public enum Band { Main = 0, Upper = 1, Entry = 2, Lower = 3 }
+    /// <summary>The ribbons a streak can have (the fourth only on a heavy or killing hit).</summary>
     public const int MaxBranches = 4;
-    /// <summary>The grit noise's tiles per table unit across a branch, its stretch along the branch (4:1, the speckle smeared along the spray), and the second octave's scale (ours; gate repair: fine streaky speckle, not blocky notches).</summary>
-    public const float GritTiles = 3f, GritStretch = 4f, GritOctave = 2.37f;
-
-    /// <summary>A branch's angle share of the half-fan, reach share, width share (seeded jitter added by <see cref="Branch"/>): upper, middle, lower, the heavy fourth (gate repair: visibly diverging, one upward).</summary>
-    public static readonly (float Angle, float Reach, float Width)[] BranchShares = [(1.25f, 1f, 1f), (0.45f, 0.9f, 0.85f), (-0.3f, 0.8f, 0.72f), (-0.85f, 0.7f, 0.6f)];
-
-    /// <summary>The soft layer under the cores: its width as a multiple of the core's, its opacity share, and the core's edge feather (table units; gate repair: a wide un-eroded low-alpha halo, edges feathered at least 0.03 H).</summary>
-    public const float HaloWidth = 1.6f, HaloAlpha = 0.22f, Feather = 0.035f;
-    /// <summary>Compatibility's halo opacity (0.6 of Forward+'s: its reddish halo registered as blood and showed pink edges).</summary>
-    public const float CompatibilityHaloAlpha = 0.13f;
-    /// <summary>The halo's reach shortens with the fill (the late halo kept its full length while the cores eroded, so Compatibility's exit did not follow the reference): it reaches <see cref="HaloReachFloor"/> + (1 - floor) x min(1, fill / 0.7) of each stroke, and its strength follows min(1, fill / 0.3).</summary>
-    public const float HaloReachFloor = 0.45f;
-    /// <summary>The root (gate repair 1): the first <see cref="RootShare"/> of every branch is held solid by <see cref="RootBoost"/> x the key's root strength, so the branches and the entry stub leave the wound as one mass.</summary>
-    public const float RootShare = 0.35f, RootBoost = 0.6f;
-
-    /// <summary>The quad's extent in table units (gate repair, finding M2: tightened to the shape's bounds at the widest key, halo included): behind the wound, ahead of it, and to each side.</summary>
-    public static readonly float QuadBack = Keys.Max(k => k.Entry) * 1.12f + 0.12f;
-    public static readonly float QuadFwd = Keys.Max(k => k.Exit) * 1.12f + 0.05f;
-    public static readonly float QuadSide = Keys.Max(k => MathF.Sin((BranchShares.Max(b => MathF.Abs(b.Angle)) * 1.15f + 0.1f) * k.Fan * MathF.PI / 180f) * k.Exit + k.Width * HaloWidth + Feather) + 0.03f;
-
-    /// <summary>Exit branch <paramref name="k"/>'s angle (radians from the exit axis), reach and width shares for <paramref name="seed"/>.</summary>
-    public static (float Angle, float Reach, float Width) Branch(int k, int seed, float fanDeg, float bias)
-    {
-        var b = BranchShares[k];
-        float ja = 0.85f + 0.3f * ShaderHash(seed, 20 + k), jr = 0.9f + 0.1f * ShaderHash(seed, 30 + k);
-        return ((b.Angle * ja + bias) * fanDeg * MathF.PI / 180f, b.Reach * jr, b.Width);
-    }
-
-    /// <summary>Along-branch width profile at share <paramref name="u"/> of its reach: already broad at the wound (the root), widest past the middle, tapering to a tip.</summary>
-    public static float Profile(float u) => (0.7f + 0.3f * Smooth(0f, 0.4f, u)) * (1f - Smooth(0.78f, 1.06f, u));
-
-    /// <summary>One sampled point of the shape: the core field (1 on a branch's middle line, 0 at its edge, feathered), the halo field, the root term, and the nearest branch's coordinates (s along, c across) for the grit.</summary>
-    public readonly record struct ShapePoint(float Field, float Halo, float Root, float S, float C, float U);
 
     /// <summary>
-    /// The shape at plane point (<paramref name="x"/> along the exit axis, <paramref name="y"/> across; table units) for key <paramref name="k"/>: the exit branches fanned by the half-fan,
-    /// the entry stub behind the wound (its near end at the wound), each a feathered tapered stroke; the halo is the same strokes <see cref="HaloWidth"/> wide.
+    /// One band's layout (ours, from the reference's look; kind "interpretation"): its angle from the exit axis (degrees; for the upper and lower bands a share of the key's
+    /// <see cref="Key.Fan"/>, for the entry band 180 plus this), its reach (a share of the key's exit reach, or of the entry reach), its half width (a share of the key's width), where it
+    /// leaves the main band (a share of the exit reach), the seeded jitter of its angle (degrees) and reach (share), and how much of the melee arc's bend it takes.
     /// </summary>
-    public static ShapePoint Field(Key k, float x, float y, int seed, float bend, float bias, int maxBranches)
-    {
-        float best = 0f, halo = 0f, root = 0f, bs = 0f, bc = 0f, bu = 0f;
-        int n = Math.Min(maxBranches, MaxBranches);
-        for (int i = 0; i < n; i++)
-        {
-            float weight = Math.Clamp(k.Branches - Math.Min(i, 2), 0f, 1f);   // the heavy fourth comes and goes with the third
-            if (weight <= 0f) continue;
-            var (ang, reach, wid) = Branch(i, seed, k.Fan, bias);
-            Eval(ang, k.Exit * reach, k.Width * wid * MathF.Sqrt(weight));
-        }
-        if (k.Entry > 0.01f)
-        {
-            float ang = MathF.PI + (ShaderHash(seed, 40) - 0.5f) * 0.3f * k.Fan * MathF.PI / 180f;
-            Eval(ang, k.Entry, k.Width * 0.8f);
-        }
-        return new ShapePoint(best, halo, root, bs, bc, bu);
+    public readonly record struct BandShape(float Angle, float Reach, float Width, float Root, float AngleJitter, float ReachJitter, float Bend);
 
-        void Eval(float ang, float L, float w0)
-        {
-            float cs = MathF.Cos(ang), sn = MathF.Sin(ang);
-            float s = x * cs + y * sn;
-            float c = -x * sn + y * cs;
-            c -= bend * s * s / MathF.Max(L, 0.05f);
-            float u = s / MathF.Max(L, 1e-3f);
-            if (u < -0.08f || u > 1.12f) return;
-            float w = MathF.Max(w0 * Profile(u), 1e-4f);
-            float along = Smooth(-0.08f, 0.0f, u);
-            float f = (1f - Smooth(w - Feather, w + Feather, MathF.Abs(c))) * along;
-            f *= 1f - MathF.Abs(c) / (w + Feather) * 0.5f;   // densest on the middle line
-            f *= 1f - k.Outer * Smooth(0.55f, 1.0f, u);
-            float hr = HaloReachFloor + (1f - HaloReachFloor) * MathF.Min(1f, k.Fill / 0.7f);
-            float h = (1f - Smooth(0f, w * HaloWidth + Feather, MathF.Abs(c))) * along * (1f - Smooth(hr - 0.25f, hr + 0.12f, u)) * MathF.Min(1f, k.Fill / 0.3f);
-            float r = (1f - Smooth(0.7f * RootShare, 1.15f * RootShare, u)) * (1f - Smooth(w - Feather, w + Feather, MathF.Abs(c))) * along;
-            if (h > halo) halo = h;
-            if (r > root) root = r;
-            if (f > best) { best = f; bs = s; bc = c; bu = u; }
-        }
-    }
+    /// <summary>The four bands' layouts: main, upper (+Fan, about 0.6 of the main), entry (behind the wound, a touch below the line), lower (killing and heavy hits only).</summary>
+    public static readonly BandShape[] Bands =
+    [
+        new(-0.12f, 1.00f, 1.00f, 0.00f, 2f, 0.06f, 0.3f),
+        new( 1.00f, 0.60f, 0.80f, 0.10f, 2f, 0.06f, 0.2f),
+        new( 2.00f, 1.00f, 0.78f, 0.00f, 4f, 0.08f, 0.15f),
+        new(-0.70f, 0.50f, 0.66f, 0.06f, 2f, 0.06f, 0.2f),
+    ];
+
+    /// <summary>One band at one age: its angle (radians from the exit axis), reach and half width (table units), where it leaves the main band (table units along the exit axis), its opacity share and its bend.</summary>
+    public readonly record struct BandAt(float Angle, float Length, float HalfWidth, float Root, float Alpha, float Bend);
+
+    /// <summary>How far the upper and lower bands have grown at key <paramref name="k"/> (0 at frame 0: one swipe; 1 from frame 2).</summary>
+    public static float Grow(Key k) => Math.Clamp(k.Branches - 1f, 0f, 1f);
 
     /// <summary>
-    /// A texel's core coverage (0..1, a soft step: no derivative of a discontinuous score, gate repair 7) and density at plane point (x, y) and key <paramref name="k"/> (the shader's
-    /// fragment math): the score of the field, the two octaves of blotch and smear, and the root, against the erosion threshold 1 - Fill; pinholes where the fine grain beats the grit threshold.
+    /// Band <paramref name="band"/> of a streak at key <paramref name="k"/> (the vertex stage's math): its angle with the seeded jitter, its length (the main and side bands from the exit
+    /// reach, the entry band from the entry reach times <paramref name="entryShare"/>), its half width times <paramref name="widthMul"/> (the plane's facing and the weapon's width), where
+    /// it leaves the main band, its own timing (the upper band's outer half fades first from frame 3; the entry band goes after frame 8) and its share of the arc's bend.
     /// </summary>
-    public static (float Cov, float Density, float Halo) Coverage(Key k, float x, float y, int seed, float bend, float bias, int maxBranches, byte[] grit, int size)
+    public static BandAt BandOf(Band band, Key k, int seed, float bend, float widthMul = 1f, float entryShare = 1f)
     {
-        if (k.Opacity <= 0f || k.Fill <= 0f) return (0f, 0f, 0f);
-        var p = Field(k, x, y, seed, bend, bias, maxBranches);
-        if (p.Halo <= 0f && p.Field <= 0f) return (0f, 0f, 0f);
-        var (coarse, fine, smear) = GritAt(grit, size, p.S, p.C, seed);
-        float score = Score(p.Field, coarse, smear) + RootBoost * p.Root * k.Root;
-        float cov = Smooth(1f - k.Fill - CovSoft, 1f - k.Fill + CovSoft, score);
-        float holes = Smooth(HoleThreshold(k.Grit) - 0.04f, HoleThreshold(k.Grit) + 0.04f, fine) * (1f - p.Root * k.Root);
-        cov *= 1f - holes;
-        return (cov, Density(coarse), p.Halo);
+        var b = Bands[(int)band];
+        int i = (int)band;
+        float ja = (ShaderHash(seed, 20 + i) - 0.5f) * 2f * b.AngleJitter, jr = 1f + (ShaderHash(seed, 30 + i) - 0.5f) * 2f * b.ReachJitter;
+        float deg, len, w = k.Width * b.Width * widthMul, alpha = 1f;
+        switch (band)
+        {
+            case Band.Entry:
+                deg = 180f + b.Angle + ja; len = k.Entry * entryShare * jr;
+                alpha = 1f - Smooth(EntryFadeFrom, EntryFadeTo, k.T);
+                break;
+            case Band.Main:
+                deg = b.Angle * k.Fan + ja; len = k.Exit * jr;
+                break;
+            default:
+                float g = Grow(k);
+                deg = b.Angle * k.Fan + ja; len = k.Exit * b.Reach * jr * (0.35f + 0.65f * g); w *= MathF.Sqrt(g);
+                if (band == Band.Upper) alpha = 1f - UpperFade * Smooth(Keys[2].T, Keys[4].T, k.T);
+                if (g <= 0f) { len = 0f; alpha = 0f; }
+                break;
+        }
+        return new BandAt(deg * MathF.PI / 180f, len, w, b.Root * k.Exit, alpha, bend * b.Bend);
     }
+    /// <summary>The entry band fades out between these ages (s; the reference's entry is gone by frame 9).</summary>
+    public const float EntryFadeFrom = 0.74f, EntryFadeTo = 0.88f;
+    /// <summary>How much the upper band fades between frames 2 and 4 (its outer part begins fading at frame 3, ahead of the main band).</summary>
+    public const float UpperFade = 0.25f;
 
-    /// <summary>The two-octave grit at branch point (s, c): stretched <see cref="GritStretch"/> along the branch, offset by the seed; the second octave <see cref="GritOctave"/> finer.</summary>
-    public static (float Coarse, float Fine, float Smear) GritAt(byte[] grit, int size, float s, float c, int seed)
-    {
-        var (u, v) = GritUv(s, c, seed);
-        var a = GritSample(grit, size, u, v);
-        var b = GritSample(grit, size, u * GritOctave + 0.37f, v * GritOctave + 0.61f);
-        return (0.62f * a.Coarse + 0.38f * b.Coarse, 0.5f * a.Fine + 0.5f * b.Fine, 0.6f * a.Smear + 0.4f * b.Smear);
-    }
-
-    /// <summary>The grit texture coordinate of branch point (s, c).</summary>
-    public static (float U, float V) GritUv(float s, float c, int seed) => (s * GritTiles / GritStretch + ShaderHash(seed, 50), c * GritTiles + ShaderHash(seed, 51));
-    /// <summary>The erosion score of a texel: continuous in the field (it fades in over the field's first fifth), the blotches and the smear (the shader's <c>score</c>).</summary>
-    public static float Score(float field, float coarse, float smear) => (ScoreField * field + ScoreCoarse * coarse + ScoreSmear * smear) * Smooth(0f, 0.2f, field);
-    /// <summary>The score's weights and the soft step's half width (ours).</summary>
-    public const float ScoreField = 0.3f, ScoreCoarse = 0.55f, ScoreSmear = 0.15f, CovSoft = 0.05f;
-    /// <summary>The fine-grain value above which a texel is a pinhole for <paramref name="grit"/> (0..1).</summary>
-    public static float HoleThreshold(float grit) => 1f - 0.45f * grit;
-    /// <summary>A covered texel's density (its opacity share) from the coarse blotch noise: brighter cores, thinner rims.</summary>
-    public static float Density(float coarse) => 0.12f + 0.88f * coarse * coarse * coarse;
-    /// <summary>The core's opacity share (iteration 1: the cores read as solid patches, opacity proxy 0.3 to 0.5 against the reference mist's 0.14 to 0.2): with <see cref="Density"/> about half the earlier core opacity, the densest blotches brightest.</summary>
-    public const float CoreAlpha = 0.62f;
-    /// <summary>Compatibility's core opacity share (it blends in display space, with no linear lift: at Forward+'s share its cores washed out to grey and left the red mask).</summary>
-    public const float CompatibilityCoreAlpha = 1.5f;
-
-    /// <summary>A texel's blood opacity: the core at opacity x coverage x density over the halo at <see cref="HaloAlpha"/> x opacity (the shader's ALPHA).</summary>
-    public static float Alpha(Key k, float cov, float density, float halo, float coreAlpha = CoreAlpha, float haloAlpha = HaloAlpha) => k.Opacity * MathF.Min(1f, MathF.Max(cov * density * coreAlpha, haloAlpha * halo));
-
-    /// <summary>The covered core area (table units squared), the area with any visible blood (halo included, alpha over 0.05), and the farthest covered reach ahead of and behind the wound at <paramref name="age"/>, on a grid of <paramref name="step"/>.</summary>
-    public static (float Area, float ExitReach, float EntryReach, float VisibleArea) Measure(float age, int seed, float bend, float bias, int maxBranches, byte[] grit, int size, float step = 0.02f)
-    {
-        var k = Sample(age);
-        float area = 0f, vis = 0f, fwd = 0f, back = 0f;
-        for (float y = -QuadSide; y <= QuadSide; y += step)
-            for (float x = -QuadBack; x <= QuadFwd; x += step)
-            {
-                var (cov, dens, halo) = Coverage(k, x, y, seed, bend, bias, maxBranches, grit, size);
-                if (Alpha(k, cov, dens, halo) > 0.05f) vis += step * step;
-                if (cov <= 0.5f) continue;
-                area += step * step;
-                if (x > fwd) fwd = x;
-                if (-x > back) back = -x;
-            }
-        return (area, fwd, back, vis);
-    }
-
-    // ---- grit ----
-
-    /// <summary>The grit texture's size (texels a side).</summary>
-    public const int GritSize = 256;
+    /// <summary>A band's width along its length (share <paramref name="u"/> of its reach): narrow where it leaves the wound, widest past the middle, then a tapered tip.</summary>
+    public static float Profile(float u) => (0.55f + 0.45f * Smooth(0f, 0.5f, u)) * (1f - 0.75f * Smooth(0.82f, 1.0f, u));
+    /// <summary>The strip is this much wider than the band's nominal half width, so the ragged edge has room (the fragment fades the band out at |v| = 1 of the nominal width).</summary>
+    public const float EdgePad = 1.3f;
+    /// <summary>The strip's segments along its length (vertices = 2 x (segments + 1)).</summary>
+    public const int Segments = 12;
 
     /// <summary>
-    /// The tileable grit noise (RGBA8, <paramref name="size"/>^2, deterministic for <paramref name="seed"/>): R coarse blotches (about a twelfth of a tile), G fine grain (a few texels),
-    /// B a streaky smear (stretched 8:1 along U); A 255. Made in code at startup; nothing in it comes from footage.
+    /// The plane point (table units: x along the exit axis, y across, up-leaning) of strip vertex (<paramref name="u"/> along 0..1, <paramref name="v"/> across -1..1 of the padded
+    /// width) of a band (the vertex shader's math): from where it leaves the main band, along its angle, bent by the arc.
     /// </summary>
-    public static byte[] GritTexels(int size = GritSize, int seed = 1)
+    public static (float X, float Y) RibbonPoint(BandAt b, float u, float v)
+    {
+        float cs = MathF.Cos(b.Angle), sn = MathF.Sin(b.Angle);
+        float s = u * b.Length;
+        float off = b.Bend * s * s / MathF.Max(b.Length, 0.05f);
+        float hw = b.HalfWidth * Profile(u) * EdgePad;
+        float across = off + v * hw;
+        return (b.Root + cs * s - sn * across, sn * s + cs * across);
+    }
+
+    // ---- the filament texture (made at startup; nothing comes from footage) ----
+
+    /// <summary>The filament texture's size (texels a side).</summary>
+    public const int FilamentSize = 256;
+    /// <summary>
+    /// The texture's stretch along a band (ours: the reviewer's 10 to 14 to 1): one tile across spans <see cref="FilAcrossTiles"/> of a band's width each way from its middle, and one
+    /// tile along spans <see cref="FilAlongH"/> body heights, so an isotropic filament about a twelfth of a tile reads about twelve times longer than wide on a band.
+    /// </summary>
+    public const float FilAcrossTiles = 0.25f, FilAlongH = 4.5f;
+    /// <summary>The patch noise's tiles along a band (per its whole reach) and across (per its half width): with 12 cells a tile, about 7 cells along a band, so it breaks into 5 to 8 patches.</summary>
+    public const float ErodeAlong = 1.0f, ErodeAcross = 0.06f;
+    /// <summary>The fine grain's tiles per filament tile (pinholes and the ragged edge).</summary>
+    public const float FineScale = 3.1f;
+
+    /// <summary>
+    /// The filament texture (RGBA8, <paramref name="size"/>^2, tileable, deterministic for <paramref name="seed"/>): R thin filaments (ridges of domain-warped value noise, flow-warped mostly
+    /// across so they wander like a spray's streaks), G soft blotches (the erosion that breaks a band into patches, and the flow warp), B fine grain (pinholes, the ragged edge); A 255.
+    /// </summary>
+    public static byte[] FilamentTexels(int size = FilamentSize, int seed = 1)
     {
         var px = new byte[size * size * 4];
         for (int y = 0; y < size; y++)
             for (int x = 0; x < size; x++)
             {
                 float u = x / (float)size, v = y / (float)size;
-                float coarse = 0.65f * Periodic(u, v, 12, 12, seed) + 0.35f * Periodic(u, v, 24, 24, seed + 1);
-                float fine = 0.7f * Periodic(u, v, 64, 64, seed + 2) + 0.3f * Periodic(u, v, 128, 128, seed + 3);
-                float smear = 0.7f * Periodic(u, v, 8, 64, seed + 4) + 0.3f * Periodic(u, v, 16, 128, seed + 5);
+                float wu = u + 0.05f * (Periodic(u, v, 4, 4, seed + 10) - 0.5f);
+                float wv = v + 0.12f * (Periodic(u, v, 3, 5, seed + 11) - 0.5f);
+                float r1 = Ridge(Periodic(wu, wv, 14, 14, seed + 12)), r2 = Ridge(Periodic(wu, wv, 28, 28, seed + 13));
+                float fil = Smooth(0.04f, 0.7f, 0.68f * r1 + 0.32f * r2);
+                float blot = 0.7f * Periodic(u, v, 12, 12, seed + 14) + 0.3f * Periodic(u, v, 24, 24, seed + 15);
+                float fine = 0.6f * Periodic(u, v, 64, 64, seed + 16) + 0.4f * Periodic(u, v, 128, 128, seed + 17);
                 int i = (y * size + x) * 4;
-                px[i] = ToByte(Contrast(coarse)); px[i + 1] = ToByte(Contrast(fine)); px[i + 2] = ToByte(Contrast(smear)); px[i + 3] = 255;
+                px[i] = ToByte(fil); px[i + 1] = ToByte(Smooth(0.22f, 0.78f, blot)); px[i + 2] = ToByte(Smooth(0.2f, 0.8f, fine)); px[i + 3] = 255;
             }
         return px;
         static byte ToByte(float f) => (byte)Math.Clamp(MathF.Round(f * 255f), 0f, 255f);
-        static float Contrast(float f) => Smooth(0.2f, 0.8f, f);
+        static float Ridge(float n) { float r = 1f - MathF.Abs(2f * n - 1f); return r * r * r; }
     }
 
     /// <summary>Value noise on a lattice of <paramref name="cx"/> by <paramref name="cy"/> cells that wraps at the tile's edges.</summary>
@@ -479,8 +442,8 @@ public static class GoreStreakRules
         return a0 + (a1 - a0) * ty;
     }
 
-    /// <summary>The grit at texture coordinate (u, v) (wrapping, bilinear), each channel 0..1: coarse, fine, smear.</summary>
-    public static (float Coarse, float Fine, float Smear) GritSample(byte[] px, int size, float u, float v)
+    /// <summary>The texture at (u, v) (wrapping, bilinear), each channel 0..1: filament, blotch, fine.</summary>
+    public static (float Fil, float Blot, float Fine) TexSample(byte[] px, int size, float u, float v)
     {
         float fx = (u - MathF.Floor(u)) * size - 0.5f, fy = (v - MathF.Floor(v)) * size - 0.5f;
         int x0 = (int)MathF.Floor(fx), y0 = (int)MathF.Floor(fy);
@@ -494,6 +457,119 @@ public static class GoreStreakRules
         return (C(0), C(1), C(2));
     }
 
+    // ---- one texel of a band (the fragment's math) ----
+
+    /// <summary>A band texel: its blood opacity (before the renderer's core share and the near fade), its coverage after the erosion, and its density (lighter in the core).</summary>
+    public readonly record struct Texel(float Alpha, float Cov, float Density);
+
+    /// <summary>The opacity floor of a texel between the filaments (the filaments add the rest).</summary>
+    public const float FilFloor = 0.2f;
+    /// <summary>The ragged edge: a texel fades out between these shares of the nominal half width (plus the fine grain and the gaps between the filaments).</summary>
+    public const float EdgeFrom = 0.7f, EdgeTo = 1.05f;
+    /// <summary>The lumpy outline: each edge moves in and out by up to <see cref="LumpDepth"/> of the half width over about 1 / <see cref="LumpAlong"/> body heights.</summary>
+    public const float LumpDepth = 0.45f, LumpAlong = 0.9f;
+    /// <summary>The density blotches along a band: the opacity times floor + gain x blotch (lighter and darker clumps, mean about 1).</summary>
+    public const float BlotFloor = 0.5f, BlotGain = 1.0f;
+    /// <summary>How much more solid the swipe is before the side bands grow (frame 0 reads as one solid thin line).</summary>
+    public const float SwipeSolid = 0.45f;
+    /// <summary>The soft step of the patch erosion (half width).</summary>
+    public const float ErodeSoft = 0.07f;
+    /// <summary>The root (frames 0 to 4): the first <see cref="RootShare"/> of every band is held whole by the key's root strength, so the bands leave the wound as one mass.</summary>
+    public const float RootShare = 0.3f;
+
+    /// <summary>
+    /// The texel at (<paramref name="u"/> along 0..1, <paramref name="v"/> across: 1 at the nominal edge) of band <paramref name="band"/> at key <paramref name="k"/> (the fragment shader's
+    /// math): the flow-aligned filaments stretched along the band, the ragged edge and tip, the outer fade, the patch erosion against 1 - Fill, the held root, the pinholes.
+    /// </summary>
+    public static Texel TexelAt(Key k, BandAt b, Band band, float u, float v, int seed, byte[] tex, int size)
+    {
+        float s = u * b.Length;
+        float av = MathF.Abs(v);
+        float ou = ShaderHash(seed, 50 + (int)band), ov = ShaderHash(seed, 54 + (int)band);
+        float warp = (TexSample(tex, size, s * 0.35f + ou, ov * 1.7f).Blot - 0.5f) * 0.12f;
+        float tu = s / FilAlongH + ou, tv = v * FilAcrossTiles + ov + warp;
+        float f1 = TexSample(tex, size, tu, tv).Fil, f2 = TexSample(tex, size, tu * 2.3f + 0.37f, tv * 2.3f + 0.61f).Fil;
+        float fil = 0.65f * f1 + 0.35f * f2;
+        float fine = TexSample(tex, size, tu * FineScale + 0.2f, tv * FineScale + 0.7f).Fine;
+        float lump = TexSample(tex, size, s * LumpAlong + ou * 2f, (v > 0f ? 0.3f : 0.7f) + ov).Blot;
+        float edge = 1f - Smooth(EdgeFrom, EdgeTo, av + 0.25f * (fine - 0.5f) + 0.2f * (1f - fil) * av + LumpDepth * (lump - 0.5f));
+        float blotA = TexSample(tex, size, s * 0.6f + ou, v * 0.08f + ov * 1.3f).Blot;
+        float along = Smooth(0f, 0.05f, u) * (1f - Smooth(0.8f, 1f, u + 0.15f * (fine - 0.5f)));
+        float outer = 1f - k.Outer * Smooth(0.5f, 1f, u);
+        float e = TexSample(tex, size, u * ErodeAlong + ou * 3.1f, v * ErodeAcross + ov * 2.3f).Blot;
+        float thr = 1f - k.Fill;
+        float cov = Smooth(thr - ErodeSoft, thr + ErodeSoft, 0.8f * e + 0.2f * fil);
+        float rootHeld = k.Root * (1f - Smooth(0.6f * RootShare, RootShare, u));
+        cov = MathF.Max(cov, rootHeld);
+        float hole = 1f - 0.45f * k.Grit;
+        cov *= 1f - Smooth(hole - 0.04f, hole + 0.04f, fine) * (1f - rootHeld);
+        float solid = SwipeSolid * (1f - Grow(k));   // frame 0: one solid swipe
+        float floor = FilFloor + solid, bf = BlotFloor + solid;
+        float a = k.Opacity * b.Alpha * edge * along * outer * cov * (floor + (1f - floor) * fil) * (bf + (1f - bf) * 2f * blotA);
+        return new Texel(a, cov, fil * (1f - 0.45f * MathF.Min(av, 1f)));
+    }
+
+    /// <summary>The bands a streak draws: main, upper, entry, and the lower one only when <paramref name="fourth"/> (a heavy or killing hit).</summary>
+    public static int BandCount(bool fourth) => fourth ? 4 : 3;
+
+    /// <summary>
+    /// The streak's covered area (table units squared, face-on: the visible texels with opacity x <paramref name="coreAlpha"/> over <paramref name="alphaMin"/>), its farthest covered
+    /// reach ahead of the wound and behind it, the main band's patches (runs of covered texels along its middle) and the mean opacity of the covered texels, at <paramref name="age"/>.
+    /// </summary>
+    public static (float Area, float ExitReach, float EntryReach, int MainPatches, float MeanAlpha) Measure(float age, int seed, float bend, bool fourth, byte[] tex, int size, float widthMul = 1f,
+        float coreAlpha = CoreAlpha, float alphaMin = 0.07f, int nu = 160, int nv = 40)
+    {
+        var k = Sample(age);
+        float area = 0f, fwd = 0f, back = 0f, sumA = 0f; int nA = 0, patches = 0;
+        if (k.Opacity <= 0f) return (0f, 0f, 0f, 0, 0f);
+        for (int bi = 0; bi < BandCount(fourth); bi++)
+        {
+            var band = (Band)bi;
+            var b = BandOf(band, k, seed, bend, widthMul);
+            if (b.Length <= 1e-4f || b.Alpha <= 0f) continue;
+            var mainLine = new bool[nu];
+            for (int iu = 0; iu < nu; iu++)
+            {
+                float u = (iu + 0.5f) / nu;
+                float hw = b.HalfWidth * Profile(u) * EdgePad;
+                float dA = b.Length / nu * (2f * hw / nv);
+                for (int iv = 0; iv < nv; iv++)
+                {
+                    float vv = -1f + (iv + 0.5f) * 2f / nv;            // across the padded strip
+                    float v = vv * EdgePad;                             // 1 at the nominal edge
+                    var t = TexelAt(k, b, band, u, v, seed, tex, size);
+                    float a = MathF.Min(1f, t.Alpha * coreAlpha);
+                    if (iv == nv / 2 && band == Band.Main) mainLine[iu] = a > alphaMin;
+                    if (a <= alphaMin) continue;
+                    area += dA; sumA += a; nA++;
+                    var (x, _) = RibbonPoint(b, u, vv);
+                    if (x > fwd) fwd = x;
+                    if (-x > back) back = -x;
+                }
+            }
+            if (band == Band.Main) patches = Patches(mainLine);
+        }
+        return (area, fwd, back, patches, nA == 0 ? 0f : sumA / nA);
+    }
+
+    /// <summary>The patches along a band's middle line: runs of covered samples at least 3 long, gaps under 3 samples bridged.</summary>
+    public static int Patches(bool[] line)
+    {
+        int n = 0, run = 0, gap = 99;
+        bool counted = false;
+        foreach (bool on in line)
+        {
+            if (on)
+            {
+                if (gap >= 3) { run = 0; counted = false; }
+                gap = 0; run++;
+                if (run >= 3 && !counted) { n++; counted = true; }
+            }
+            else gap++;
+        }
+        return n;
+    }
+
     // ---- colour ----
 
     /// <summary>
@@ -501,12 +577,20 @@ public static class GoreStreakRules
     /// albedo read about (229, 20, 0) on Forward+ and about (150, 0, 0) on Compatibility; Forward+ takes <see cref="ForwardShade"/> of it so both show about (150, 0, 0).
     /// </summary>
     public const float ForwardShade = 0.42f, CompatibilityShade = 1f;
-    /// <summary>The strip pass's strength per unit of blood opacity, Forward+ and Compatibility (Compatibility blends in display space, where a fully stripped ground under a faint texel read near black and left the red mask) (gate repair 6: the strip fades with the opacity, so a faint texel keeps the ground's own tone, stripped toward red, and never goes near black on Compatibility).</summary>
-    public const float StripPerAlpha = 7f, CompatibilityStripPerAlpha = 4.5f;
-    /// <summary>Compatibility's strip: a blend_mix toward this dark blood red (display space) at the strip's strength, not a multiply (its multiply blend darkened even where it multiplied by 1).</summary>
-    public const float CompatibilityStripRed = 0.12f;
+    /// <summary>
+    /// The strip pass's strength per unit of blood opacity, Forward+ and Compatibility (ribbon rebuild: the strip takes only green and blue from the ground under the blood, never red, so a
+    /// translucent band over a light ground reads red and never near black; the strength follows the opacity so a faint texel stays translucent).
+    /// </summary>
+    public const float StripPerAlpha = 6f, CompatibilityStripPerAlpha = 4f;
+    /// <summary>The strip's largest strength (a translucent band keeps part of the ground's green and blue, as the reference's translucent red does; a faint texel is stripped as much as a dense one, so it never reads pink).</summary>
+    public const float StripMax = 0.6f, CompatibilityStripMax = 0.45f;
+    /// <summary>Compatibility's strip: its multiply blend blackened the ground (captures, ribbon rebuild), so it mixes the ground toward this blood red (display space) at the strip's strength instead: green and blue fall, the red level stays near a mid-grey's.</summary>
+    public const float CompatibilityStripRed = 0.3f;
 
-    /// <summary>The blood's albedo for <paramref name="density"/> (repair 4's darker red, 0.3 to 0.55 of the blood red) at the renderer's <paramref name="shade"/>.</summary>
+    /// <summary>The core's opacity share per renderer (Compatibility blends in display space: its faint texels wash out sooner, so it takes a little more).</summary>
+    public const float CoreAlpha = 0.48f, CompatibilityCoreAlpha = 0.6f;
+
+    /// <summary>The blood's albedo for <paramref name="density"/> (repair 4's darker red, 0.3 to 0.55 of the blood red: the filament cores lighter) at the renderer's <paramref name="shade"/>.</summary>
     public static (float R, float G, float B) Colour(float density, float shade = CompatibilityShade)
     {
         float k = shade * (ClassicBloodRules.RibbonShadeFloor + (ClassicBloodRules.RibbonShadeTop - ClassicBloodRules.RibbonShadeFloor) * Smooth(0.15f, 0.85f, density));
@@ -514,19 +598,17 @@ public static class GoreStreakRules
         return (b.R * k, b.G * k, b.B * k);
     }
 
-    /// <summary>The strip pass's strength for a texel of blood opacity <paramref name="alpha"/> and core coverage <paramref name="cov"/>.</summary>
-    public static float Strip(float alpha, float cov, float perAlpha = StripPerAlpha) => Math.Clamp(perAlpha * alpha, 0f, 1f) * (0.75f + 0.25f * Math.Clamp(cov, 0f, 1f));
+    /// <summary>The strip pass's strength for a texel of blood opacity <paramref name="alpha"/>.</summary>
+    public static float Strip(float alpha, float perAlpha = StripPerAlpha, float max = StripMax) => Math.Clamp(perAlpha * alpha, 0f, max);
 
     /// <summary>
-    /// The colour of a pixel <paramref name="under"/> beneath a streak texel of blood opacity <paramref name="alpha"/>, core coverage <paramref name="cov"/> and density after both passes:
-    /// the strip (blend_mul: the red under it kept at <see cref="ClassicBloodRules.RibbonStripRed"/>, green and blue removed, at <see cref="Strip"/>) then the blood mixed over it.
+    /// The colour of a pixel <paramref name="under"/> beneath a band texel of blood opacity <paramref name="alpha"/> and density after both passes: the strip (a multiply that keeps the red
+    /// and takes green and blue at <see cref="Strip"/>) then the blood mixed over it.
     /// </summary>
-    public static (float R, float G, float B) Composite((float R, float G, float B) under, float alpha, float cov, float density, float shade = CompatibilityShade, float perAlpha = StripPerAlpha, bool compat = false)
+    public static (float R, float G, float B) Composite((float R, float G, float B) under, float alpha, float density, float shade = CompatibilityShade, float perAlpha = StripPerAlpha, float max = StripMax)
     {
-        float s = Strip(alpha, cov, perAlpha);
-        var u = compat
-            ? (R: under.R * (1f - s) + s * CompatibilityStripRed, G: under.G * (1f - s), B: under.B * (1f - s))
-            : (R: under.R * (1f - s + s * ClassicBloodRules.RibbonStripRed), G: under.G * (1f - s), B: under.B * (1f - s));
+        float s = Strip(alpha, perAlpha, max);
+        var u = (R: under.R, G: under.G * (1f - s), B: under.B * (1f - s));
         var col = Colour(density, shade);
         float a = Math.Clamp(alpha, 0f, 1f);
         return (a * col.R + (1f - a) * u.R, a * col.G + (1f - a) * u.G, a * col.B + (1f - a) * u.B);
@@ -537,46 +619,91 @@ public static class GoreStreakRules
 
     // ---- pool and budget ----
 
-    /// <summary>The streak pool (MultiMesh instances; ours): the oldest is reused beyond it.</summary>
-    public const int PoolSize = 512;
+    /// <summary>The streak pool (ours): <see cref="MaxBranches"/> mesh instances a streak; the oldest streak is reused beyond it.</summary>
+    public const int PoolSize = 256;
     /// <summary>The slot of the <paramref name="spawned"/>-th streak (a ring: spawn order is age order, so the slot reused is the oldest).</summary>
     public static int PoolSlot(long spawned, int pool = PoolSize) => (int)(spawned % pool);
     /// <summary>Whether a streak started at <paramref name="start"/> (s on the view's clock, pre-age applied) still shows at <paramref name="now"/>.</summary>
     public static bool Live(double start, double now) => now - start < LifeSeconds && now - start > -2.0;
-    /// <summary>Whether a slot started at <paramref name="start"/> is spent at <paramref name="now"/> and is retired (its instance switched off: finding M1, no replay when the shader's clock wraps).</summary>
+    /// <summary>Whether a slot started at <paramref name="start"/> is spent at <paramref name="now"/> and is retired (its instances switched off: no replay when the shader's clock wraps).</summary>
     public static bool Spent(double start, double now) => !double.IsNegativeInfinity(start) && now - start >= LifeSeconds;
 
-    /// <summary>The largest metres per table unit (gate repair 9 and finding M2: a heavy lethal streak on a tall body stays within about 3 m a unit).</summary>
-    public const float MaxUnitMetres = 3f;
+    /// <summary>
+    /// One live streak per victim (ribbon rebuild, lead 41: replace, not stack): a new streak on a victim whose last streak started less than <see cref="ReplaceSeconds"/> ago (and still
+    /// shows) takes that streak's slot and starts over, so a burst of hits never stacks into a slab.
+    /// </summary>
+    public const double ReplaceSeconds = 0.25;
+    /// <summary>Whether a victim's streak started at <paramref name="start"/> is replaced by a new one at <paramref name="now"/>.</summary>
+    public static bool Replaces(double start, double now) => now - start < ReplaceSeconds && now - start > -2.0;
+
+    /// <summary>The largest metres per table unit in Classic (a lethal streak on a 2 m marine stays within it) and in Warfront (lead 41: about 2.2 m, so a big Ork's streak stays in proportion).</summary>
+    public const float MaxUnitMetres = 3f, WarfrontUnitMetres = 2.2f;
 
     /// <summary>
-    /// Warfront's budget (lead decision, gate repair 9; ours): a per-second token bucket for other players' hits (<see cref="WarfrontPerSecond"/>, burst <see cref="WarfrontBurst"/>), at most
-    /// one streak per enemy every <see cref="WarfrontEnemySeconds"/>, at most <see cref="WarfrontLiveMax"/> showing (the own hits always, first), within <see cref="WarfrontMetres"/>, none for a body
-    /// under <see cref="MinBodyPixels"/> on screen.
+    /// Warfront's budget (lead decisions, gate repair 9 and the ribbon rebuild; ours): a per-second token bucket for other players' hits (<see cref="WarfrontPerSecond"/>, burst
+    /// <see cref="WarfrontBurst"/>; the token taken last, so a hit dropped for another reason costs none), at most one streak per enemy every <see cref="WarfrontEnemySeconds"/> (a killing hit
+    /// always: it replaces that enemy's streak), the own hits first and nearest first but at most <see cref="WarfrontOwnPerWindow"/> every <see cref="WarfrontOwnWindow"/> and
+    /// <see cref="WarfrontOwnLiveMax"/> showing, at most <see cref="WarfrontLiveMax"/> showing in all, within <see cref="WarfrontMetres"/>, none for a body under <see cref="MinBodyPixels"/>
+    /// on screen.
     /// </summary>
-    public const float WarfrontPerSecond = 60f, WarfrontBurst = 24f, WarfrontEnemySeconds = 0.15f;
-    public const int WarfrontLiveMax = 150;
+    public const float WarfrontPerSecond = 40f, WarfrontBurst = 16f, WarfrontEnemySeconds = 0.15f;
+    public const int WarfrontLiveMax = 64, WarfrontOwnLiveMax = 48, WarfrontOwnPerWindow = 7;
+    public const double WarfrontOwnWindow = 0.15;
     public const float WarfrontMetres = 45f, MinBodyPixels = 12f;
-    /// <summary>A streak closer to the camera than this fades out (m; ours: Warfront's near hits filled the screen with wedges).</summary>
-    public const float NearFadeFrom = 1.2f, NearFadeTo = 3.5f;
+    /// <summary>A streak closer to the camera than this fades out (m; ours): Classic, and Warfront (lead 41: its near hits filled the screen).</summary>
+    public const float NearFadeFrom = 1.2f, NearFadeTo = 3.5f, WarfrontNearFadeFrom = 2.5f, WarfrontNearFadeTo = 6f;
 
     /// <summary>A token bucket (engine-free): <see cref="Take"/> spends one token when there is one; tokens refill at the rate up to the burst.</summary>
     public sealed class Bucket(float perSecond, float burst)
     {
         double _tokens = burst, _at = double.NaN;
+        /// <summary>Whether a token is there at <paramref name="now"/> (refilled; not spent).</summary>
+        public bool Has(double now) { Refill(now); return _tokens >= 1.0; }
         public bool Take(double now)
+        {
+            Refill(now);
+            if (_tokens < 1.0) return false;
+            _tokens -= 1.0;
+            return true;
+        }
+        void Refill(double now)
         {
             if (double.IsNaN(_at)) _at = now;
             _tokens = Math.Min(burst, _tokens + Math.Max(0.0, now - _at) * perSecond);
             _at = now;
-            if (_tokens < 1.0) return false;
-            _tokens -= 1.0;
-            return true;
         }
     }
 
     /// <summary>Whether an enemy last streaked at <paramref name="last"/> may streak again at <paramref name="now"/>.</summary>
     public static bool EnemyReady(double last, double now) => now - last >= WarfrontEnemySeconds;
+
+    /// <summary>One Warfront streak waiting for the frame's admission (<see cref="AdmitStreaks"/>): the own player's hit or another's, killing or not, its distance from the camera.</summary>
+    public readonly record struct StreakAsk(bool Own, bool Lethal, float Distance, int Index);
+
+    /// <summary>
+    /// The frame's Warfront admission (finding M2, engine-free): the asks sorted own first, killing first, then nearest; the own ones at most <see cref="WarfrontOwnPerWindow"/> in the
+    /// current window (<paramref name="ownInWindow"/> already spent) and while fewer than <see cref="WarfrontOwnLiveMax"/> own and <see cref="WarfrontLiveMax"/> in all show
+    /// (<paramref name="liveOwn"/>, <paramref name="liveAll"/>, counted up as admitted); the others under the live cap and with a token from <paramref name="bucket"/>, taken last.
+    /// Returns the admitted asks' indices in admission order.
+    /// </summary>
+    public static System.Collections.Generic.List<int> AdmitStreaks(System.Collections.Generic.List<StreakAsk> asks, int ownInWindow, int liveOwn, int liveAll, Bucket bucket, double now)
+    {
+        asks.Sort((a, b) => a.Own != b.Own ? (a.Own ? -1 : 1) : a.Lethal != b.Lethal ? (a.Lethal ? -1 : 1) : a.Distance.CompareTo(b.Distance));
+        var admitted = new System.Collections.Generic.List<int>();
+        foreach (var a in asks)
+        {
+            if (liveAll >= WarfrontLiveMax) break;
+            if (a.Own)
+            {
+                if (ownInWindow >= WarfrontOwnPerWindow || liveOwn >= WarfrontOwnLiveMax) continue;
+                ownInWindow++; liveOwn++;
+            }
+            else if (!bucket.Take(now)) continue;
+            liveAll++;
+            admitted.Add(a.Index);
+        }
+        return admitted;
+    }
 
     /// <summary>A body <paramref name="height"/> m tall at <paramref name="distance"/> m, seen with a vertical field of view <paramref name="fovYDegrees"/> on a <paramref name="screenHeight"/>-pixel view: its height in pixels.</summary>
     public static float ProjectedPixels(float height, float distance, float fovYDegrees, float screenHeight) =>

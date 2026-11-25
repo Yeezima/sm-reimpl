@@ -56,7 +56,7 @@ public partial class NetworkView
             }
         }
         var normal = StreakPlane(src, axis, seed, before, after);
-        SpawnStreak(c.Contact, axis, normal, ClassicBodyHeight, scale, (float)c.PreAge, bend, c.Lethal, weight == Weight.Heavy, seed, src);
+        SpawnStreak(c.Contact, axis, normal, ClassicBodyHeight, scale, (float)c.PreAge, bend, c.Lethal, weight == Weight.Heavy, seed, src, victim: c.Victim);
         if (LogHitDir) HitDirPrint($"HITDIR streak P{c.Attacker}->P{c.Victim} {src} {weight}{(c.Lethal ? " lethal" : "")} scale {scale:F2} wargear {c.Wargear ?? "?"} pre-age {c.PreAge * 1000:F0} ms bend {bend:F2} (t {_connectedFor:F2})");
         return true;
     }
@@ -106,7 +106,7 @@ public partial class NetworkView
         var axis = GsG(ExplosionAxis(GsN(chest), GsN(centre), Num.Vector3.UnitY, seed));
         var normal = StreakPlane(Source.Explosion, axis, seed);
         float scale = GoreStreakRules.Scale(Weight.Heavy, lethal);
-        SpawnStreak(chest + axis * ClassicHitDirRules.BodySurface, axis, normal, ClassicBodyHeight, scale, 0f, 0f, lethal, true, seed, Source.Explosion);
+        SpawnStreak(chest + axis * ClassicHitDirRules.BodySurface, axis, normal, ClassicBodyHeight, scale, 0f, 0f, lethal, true, seed, Source.Explosion, victim: o.PlayerId);
         drawn = true;
         if (LogHitDir) HitDirPrint($"HITDIR streak explosion on P{o.PlayerId} from {what}{(lethal ? " lethal" : "")} scale {scale:F2} (t {_connectedFor:F2})");
     }

@@ -15,9 +15,11 @@ namespace SmClient;
 /// protocol change). The streak's source from the hit marker: 3 melee (along attacker to enemy, the plane rolled by the seed; the attacker's melee weapon sizes it), 0 with no player
 /// fire support (an explosion, a seeded outward direction), 1 or 2 a shot: a detonation drawn within <see cref="WarfrontBlastSeconds"/> and <see cref="WarfrontBlastMetres"/> of the
 /// hit is an explosion (radial from it; a plasma blast none), else the shooter's last weapon decides (plasma, melta or any cone weapon: none) and it runs along shooter to enemy.
-/// A Death event for the same enemy in the same batch makes it lethal (bigger, a fourth branch). The body height is the enemy type's chest height / 0.6 (the unit capped at 3 m). Budget
-/// (lead decision): one streak per enemy every 0.15 s; other players' hits through a per-second token bucket and under a live cap of 150; the own hits always; within 45 m and
-/// none for a body under 12 px on screen (<see cref="GoreStreakRules.Bucket"/>, <see cref="GoreStreakRules.WarfrontLiveMax"/>). Musou Mode alone never draws it (<see cref="NetworkView.StreakDraws"/>); the Ork blood keeps playing beside it.
+/// A Death event for the same enemy in the same batch makes it lethal (bigger, a fourth band). The body height is the enemy type's chest height / 0.6 (the unit capped at
+/// <see cref="GoreStreakRules.WarfrontUnitMetres"/>). Budget (lead decisions; <see cref="GoreStreakRules.AdmitStreaks"/>): one streak per enemy every 0.15 s, a killing hit always (it
+/// replaces that enemy's streak, finding M1); the frame's hits wait for the view's frame and are admitted own first, killing first, nearest first: the own ones at most 7 per 0.15 s
+/// and 48 showing, the others through a per-second token bucket taken last (finding L2), all under 64 showing (finding M2); within 45 m and none for a body under 12 px on screen.
+/// Musou Mode alone never draws it (<see cref="NetworkView.StreakDraws"/>); the Ork blood keeps playing beside it.
 /// </summary>
 public partial class NetworkView
 {
@@ -30,7 +32,14 @@ public partial class NetworkView
     readonly HashSet<ushort> _wfDead = new();
     IReadOnlyList<MusouEvent>? _wfDeadFrom;
     ulong _wfDeadFrame = ulong.MaxValue;
-
+    /// <summary>A Warfront streak waiting for the frame's admission.</summary>
+    readonly record struct WfPending(ushort Enemy, bool Own, bool Lethal, float Distance, Vector3 Chest, Vector3 Axis, Vector3 Normal, float H, float Scale, bool Heavy, int Seed, Source Src);
+    readonly List<WfPending> _wfPending = new();
+    readonly List<StreakAsk> _wfAsks = new();
+    readonly HashSet<ushort> _wfFlushEnemies = new();
+    double _wfOwnWindowAt = double.NegativeInfinity;
+    int _wfOwnInWindow;
+    bool _wfPrewarmed;
     /// <summary>A detonation in Warfront (from <see cref="ExtrasClassicBlast"/>'s call site: the same hook feeds both).</summary>
     void StreakWarfrontBlast(Vector3 at, string wargear)
     {
@@ -50,23 +59,23 @@ public partial class NetworkView
         return _wfDead;
     }
 
-    /// <summary>A Musou enemy hit event (MusouFx.MusouHitFx), <paramref name="at"/> the hit point raised to the chest (game space).</summary>
+    /// <summary>A Musou enemy hit event (MusouFx.MusouHitFx), <paramref name="at"/> the hit point raised to the chest (game space): checked here, admitted at the view's frame (<see cref="StreakWarfrontFlush"/>).</summary>
     void StreakWarfrontHit(in MusouEvent e, Num.Vector3 at, bool own, PlayerState me, IReadOnlyList<MusouShown> shown, Num.Vector3 camera)
     {
         if (!MatchExtras.HasFlag(ContentExtras.Warfront) || !StreakDraws || _config is null || _client is null) return;
         var view = GoreStreaks();
-        if (Num.Vector3.DistanceSquared(at, camera) > WarfrontMetres * WarfrontMetres) { view.NoteDropped(); return; }
-        // the budget (lead decision, gate repair 9): one streak per enemy every 0.15 s, the others' hits through a per-second bucket and under the live cap; the own hits always, first
-        if (_wfEnemyLast.TryGetValue(e.Enemy, out double last) && !EnemyReady(last, _connectedFor)) { view.NoteDropped(); return; }
-        if (!own && (view.Live >= WarfrontLiveMax || !_wfBucket.Take(_connectedFor))) { view.NoteDropped(); return; }
+        float dist = Num.Vector3.Distance(at, camera);
+        if (dist > WarfrontMetres) { view.NoteDropped(); return; }
+        bool lethal = StreakDeadThisBatch().Contains(e.Enemy);
+        // one streak per enemy every 0.15 s; a killing hit always (finding M1: it replaces that enemy's streak, bigger)
+        if (!lethal && _wfEnemyLast.TryGetValue(e.Enemy, out double last) && !EnemyReady(last, _connectedFor)) { view.NoteDropped(); return; }
         var type = _musouTypeOf.TryGetValue(e.Enemy, out var t) ? t : MusouEnemyType.Boy;
         float h = GoreChestHeight(type) / 0.6f;
         if (_camera is { } cam && GodotObject.IsInstanceValid(cam))
         {
-            float px = ProjectedPixels(h, Num.Vector3.Distance(at, camera), cam.Fov, GetViewport()?.GetVisibleRect().Size.Y ?? 1080f);
+            float px = ProjectedPixels(h, dist, cam.Fov, GetViewport()?.GetVisibleRect().Size.Y ?? 1080f);
             if (px < MinBodyPixels) { view.NoteDropped(); return; }
         }
-        bool lethal = StreakDeadThisBatch().Contains(e.Enemy);
         PlayerState? attacker = e.Player == 0 ? null : own ? me : MusouPlayerState(e.Player);
         var chest = ToGodot(at);
         int seed = NextStreakSeed();
@@ -109,10 +118,47 @@ public partial class NetworkView
         }
         axis = axis.Normalized();
         var normal = StreakPlane(src == Source.Sweep ? Source.Thrust : src, axis, seed);   // no weapon path in Warfront: the swing's plane is rolled like a thrust's
-        float scale = GoreStreakRules.Scale(weight, lethal);
-        SpawnStreak(chest, axis, normal, h, scale, 0f, 0f, lethal, weight == Weight.Heavy, seed, src);
-        _wfEnemyLast[e.Enemy] = _connectedFor;
+        _wfPending.Add(new WfPending(e.Enemy, own, lethal, dist, chest, axis, normal, h, GoreStreakRules.Scale(weight, lethal), weight == Weight.Heavy, seed, src));
+        if (_wfPending.Count > 512) { view.NoteDropped(_wfPending.Count - 512); _wfPending.RemoveRange(0, _wfPending.Count - 512); }
+    }
+
+    /// <summary>Warfront's per-frame streak work (from the added content's frame): the prewarm once (finding L5: before the first hit, as Classic does).</summary>
+    void StreakWarfrontFrame()
+    {
+        if (_wfPrewarmed || !MatchExtras.HasFlag(ContentExtras.Warfront) || !StreakDraws || _camera is not { } cam || !GodotObject.IsInstanceValid(cam)) return;
+        _wfPrewarmed = true;
+        GoreStreaks().Prewarm(cam.GlobalPosition - cam.GlobalTransform.Basis.Z * 3f);
+    }
+
+    /// <summary>
+    /// The frame's admission (<see cref="GoreStreakView.BeforeFrame"/>): one ask per enemy (a killing one first), then <see cref="AdmitStreaks"/> (own first and nearest first, the own
+    /// window and live caps, the bucket's token last) and the admitted ones drawn; the rest counted as dropped.
+    /// </summary>
+    void StreakWarfrontFlush()
+    {
+        if (_wfPending.Count == 0) return;
+        var view = GoreStreaks();
+        if (_connectedFor - _wfOwnWindowAt >= WarfrontOwnWindow) { _wfOwnWindowAt = _connectedFor; _wfOwnInWindow = 0; }
+        _wfAsks.Clear(); _wfFlushEnemies.Clear();
+        // a killing hit wins its enemy's one ask this frame
+        for (int pass = 0; pass < 2; pass++)
+            for (int i = 0; i < _wfPending.Count; i++)
+            {
+                var p = _wfPending[i];
+                if (p.Lethal != (pass == 0) || !_wfFlushEnemies.Add(p.Enemy)) continue;
+                _wfAsks.Add(new StreakAsk(p.Own, p.Lethal, p.Distance, i));
+            }
+        var admitted = AdmitStreaks(_wfAsks, _wfOwnInWindow, view.LiveOwn, view.Live, _wfBucket, _connectedFor);
+        foreach (int i in admitted)
+        {
+            var p = _wfPending[i];
+            if (p.Own) _wfOwnInWindow++;
+            SpawnStreak(p.Chest, p.Axis, p.Normal, p.H, p.Scale, 0f, 0f, p.Lethal, p.Heavy, p.Seed, p.Src, victim: p.Enemy + 1, own: p.Own, unitCap: WarfrontUnitMetres);
+            _wfEnemyLast[p.Enemy] = _connectedFor;
+        }
+        view.NoteDropped(_wfPending.Count - admitted.Count);
         if (_wfEnemyLast.Count > 2048) _wfEnemyLast.Clear();
+        _wfPending.Clear();
     }
 
     /// <summary>The nearest recent detonation to <paramref name="chest"/> that the shooter's own weapon can have made (finding L4: the snapshot names no owner, so the shooter's last weapon must match the blast's; a thrown item, wargear "", matches any).</summary>
