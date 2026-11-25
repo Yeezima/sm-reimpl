@@ -71,6 +71,13 @@
     <Compile Include="..\..\client\Extras\Executions\ExecutionClientState.cs" Link="ClientExecutions\ExecutionClientState.cs" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(SmExtras)' == 'true'">
+    <!-- Executions X6: the own executor's prediction, the prompt's rules and the camera's maths (engine-free). -->
+    <Compile Include="..\..\client\Extras\Executions\ExecutionPrediction.cs" Link="ClientExecutions\ExecutionPrediction.cs" />
+    <Compile Include="..\..\client\Extras\Executions\ExecutionPromptRules.cs" Link="ClientExecutions\ExecutionPromptRules.cs" />
+    <Compile Include="..\..\client\Extras\Executions\ExecutionCameraMath.cs" Link="ClientExecutions\ExecutionCameraMath.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmServer\SmServer.csproj" />
     <ProjectReference Include="..\..\src\SmNet\SmNet.csproj" />
