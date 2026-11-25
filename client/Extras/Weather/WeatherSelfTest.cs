@@ -236,11 +236,11 @@ public sealed partial class WeatherSelfTest : Node
             && WeatherRig.GradeLight(WeatherGrade.For(WeatherId.Thunderstorm, 1f)) is >= WeatherRig.LightMin and < 1f
             && WeatherRig.GradeLight(WeatherGrade.For(WeatherId.AshSquall, 1f)) is >= WeatherRig.LightMin and < 1f, $"storm {WeatherRig.GradeLight(WeatherGrade.For(WeatherId.Thunderstorm, 1f)):F2} ash {WeatherRig.GradeLight(WeatherGrade.For(WeatherId.AshSquall, 1f)):F2}");
         // tune (review): the layers follow the map's light at the camera: a dark interior (dim ambient, the sun shut out) is darker than an open street, the sun counts only under open sky, and the factor stays in bounds
-        float street = WeatherRig.MapLight(0.25f, 1f, 1.16f, 1f), interior = WeatherRig.MapLight(0.21f, 1.2f, 1.16f, 0f), half = WeatherRig.MapLight(0.25f, 1f, 1.16f, 0.5f);
+        float street = WeatherRig.MapLight(0.25f, 1f, 1f), interior = WeatherRig.MapLight(0.21f, 1.2f, 0f), half = WeatherRig.MapLight(0.25f, 1f, 0.5f);
         Check("fidelity tune: the map's light is lower in a covered, dim place than on an open street, and in bounds", interior < half && half < street && interior >= WeatherRig.MapLightMin && street <= WeatherRig.MapLightMax
-            && WeatherRig.MapLight(float.NaN, float.PositiveInfinity, 1f, float.NaN) is >= WeatherRig.MapLightMin and <= WeatherRig.MapLightMax, $"street {street:F2} half {half:F2} interior {interior:F2}");
-        Check("fidelity tune 2: the grit is darker in shade than in sun but never under its floor", WeatherRig.GritLight(0.5f) >= WeatherRig.GritLightFloor && WeatherRig.GritLight(0.5f) < WeatherRig.GritLight(0.86f) && WeatherRig.GritLight(0.86f) < 1f,
-            $"shade {WeatherRig.GritLight(0.5f):F2} sun {WeatherRig.GritLight(0.86f):F2}");
+            && WeatherRig.MapLight(float.NaN, float.PositiveInfinity, float.NaN) is >= WeatherRig.MapLightMin and <= WeatherRig.MapLightMax, $"street {street:F2} half {half:F2} interior {interior:F2}");
+        Check("fidelity tune 2/3: grit and dust are darker in shade than in sun, the dust keeps more of its light than the grit, both at least 0.65 at the light's floor", WeatherRig.GritLight(WeatherRig.MapLightMin) >= 0.65f && WeatherRig.GritLight(0.5f) < WeatherRig.GritLight(0.86f)
+            && WeatherRig.VolumeLight(0.5f) > WeatherRig.GritLight(0.5f) && WeatherRig.VolumeLight(WeatherRig.MapLightMin) >= 0.7f, $"grit shade {WeatherRig.GritLight(0.5f):F2} sun {WeatherRig.GritLight(0.86f):F2} dust shade {WeatherRig.VolumeLight(0.5f):F2}");
         {
             string repo = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
             string install = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-wx-fake-install");

@@ -155,23 +155,25 @@ public partial class NetworkView
         _wxPerfFrames.Clear(); _wxPerfScriptMs = 0; _wxPerfRayMs = 0; _wxPerfRayMax = 0; _wxPerfRays = 0;
     }
 
-    bool _wxSpritesDumpDecided;
+    bool _wxSpritesDumpDecided, _wxSpritesSession;
     double _wxSpriteWait;
 
     /// <summary>The longest the first weather waits for a sprite read under way (s) before it draws with the procedural look.</summary>
     const double WeatherSpriteWaitSeconds = 3.0;
 
     /// <summary>
-    /// Weather fidelity: the weather's original sprites are read on a worker (<see cref="WeatherSprites"/>) as soon as the match's effects package is read (tune: from the match load's background read, before the effect player
-    /// is built or the client is connected, so the first weather does not pop in); a bot never draws, so never reads them. The <c>--weather-sprites-dump</c> test aid acts only in an F6 developer-tools session and never into the
-    /// repository or the game install; while it is asked for, the read waits for the session's gate.
+    /// Weather fidelity: the weather's original sprites are read on a worker (<see cref="WeatherSprites"/>) as soon as the match's effects package is read (tune: from the first weather frame the background effects read has
+    /// finished, without waiting for the effect player to be built; the weather frames run once the client is connected), and the first weather waits up to 3 s for a read under way so it does not pop in; a bot never draws, so
+    /// never reads them. The <c>--weather-sprites-dump</c> test aid acts only in an F6 developer-tools session and never into the repository, any folder inside a Git work tree, or the game install; while it is asked for, the read
+    /// waits until the session announces developer tools or 4 s have passed.
     /// </summary>
     void WeatherSpritesFrame(bool connected)
     {
         if (_bot || WeatherSprites.Procedural) return;
+        if (!_wxSpritesSession) { _wxSpritesSession = true; WeatherSprites.ClearDump(); }   // tune 3 (review): no dump folder carries over from an earlier session
         if (!_wxSpritesDumpDecided && CmdArg("weather-sprites-dump") is { } dump)
         {
-            if (!connected || _connectedFor < 1.0) return;   // the gate is known once connected
+            if (!connected || (_client?.Dev is null && _connectedFor < 4.0)) return;   // the gate is known once the session announces developer tools, or after 4 s without
             _wxSpritesDumpDecided = true;
             string repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
             if (_client?.Dev is null) GD.Print("weather sprites dump ignored: this server has no developer tools");
@@ -236,7 +238,7 @@ public partial class NetworkView
             }
         }
         bool connected = WeatherOn && _client is { Status: ClientStatus.Connected };
-        if (WeatherOn) WeatherSpritesFrame(connected);   // tune: from the match load on, connected or not
+        if (WeatherOn) WeatherSpritesFrame(connected);   // tune: before the connected check below (the weather frames themselves run only once connected)
         if (!connected)
         {
             _musouWind.LiveDb = 0f; _musouWind.LiveLpf = 0f; _wxBedShelter = false;

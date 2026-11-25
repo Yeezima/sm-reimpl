@@ -77,6 +77,13 @@ public static class WeatherSprites
             Status = "weather sprites: " + (task.Exception?.GetBaseException().Message ?? "cancelled") + " (the procedural look stays; the next match reads again)"; GD.Print(Status);
             return true;
         }
+        if (task.Result.Count == 0)
+        {
+            // tune 3 (review): an empty read (no atlas, or none of the sprites in it) is not final for the run either: the next match reads again
+            _failedFor = _loadFor; _loadFor = null;
+            Status = "weather sprites: none found in the install's effects (the procedural look stays; the next match reads again)"; GD.Print(Status);
+            return true;
+        }
         _done = true; _loadFor = null;
         foreach (var (role, image, tx, ty, material, effect) in task.Result)
             _sprites[role] = new Sprite(ImageTexture.CreateFromImage(image), tx, ty, material, effect);
@@ -125,6 +132,21 @@ public static class WeatherSprites
     /// </summary>
     public static string? DumpDir { get; private set; }
 
+    /// <summary>Forgets the dump folder (a new session decides again).</summary>
+    public static void ClearDump() => DumpDir = null;
+
+    /// <summary>The folder or one of its ancestors holds a <c>.git</c> entry (a Git work tree or worktree: the repository's checkouts and worktrees anywhere on the disk).</summary>
+    static bool InGitTree(string full)
+    {
+        try
+        {
+            for (var d = new System.IO.DirectoryInfo(full); d is not null; d = d.Parent)
+                if (System.IO.Directory.Exists(System.IO.Path.Combine(d.FullName, ".git")) || System.IO.File.Exists(System.IO.Path.Combine(d.FullName, ".git"))) return true;
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Security.SecurityException or ArgumentException) { return true; }   // unreadable: refuse
+        return false;
+    }
+
     /// <summary>Sets <see cref="DumpDir"/> unless <paramref name="dir"/> lies inside <paramref name="repoRoot"/> or <paramref name="gameDir"/>; returns the refusal (null when accepted or nothing was asked).</summary>
     public static string? TrySetDump(string? dir, string repoRoot, string gameDir)
     {
@@ -133,8 +155,8 @@ public static class WeatherSprites
         string full;
         try { full = System.IO.Path.GetFullPath(dir); }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or System.IO.PathTooLongException or System.Security.SecurityException) { return "--weather-sprites-dump: not a usable folder"; }
-        if ((repoRoot.Length > 0 && SmFormats.InstallPaths.IsWithin(full, repoRoot)) || (gameDir.Length > 0 && SmFormats.InstallPaths.IsWithin(full, gameDir)))
-            return "--weather-sprites-dump must not be inside the repository or the game install; nothing is written";
+        if ((repoRoot.Length > 0 && SmFormats.InstallPaths.IsWithin(full, repoRoot)) || (gameDir.Length > 0 && SmFormats.InstallPaths.IsWithin(full, gameDir)) || InGitTree(full))
+            return "--weather-sprites-dump must not be inside the repository, a Git work tree or the game install; nothing is written";
         DumpDir = full;
         return null;
     }

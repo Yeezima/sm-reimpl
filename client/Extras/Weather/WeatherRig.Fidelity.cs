@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Godot;
 
 namespace SmClient.Extras.Weather;
@@ -19,17 +19,24 @@ public sealed partial class WeatherRig
 {
     /// <summary>The soft fade's depth (m) of the near rain, the far rain, the grit and the flakes on the High tier.</summary>
     public const float RainSoftM = 0.35f, RainFarSoftM = 1.0f, GritSoftM = 0.5f, FlakeSoftM = 0.3f;
-    /// <summary>The share of the grade's light the rain follows (the streaks stay a little brighter than the street they cross, as rain does against a dark wall); the ash, dust, fog and mist follow it fully.</summary>
+    /// <summary>The share of the light's change the rain follows (the streaks stay a little brighter than the street they cross, as rain does against a dark wall).</summary>
     public const float RainLightShare = 0.5f;
     /// <summary>
-    /// Tune 2 (media check of the tune: "On Waste Management the darkened ash grit is now hard to see at all in the shade"): the grit follows <see cref="GritLightShare"/> of the light's change and never drops under
-    /// <see cref="GritLightFloor"/>, so in shade it is darker than in sun but still reads as thin streaks (a 3.5 cm streak lit fully by a shade's light vanished against the dark wall). At Waste Management's shaded spawn
-    /// (light 0.50) the grit takes 0.70, at Manufactorum's spawn (0.67) 0.80; the review's grit took 0.89 on both.
+    /// Tune 2 (media check of the tune: "On Waste Management the darkened ash grit is now hard to see at all in the shade"): the grit and the flakes follow <see cref="GritLightShare"/> of the light's change, so in shade they
+    /// are darker than in sun but still read (a 3.5 cm streak lit fully by a shade's light vanished against the dark wall); with <see cref="MapLightMin"/> their least is 0.67. At Waste Management's shaded spawn (light 0.50)
+    /// they take 0.70, at Manufactorum's spawn (0.67) 0.80; the review's grit took 0.89 on both.
     /// </summary>
-    public const float GritLightShare = 0.6f, GritLightFloor = 0.65f;
+    public const float GritLightShare = 0.6f;
+    /// <summary>
+    /// Tune 3 (Fable re-review: on Waste Management the squall was streaks without its dust body): the dust sheets, the Low Fog cards and the rain mist follow <see cref="VolumeLightShare"/> of the light's change (least 0.73),
+    /// so a squall in shade keeps its brown body, a little darker than in sun.
+    /// </summary>
+    public const float VolumeLightShare = 0.5f;
 
-    /// <summary>The grit's light factor for a layer light factor <paramref name="light"/>. Pure.</summary>
-    public static float GritLight(float light) => Math.Max(GritLightFloor, 1f + (light - 1f) * GritLightShare);
+    /// <summary>The grit's (and flakes') light factor for a layer light factor <paramref name="light"/>. Pure.</summary>
+    public static float GritLight(float light) => 1f + (light - 1f) * GritLightShare;
+    /// <summary>The dust's, fog's and mist's light factor for a layer light factor <paramref name="light"/>. Pure.</summary>
+    public static float VolumeLight(float light) => 1f + (light - 1f) * VolumeLightShare;
     /// <summary>The volume puff sprite covers less of its card than the procedural puff did (a cloud with gaps, not a filled disc): the dust sheets' and fog cards' alpha times this keeps the squall's and the fog's density.</summary>
     public const float VolumeAlphaGain = 1.8f;
     /// <summary>The bounds of the light factor.</summary>
@@ -60,10 +67,11 @@ public sealed partial class WeatherRig
     /// Tune (review: "ash grit reads as near-white sleet" on Waste Management): the light a particle at the camera receives, read from the map's own lighting as the frame draws it (the sun and environment after the region blend
     /// and the weather's grade): the ambient (the sky's hemisphere colours, or the ambient colour) times its energy times <see cref="MapAmbientGain"/> (the sky, the haze's in-scatter and the bounce that light drifting ash in
     /// shade), plus <see cref="MapSunGain"/> of the sun times the share of the air round the camera the sun reaches (<see cref="SunSeen"/>: rays toward the sun through the collision world; in a street's shade or under a roof
-    /// none), times the exposure, bounded. Calibrated on the Ash Squall at full: about 0.66 at Manufactorum's spawn 1 (a fifth of its air sunlit), 0.86 in its full sun, 0.51 in Waste Management's shade (the old grade light
-    /// was 0.78 everywhere, and the grit took only half of it). Shade and dark interiors give dark grit; the storm's dim sun dims it too.
+    /// none), bounded. The exposure is not counted (tune 3, review: the layers are unshaded and pass through the tonemapper's exposure like every surface; counting it here counted it twice; the gains took in the 1.16 the
+    /// maps' exposure had). Calibrated on the Ash Squall at full: about 0.66 at Manufactorum's spawn 1 (a fifth of its air sunlit), 0.86 in its full sun, 0.51 in Waste Management's shade (the old grade light was 0.78
+    /// everywhere). The lightning flash is applied outside the ease (<see cref="FlashRatio"/>), so a strike lights the layers at once.
     /// </summary>
-    public const float MapAmbientGain = 2.1f, MapSunGain = 0.22f, MapLightMin = 0.45f, MapLightMax = 1.15f;
+    public const float MapAmbientGain = 2.45f, MapSunGain = 0.255f, MapLightMin = 0.45f, MapLightMax = 1.15f;
     /// <summary>The sun rays' reach (m): an occluder farther than this does not shade the camera's air.</summary>
     public const float SunRayReachM = 80f;
 
@@ -72,11 +80,11 @@ public sealed partial class WeatherRig
     /// <summary>How fast the light factor follows a change (per second, exponential): a region border or a roof edge eases in instead of stepping.</summary>
     public const float MapLightRate = 2.5f;
 
-    /// <summary>The light factor of an ambient level, a sun level, an exposure and the share of the camera's air the sun reaches (0 to 1). Pure.</summary>
-    public static float MapLight(float ambient, float sun, float exposure, float sunSeen)
+    /// <summary>The light factor of an ambient level, a sun level and the share of the camera's air the sun reaches (0 to 1). Pure.</summary>
+    public static float MapLight(float ambient, float sun, float sunSeen)
     {
         float open = Math.Clamp(float.IsFinite(sunSeen) ? sunSeen : 1f, 0f, 1f);
-        float v = (MapAmbientGain * Math.Max(ambient, 0f) + MapSunGain * Math.Max(sun, 0f) * open) * Math.Max(exposure, 0f);
+        float v = MapAmbientGain * Math.Max(ambient, 0f) + MapSunGain * Math.Max(sun, 0f) * open;
         return Math.Clamp(float.IsFinite(v) ? v : 1f, MapLightMin, MapLightMax);
     }
 
@@ -110,10 +118,19 @@ public sealed partial class WeatherRig
     {
         if (!MapLevels(out float amb, out float sun, out float exp)) { _mapLight = float.NaN; return GradeLightNow(); }
         MapLevelsNow = (amb, sun, exp);
-        float target = MapLight(amb, sun, exp, Math.Min(SunSeen, 1f - Shelter));
+        float flash = FlashRatio();
+        float target = MapLight(amb / flash, sun / flash, Math.Min(SunSeen, 1f - Shelter));   // the flash taken out before the ease and put back after it (tune 3: a strike is not eased)
         float dt = (float)Math.Clamp(GetProcessDeltaTime(), 0.0, 0.25);
         _mapLight = float.IsNaN(_mapLight) ? target : _mapLight + (target - _mapLight) * (1f - MathF.Exp(-MapLightRate * dt));
-        return _mapLight;
+        return Math.Clamp(_mapLight * flash, MapLightMin, MapLightMax);
+    }
+
+    /// <summary>The lightning flash's lift of the grade's light now (1 with none): the grade's light with the flash over the grade's light without it.</summary>
+    static float FlashRatio()
+    {
+        if (WeatherClientLink.Model is not { Has: true } m) return 1f;
+        float plain = GradeLight(WeatherGrade.For(m.State.Id, m.EffectiveIntensity));
+        return plain > 0f ? Math.Clamp(GradeLight(m.Grade) / plain, 1f, 2f) : 1f;
     }
 
     /// <summary>A colour scaled by the light (alpha kept).</summary>
@@ -144,9 +161,9 @@ public sealed partial class WeatherRig
         }
         float light = old ? 1f : LightNow(), rainLight = 1f + (light - 1f) * RainLightShare;
         Scale(_rainMaterial, rainLight); Scale(_rainFarMaterial, rainLight);
-        Scale(_ashMainMaterial, GritLight(light)); Scale(_ashWarnMaterial, light);   // tune (review: grit read as near-white sleet), tune 2 (then too dark to see in shade): most of the light's change, with a floor
-        float volumeGain = WeatherSprites.Of(WeatherSprites.Role.Volume) is null ? 1f : VolumeAlphaGain;
-        Scale(_splashMaterial, rainLight); Scale(_mistMaterial, light); Scale(_fogMaterial, light, WeatherSprites.Of(WeatherSprites.Role.Volume) is null ? 1f : FogSpriteAlphaGain); Scale(_dustMaterial, light, volumeGain);
+        Scale(_ashMainMaterial, GritLight(light)); Scale(_ashWarnMaterial, GritLight(light));   // tune 1 (grit read as near-white sleet), tune 2 (then too dark to see in shade): 0.6 of the light's change
+        float volumeGain = WeatherSprites.Of(WeatherSprites.Role.Volume) is null ? 1f : VolumeAlphaGain, volume = VolumeLight(light);   // tune 3: the squall keeps its dust body in shade
+        Scale(_splashMaterial, rainLight); Scale(_mistMaterial, volume); Scale(_fogMaterial, volume, WeatherSprites.Of(WeatherSprites.Role.Volume) is null ? 1f : FogSpriteAlphaGain); Scale(_dustMaterial, volume, volumeGain);
         LightFactor = light;
     }
 
@@ -173,10 +190,10 @@ public sealed partial class WeatherRig
 
     /// <summary>
     /// Tune (review: Low Fog's cards showed fine horizontal striations across the crates): with the install's volume puff a fog card is <see cref="FogSpriteWidthM"/> x <see cref="FogSpriteHeightM"/> (about 3 to 1, not the
-    /// procedural puff's 16 x 2.4 m, which stretched the puff's detail into bands), it fades over a deeper soft line where it meets the ground or a wall, and its alpha is <see cref="FogSpriteAlphaGain"/> times the card's
-    /// (in place of the dust sheets' <see cref="VolumeAlphaGain"/>), so many soft overlapping clouds read as one low layer.
+    /// procedural puff's 16 x 2.4 m, which stretched the puff's detail into bands), it fades over a <see cref="FogSpriteSoftM"/> soft line where it meets the ground or a wall, and its alpha is <see cref="FogSpriteAlphaGain"/>
+    /// times the card's (in place of the dust sheets' <see cref="VolumeAlphaGain"/>; tune 3, review: at 1.8 with the smaller card and a 4.5 m soft line the cards barely read), so many soft clouds read as one low layer.
     /// </summary>
-    public const float FogSpriteWidthM = 9f, FogSpriteHeightM = 3.2f, FogSpriteSoftM = 4.5f, FogSpriteAlphaGain = 1.8f;
+    public const float FogSpriteWidthM = 9f, FogSpriteHeightM = 3.2f, FogSpriteSoftM = 3f, FogSpriteAlphaGain = 2.8f;
 
     static void FogShape(CpuParticles3D? p, StandardMaterial3D? m, bool sprite)
     {
