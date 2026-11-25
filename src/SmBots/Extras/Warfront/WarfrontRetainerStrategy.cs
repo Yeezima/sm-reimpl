@@ -10,6 +10,7 @@ public sealed class RetainerSituation
     public RetainerOrder Order;
     /// <summary>The owning player's feet and heading, and whether he is alive.</summary>
     public V3 Owner;
+    /// <summary>The owner's view yaw (radians; read only until he has walked <see cref="WarfrontRetainerStrategy.HeadingSlack"/>, review L4: the follow spot and the idle facing go by his movement heading, so panning the camera does not shuffle the retainers).</summary>
     public float OwnerYaw;
     public bool OwnerAlive = true;
     /// <summary>The Hold order's place (this retainer's own ring place), the Attack order's point, the jump-pound's mark.</summary>
@@ -52,6 +53,23 @@ public sealed class WarfrontRetainerStrategy : IBotStrategy
     public const float ReviveSafe = 8f;
     /// <summary>Within this of the downed ally it stops and holds Use (the squad's revive reach is 2 m). Kind: ours; confidence: medium.</summary>
     public const float ReviveStand = 1.5f;
+    /// <summary>The owner's movement heading (the follow spot's "behind" and the idle facing) turns only after he has walked this far from where it was last set (review L4). Kind: ours; confidence: low.</summary>
+    public const float HeadingSlack = 2f;
+
+    float? _heading;
+    V3 _headingFrom;
+
+    /// <summary>The owner's movement heading (yaw, radians): his view yaw until he first walks <see cref="HeadingSlack"/>, then the direction of his last such walk.</summary>
+    public float OwnerHeading => _heading ?? Situation.OwnerYaw;
+
+    void TrackHeading(RetainerSituation s)
+    {
+        if (_heading is null) { _heading = s.OwnerYaw; _headingFrom = s.Owner; return; }
+        float dx = s.Owner.X - _headingFrom.X, dy = s.Owner.Y - _headingFrom.Y;
+        if (dx * dx + dy * dy < HeadingSlack * HeadingSlack) return;
+        _heading = MathF.Atan2(-dx, dy);   // direction (-sin yaw, cos yaw)
+        _headingFrom = s.Owner;
+    }
 
     public RetainerSituation Situation { get; } = new();
     public WarfrontLeash Leash { get; } = new();
@@ -69,7 +87,8 @@ public sealed class WarfrontRetainerStrategy : IBotStrategy
         var s = Situation;
         double now = brain.WarfrontNow;
         bool committed = brain.CommittedMove(me);
-        Leash.Step(now, s.Order, Flat(me.Position, s.Owner), committed, _lastFight);
+        TrackHeading(s);
+        Leash.Step(now, s.Order, s.Owner, me.Position, committed, _lastFight);
         // the jump-pound order: a jump-pack retainer's max jump and pound at its mark (others drop it at once)
         if (s.Order == RetainerOrder.JumpPound && s.PoundAt is { } mark)
         {
@@ -81,7 +100,7 @@ public sealed class WarfrontRetainerStrategy : IBotStrategy
         {
             Decision = "return";
             brain.WarfrontNote("warfront: back to the owner");
-            return brain.WarfrontWalk(me, FollowSpotOf(s), "warfront: back to the owner", tick, SprintBeyond * 0.5f);
+            return brain.WarfrontWalk(me, FollowSpotOf(s, OwnerHeading), "warfront: back to the owner", tick, SprintBeyond * 0.5f);
         }
         if (s.ReviveAt is { } downed && !committed && ReviveAllowed(s, downed) && (brain.BotFightTarget(me, out float enemy) is null || enemy > ReviveSafe))
         {
@@ -122,7 +141,7 @@ public sealed class WarfrontRetainerStrategy : IBotStrategy
             case RetainerOrder.Hold when s.HoldAt is { } h:
                 Decision = "hold";
                 if (Flat(me.Position, h) > 1f) return brain.WarfrontWalk(me, h, "warfront: to the hold", tick, SprintBeyond);
-                return brain.WarfrontStand(tick, s.OwnerYaw);
+                return brain.WarfrontStand(tick, OwnerHeading);
             case RetainerOrder.Attack when s.AttackAt is { } a:
                 Decision = "attack";
                 if (Flat(me.Position, a) > HoldRadius) return brain.WarfrontWalk(me, a, "warfront: attack point", tick, SprintBeyond);
@@ -131,9 +150,9 @@ public sealed class WarfrontRetainerStrategy : IBotStrategy
                 // Follow (and a jump-pound waiting for its press): an enemy last seen near, inside the circle, is chased the Classic way (the goal clamped); else its spot behind the owner
                 if (EnemyToChase(brain, me, s) && brain.WarfrontClassicIdle(me, tick) is { } chase) { Decision = "chase"; return chase; }
                 Decision = "follow";
-                var spot = FollowSpotOf(s);
+                var spot = FollowSpotOf(s, OwnerHeading);
                 if (Flat(me.Position, spot) > FollowSlack) return brain.WarfrontWalk(me, spot, "warfront: follow the owner", tick, SprintBeyond);
-                return brain.WarfrontStand(tick, s.OwnerYaw);
+                return brain.WarfrontStand(tick, OwnerHeading);
         }
     }
 
@@ -145,10 +164,10 @@ public sealed class WarfrontRetainerStrategy : IBotStrategy
     }
 
     /// <summary>The retainer's place behind its owner: <see cref="FollowSpot"/> metres back, the slots spread over a quarter circle across his back.</summary>
-    public static V3 FollowSpotOf(RetainerSituation s)
+    public static V3 FollowSpotOf(RetainerSituation s, float heading)
     {
         float spread = s.Count <= 1 ? 0f : (s.Slot / (float)(s.Count - 1) - 0.5f) * (MathF.PI / 2f);
-        float back = s.OwnerYaw + MathF.PI + spread;   // direction (-sin yaw, cos yaw)
+        float back = heading + MathF.PI + spread;   // direction (-sin yaw, cos yaw)
         return s.Owner + new V3(-MathF.Sin(back), MathF.Cos(back), 0f) * FollowSpot;
     }
 
@@ -175,6 +194,7 @@ public sealed class WarfrontRetainerStrategy : IBotStrategy
     {
         Leash.Reset();
         _lastFight = double.NegativeInfinity;
+        _heading = null;
         brain.WarfrontPoundReset();
     }
 }

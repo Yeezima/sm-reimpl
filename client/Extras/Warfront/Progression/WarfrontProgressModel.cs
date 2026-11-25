@@ -280,6 +280,6 @@ public sealed class WarfrontProgressModel
     public string PendingText => Pending > 0 ? "+" + Pending : "";
     public string XpText => $"{Xp:N0} / {XpAtNextLevel:N0} XP";
 
-    /// <summary>The six counters, in order: attack speed, max HP, damage, cooldown, max armour, retainers.</summary>
+    /// <summary>The counters, in order: attack speed, max HP, damage, cooldown, max armour (the retainer counter is retired, T0).</summary>
     public string CounterText(int i) => CounterLabels[i] + "\n" + CardCounts[i];
 }

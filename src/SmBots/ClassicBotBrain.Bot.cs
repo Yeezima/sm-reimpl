@@ -31,7 +31,7 @@ public sealed partial class ClassicBotBrain
     {
         if (_client?.Collision is not { } world) return true;
         var from = me.Position + new System.Numerics.Vector3(0, 0, _config!.EyeHeight);
-        var to = target.Position + new System.Numerics.Vector3(0, 0, BotTargetHeight);
+        var to = target.Position + new System.Numerics.Vector3(0, 0, AimHeightOf(target));
         var line = to - from;
         float length = line.Length();
         return length <= 0.3f || world.Weapons.Raycast(from, line / length, length - 0.15f) is null;

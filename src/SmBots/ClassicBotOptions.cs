@@ -30,6 +30,11 @@ public sealed record ClassicBotOptions
     /// </summary>
     public bool SyncPlans { get; init; }
     /// <summary>
+    /// Run the cover and approach searches inside the brain's tick instead of on the thread pool (Warfront retainers, review F1: with a graph their results landed at a wall-clock-dependent poll).
+    /// Off for every Classic bot and the shadow comparison.
+    /// </summary>
+    public bool InlineSearches { get; init; }
+    /// <summary>
     /// The key prefix of this brain's background jobs (<see cref="BotWork"/>): one per bot in a process; the shadow brain uses its live brain's, so the two share
     /// each job.
     /// </summary>

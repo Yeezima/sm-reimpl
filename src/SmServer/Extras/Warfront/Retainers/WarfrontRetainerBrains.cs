@@ -23,8 +23,9 @@ namespace SmServer.Extras.Warfront.Retainers;
 /// state, and plans its paths inside its steering call (<see cref="ClassicBotOptions.SyncPlans"/>), so the inputs do not depend on the threads. Log lines are written in World id order after the step.
 /// </para>
 /// <para>
-/// The walking graph is the server's own graph of the stage map (the bots' <c>NavSettings.From</c>); a jump-pack class's links are built (or read from the private nav cache) once per pack
-/// in the background and handed to its brains when ready (walk first, then jump: the bots' A1 rule).
+/// The walking graph is the server's own graph of the stage map (the bots' <c>NavSettings.From</c>). A jump-pack class's links (review F1/L5, keyed by the walking graph and the pack): read from the private
+/// nav cache in the tick the pack is first seen when the cache has them; otherwise built in the background (into the cache) and taken only at a battle's start, so the inputs never depend on when a
+/// thread finishes (deterministic for the same nav cache at the battle's start). The brains' cover and approach searches run inside their step (<see cref="ClassicBotOptions.InlineSearches"/>).
 /// </para>
 /// </summary>
 public sealed class WarfrontRetainerBrains
@@ -47,9 +48,16 @@ public sealed class WarfrontRetainerBrains
     readonly Dictionary<int, Retainer> _brains = new();
     readonly Dictionary<int, PlayerInput> _inputs = new();
     readonly Dictionary<string, Task<(NavGraph? Graph, string Note)>> _jumpBuilds = new(StringComparer.Ordinal);
-    readonly Dictionary<string, NavGraph> _jumpGraphs = new(StringComparer.Ordinal);
+    readonly Dictionary<string, NavGraph?> _jumpGraphs = new(StringComparer.Ordinal);   // null: none this battle (building, or failed)
+    /// <summary>The walking graph the jump dictionaries belong to (review L5: a new stage graph forgets them).</summary>
+    NavGraph? _jumpWalk;
+    int _battleSeen = -1;
     readonly List<Retainer> _stepping = new();
+    readonly List<PlayerState> _sorted = new();
+    readonly List<int> _gone = new();
     long _computedTick = -1;
+    /// <summary>A search radius and height for snapping a Hold place or a pound landing onto the graph (review L8). Kind: ours; confidence: low.</summary>
+    public const float SnapRadius = 4f, SnapHeight = 2.5f;
 
     /// <summary>Whether jump-pack classes get their jump links (off in tests that do not want a background build; env <c>SM_WF_RETAINER_JUMPS=0</c> turns it off).</summary>
     public bool JumpLinks { get; init; } = Environment.GetEnvironmentVariable("SM_WF_RETAINER_JUMPS") != "0";
@@ -85,21 +93,28 @@ public sealed class WarfrontRetainerBrains
         _computedTick = _world.Tick;
         _inputs.Clear();
         _work.Poll();
-        AdoptJumpGraphs();
         var players = _world.WarfrontTickStartPlayers;
         var nav = _nav();
         string map = _mapName();
+        if (!ReferenceEquals(nav, _jumpWalk)) { _jumpWalk = nav; _jumpGraphs.Clear(); _jumpBuilds.Clear(); }
+        if (_registry.Battles != _battleSeen) { _battleSeen = _registry.Battles; AdoptJumpGraphs(); }
+        _sorted.Clear();
+        foreach (var p in players.Values) _sorted.Add(p);
+        _sorted.Sort(static (a, b) => a.PlayerId.CompareTo(b.PlayerId));
         // the retainers of this tick, in World id order; brains of ids gone are dropped
         _stepping.Clear();
         foreach (var r in _registry.All)
         {
             if (r.WorldId == 0 || r.State == SquadState.Out || !players.TryGetValue(r.WorldId, out var me)) continue;
-            if (!_brains.TryGetValue(r.WorldId, out var b) || b.Index != r.Index) _brains[r.WorldId] = b = NewRetainer(r, me);
+            // review L1: a fresh brain for each battle's record (compared by reference) and for each new life (a revive after a fall)
+            if (!_brains.TryGetValue(r.WorldId, out var b) || !ReferenceEquals(b.Record, r) || (me.Alive && b.Fell)) _brains[r.WorldId] = b = NewRetainer(r, me);
             b.Seen = _computedTick;
             b.Record = r;
             _stepping.Add(b);
         }
-        foreach (int gone in _brains.Where(p => p.Value.Seen != _computedTick).Select(p => p.Key).ToList()) _brains.Remove(gone);
+        _gone.Clear();
+        foreach (var (id, b) in _brains) if (b.Seen != _computedTick) _gone.Add(id);
+        foreach (int id in _gone) _brains.Remove(id);
         _stepping.Sort((a, b) => a.Id.CompareTo(b.Id));
         // views (serial: the Ork pool's query and the registry are not for threads)
         foreach (var b in _stepping) Fill(b, players, nav, map);
@@ -109,6 +124,11 @@ public sealed class WarfrontRetainerBrains
         foreach (var b in _stepping)
         {
             _inputs[b.Id] = b.Input;
+            if (b.Error is { } error)
+            {
+                if (!b.ErrorLogged) { b.ErrorLogged = true; _log?.Invoke($"warfront retainer P{b.Id}: brain failed ({error}); it stands this tick (logged once)"); }
+                b.Error = null;
+            }
             if (b.Strategy.Situation.PoundDone) { b.Strategy.Situation.PoundDone = false; _registry.PoundDone(b.Id); }
             foreach (string line in b.Lines) _log?.Invoke(line);
             b.Lines.Clear();
@@ -122,8 +142,8 @@ public sealed class WarfrontRetainerBrains
     {
         var view = new View(this, r.WorldId) { Yaw = me.Yaw, Pitch = 0f };
         var strategy = new WarfrontRetainerStrategy();
-        var retainer = new Retainer(r.WorldId, r.Index, view, strategy, _world.Tick);
-        var options = new ClassicBotOptions { SyncPlans = true, WorkLane = $"wf-retainer-{r.WorldId}" };
+        var retainer = new Retainer(r.WorldId, r.Index, view, strategy, _world.Tick) { Record = r, WasAlive = me.Alive };
+        var options = new ClassicBotOptions { SyncPlans = true, InlineSearches = true, WorkLane = $"wf-retainer-{r.WorldId}" };
         retainer.Brain = new ClassicBotBrain(view, BotArgs.None, options, new BotLog(retainer.Lines.Add, retainer.Lines.Add), IBotHooks.None, strategy);
         _log?.Invoke($"warfront retainer P{r.WorldId} (owner P{r.Owner}, slot {r.Slot}): brain on ({_world.Config.Classes[Math.Clamp(me.Class, 0, _world.Config.Classes.Count - 1)].Name})");
         return retainer;
@@ -133,12 +153,15 @@ public sealed class WarfrontRetainerBrains
     void Fill(Retainer b, IReadOnlyDictionary<int, PlayerState> players, NavGraph? nav, string map)
     {
         var me = players[b.Id];
+        // review L2: in Warfront every World player (human, retainer, the allied pair, a pod Marine) is an ally whatever its raw team; the Orks are the enemy
+        var ally = me.Team is Team.SpaceMarines or Team.Chaos ? me.Team : Team.SpaceMarines;
+        if (me.Team != ally) me = me with { Team = ally };
         var v = b.View;
         v.Me = me;
         v.Now = (_world.Tick - b.CreatedTick) * (double)_world.Config.TickSeconds;
         v.Others.Clear();
         v.Chest.Clear();
-        foreach (var (id, p) in players.OrderBy(p => p.Key)) if (id != b.Id) v.Others.Add(p);
+        foreach (var p in _sorted) if (p.PlayerId != b.Id) v.Others.Add(p.Team == ally ? p : p with { Team = ally });
         if (_world.Musou is { } musou && me.Alive)
         {
             Span<ushort> near = stackalloc ushort[MaxOrks];
@@ -164,8 +187,9 @@ public sealed class WarfrontRetainerBrains
         s.Order = !ownerHere ? RetainerOrder.Hold : order switch { MarineOrder.Hold => RetainerOrder.Hold, MarineOrder.Attack => RetainerOrder.Attack, _ => RetainerOrder.Follow };
         s.HoldAt = marine?.HoldAt ?? me.Position;
         if (!ownerHere && marine is not null && marine.HoldAt == Vector3.Zero) s.HoldAt = me.Position;
+        s.HoldAt = Snap(nav, s.HoldAt, ref b.HoldRaw, ref b.HoldSnapped);   // review L8: a ring place off the graph (a wall, a drop) is moved onto its nearest cell
         s.AttackAt = marine?.AttackAt;
-        s.PoundAt = r.PoundAt;
+        s.PoundAt = r.PoundAt is { } mark ? Snap(nav, mark, ref b.PoundRaw, ref b.PoundSnapped) : null;
         if (r.PoundAt is not null) s.Order = RetainerOrder.JumpPound;
         int count = 0, slot = 0;
         foreach (var o in _registry.All) if (o.Owner == r.Owner && o.WorldId != 0) { if (o.WorldId == b.Id) slot = count; count++; }
@@ -175,12 +199,11 @@ public sealed class WarfrontRetainerBrains
         if (nav is not null && _world.Collision is { } collision)
         {
             string pack = Loadouts.JumpPack(_world.Config, me)?.Name ?? "";
-            var graph = pack != "" && _jumpGraphs.TryGetValue(pack, out var withJumps) ? withJumps : nav;
+            if (pack != "" && JumpLinks && !_jumpGraphs.ContainsKey(pack)) JumpGraphFor(pack, nav, map, collision, me);
+            var graph = pack != "" && _jumpGraphs.TryGetValue(pack, out var withJumps) && withJumps is not null ? withJumps : nav;
             b.Brain!.WarfrontUseGraph(map, collision, graph, me.Team, pack);
-            if (pack != "" && JumpLinks && !_jumpBuilds.ContainsKey(pack) && !_jumpGraphs.ContainsKey(pack)) StartJumpBuild(pack, nav, map, collision, me);
         }
-        // a new life: a fresh leash
-        if (me.Alive && !b.WasAlive) b.Strategy.Reset(b.Brain!);
+        if (!me.Alive) b.Fell = true;
         b.WasAlive = me.Alive;
     }
 
@@ -215,10 +238,36 @@ public sealed class WarfrontRetainerBrains
             b.Input = new PlayerInput(tick, 0f, 0f, me.Yaw, InputButtons.None);
             return;
         }
-        var input = b.Brain!.Step(tick);
-        b.Input = b.Brain.Hold(input);
-        b.Brain.Frame(me);
+        try
+        {
+            if (FaultForTests is { } fault) fault(b.Id);
+            var input = b.Brain!.Step(tick);
+            b.Input = b.Brain.Hold(input);
+            b.Brain.Frame(me);
+        }
+        catch (Exception e)
+        {
+            // review F2: one retainer's fault never stops the others' step or the server's tick: it stands this tick (logged once, in World id order after the step)
+            b.Error = $"{e.GetType().Name}: {e.Message}";
+            b.Input = new PlayerInput(tick, 0f, 0f, me.Yaw, InputButtons.None);
+        }
     }
+
+    /// <summary>Test aid: called with a retainer's World id inside its step (a throw there is the F2 fault test).</summary>
+    internal Action<int>? FaultForTests { get; set; }
+
+    /// <summary>A point snapped to its nearest graph cell (within <see cref="SnapRadius"/>), recomputed only when the raw point changes; unchanged without a graph or a cell near.</summary>
+    static Vector3 Snap(NavGraph? nav, Vector3 raw, ref Vector3? lastRaw, ref Vector3 snapped)
+    {
+        if (nav is null) return raw;
+        if (lastRaw == raw) return snapped;
+        lastRaw = raw;
+        int n = nav.Nearest(raw, SnapRadius, SnapHeight);
+        snapped = n >= 0 ? nav.Position(n) : raw;
+        return snapped;
+    }
+
+    static Vector3? Snap(NavGraph? nav, Vector3? raw, ref Vector3? lastRaw, ref Vector3 snapped) => raw is { } p ? Snap(nav, p, ref lastRaw, ref snapped) : null;
 
     /// <summary>One log line when a retainer's decision or leash state changes (at most one a second per retainer; the event log of a headless run).</summary>
     void NoteEvents(Retainer b)
@@ -232,28 +281,49 @@ public sealed class WarfrontRetainerBrains
         b.LastDecision = decision; b.LastLeash = leash; b.LastLogTick = _world.Tick;
     }
 
-    void StartJumpBuild(string pack, NavGraph walk, string map, CollisionWorld collision, PlayerState me)
+    /// <summary>
+    /// The pack's jump-link graph for this battle (review F1): read from the nav cache now when the cache holds it (a deterministic tick: the first one the pack is seen); otherwise a background build
+    /// into the cache starts, the brains walk, and the graph is taken at the next battle's start (<see cref="AdoptJumpGraphs"/>).
+    /// </summary>
+    void JumpGraphFor(string pack, NavGraph walk, string map, CollisionWorld collision, PlayerState me)
     {
         var config = _world.Config;
         var team = me.Team;
         int playerClass = me.Class;
-        int threads = Math.Max(1, Environment.ProcessorCount / 4);
         var content = new MapContent(map + "-wf-retainer", "warfront", [], [], 0UL);
-        _log?.Invoke($"warfront retainers: jump links for pack {pack} on {map}: building or reading the cache ({threads} thread(s)); the retainers walk until they are ready");
-        _jumpBuilds[pack] = _work.Run<(NavGraph?, string)>($"wf jump {map} {pack}", () =>
+        string dir = BotNavigation.CacheDirectory;
+        ulong key = NavJumpSet.KeyFor(walk, config, playerClass, new NavJumpOptions());
+        if (File.Exists(NavCache.JumpFileFor(dir, content.Name, key)))
         {
-            var g = BotNavigation.WithJumpLinks(walk, content, collision, config, team, playerClass, BotNavigation.CacheDirectory, out string note, threads);
+            try
+            {
+                var g = BotNavigation.WithJumpLinks(walk, content, collision, config, team, playerClass, dir, out string note, 1);
+                _jumpGraphs[pack] = g;
+                _log?.Invoke($"warfront retainers: jump links for pack {pack} on {map} read from the cache: {note}");
+                return;
+            }
+            catch (Exception e) { _log?.Invoke($"warfront retainers: jump links for pack {pack} could not be read ({e.GetBaseException().Message}); building them"); }
+        }
+        _jumpGraphs[pack] = null;   // none this battle
+        if (_jumpBuilds.ContainsKey(pack)) return;
+        int threads = Math.Max(1, Environment.ProcessorCount / 4);
+        _log?.Invoke($"warfront retainers: jump links for pack {pack} on {map}: building in the background ({threads} thread(s)); the retainers walk until the next battle");
+        _jumpBuilds[pack] = _work.Run<(NavGraph?, string)>($"wf jump {map} {pack} {key:X16}", () =>
+        {
+            var g = BotNavigation.WithJumpLinks(walk, content, collision, config, team, playerClass, dir, out string note, threads);
             return (g, note);
         }, CancellationToken.None);
     }
 
+    /// <summary>At a battle's start: the background builds that have finished hand their graphs over; the packs without one are looked up again (the cache) when first seen.</summary>
     void AdoptJumpGraphs()
     {
+        _jumpGraphs.Clear();
         foreach (var (pack, task) in _jumpBuilds.ToList())
         {
             if (!task.IsCompleted) continue;
             _jumpBuilds.Remove(pack);
-            if (task.IsCompletedSuccessfully && task.Result.Graph is { } g) { _jumpGraphs[pack] = g; _log?.Invoke($"warfront retainers: jump links for pack {pack} ready: {task.Result.Note}"); }
+            if (task.IsCompletedSuccessfully && task.Result.Graph is { } g) { _jumpGraphs[pack] = g; _log?.Invoke($"warfront retainers: jump links for pack {pack} ready at the battle's start: {task.Result.Note}"); }
             else _log?.Invoke($"warfront retainers: jump links for pack {pack} failed ({task.Exception?.GetBaseException().Message}); the retainers walk");
         }
     }
@@ -271,7 +341,10 @@ public sealed class WarfrontRetainerBrains
         public readonly List<string> Lines = new();
         public PlayerInput Input;
         public long Seen, LastLogTick = long.MinValue / 2;
-        public bool WasAlive;
+        public bool WasAlive, Fell, ErrorLogged;
+        public string? Error;
+        public Vector3? HoldRaw, PoundRaw;
+        public Vector3 HoldSnapped, PoundSnapped;
         public string LastDecision = "";
         public LeashState LastLeash = LeashState.Inside;
     }

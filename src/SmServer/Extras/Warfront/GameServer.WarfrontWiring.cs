@@ -138,7 +138,6 @@ public sealed partial class GameServer
     void WarfrontRosterSync(WarfrontServerState s, ulong key, IReadOnlyList<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer> extras)
     {
         _ = extras;
-        s.PendingExtras.Remove(key);
         if (_wfWiring is { } w && w.Rosters.Has(key)) w.Rosters.Conform(key, SquadRules.RetainersPerPlayer);
     }
 

@@ -52,7 +52,27 @@ public sealed class WarfrontLeash
     /// One tick: <paramref name="order"/> in force, the retainer <paramref name="fromOwner"/> metres (flat) from its owner, in a committed move or not, and when it last fought
     /// (<paramref name="lastFight"/>, the caller's clock; -inf for never). The state after the step.
     /// </summary>
-    public LeashState Step(double now, RetainerOrder order, float fromOwner, bool committed, double lastFight)
+    public LeashState Step(double now, RetainerOrder order, float fromOwner, bool committed, double lastFight) => Step(now, order, fromOwner, committed, lastFight, ownerAway: !committed);
+
+    System.Numerics.Vector2 _insideOwner, _insideSelf;
+    bool _insideKnown;
+
+    /// <summary>
+    /// One tick from the owner's and the retainer's feet (review F6): who left the circle is decided by displacement since the last tick inside. The owner moved farther than the retainer: he walked
+    /// away, so an engaged retainer gets the grace even in the middle of a swing or roll (the move finishes inside the grace); the retainer moved farther: its own move carried it out (overshoot, no grace).
+    /// </summary>
+    public LeashState Step(double now, RetainerOrder order, System.Numerics.Vector3 owner, System.Numerics.Vector3 self, bool committed, double lastFight)
+    {
+        var o = new System.Numerics.Vector2(owner.X, owner.Y);
+        var m = new System.Numerics.Vector2(self.X, self.Y);
+        float fromOwner = (o - m).Length();
+        bool ownerAway = _insideKnown ? (o - _insideOwner).Length() > (m - _insideSelf).Length() : !committed;
+        var state = Step(now, order, fromOwner, committed, lastFight, ownerAway);
+        if (fromOwner <= Radius) { _insideOwner = o; _insideSelf = m; _insideKnown = true; }
+        return state;
+    }
+
+    LeashState Step(double now, RetainerOrder order, float fromOwner, bool committed, double lastFight, bool ownerAway)
     {
         bool engaged = now - lastFight <= EngagedSeconds;
         if (order != RetainerOrder.Follow)
@@ -75,8 +95,8 @@ public sealed class WarfrontLeash
             case LeashState.Inside:
             case LeashState.Ordered:
                 if (!outside) { NoGrace = false; return State = LeashState.Inside; }
+                if (engaged && !NoGrace && ownerAway) { GraceStarted = now; return State = LeashState.Grace; }   // the owner walked away (a move under way finishes inside the grace)
                 if (committed) return State = LeashState.Overshoot;
-                if (engaged && !NoGrace) { GraceStarted = now; return State = LeashState.Grace; }
                 return State = LeashState.Return;
             case LeashState.Overshoot:
                 if (!outside) { NoGrace = false; return State = LeashState.Inside; }
@@ -96,6 +116,6 @@ public sealed class WarfrontLeash
     /// <summary>A new life or a new battle: inside, no grace, Follow.</summary>
     public void Reset()
     {
-        State = LeashState.Inside; GraceStarted = double.NaN; Order = RetainerOrder.Follow; NoGrace = false;
+        State = LeashState.Inside; GraceStarted = double.NaN; Order = RetainerOrder.Follow; NoGrace = false; _insideKnown = false;
     }
 }

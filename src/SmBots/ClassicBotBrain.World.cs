@@ -103,6 +103,19 @@ public sealed partial class ClassicBotBrain
     System.Threading.Tasks.Task<T> Job<T>(string what, Func<T> work, System.Threading.CancellationToken cancel) =>
         _world.Work.Run($"{_options.WorkLane}|{_navGeneration}|{what}", work, cancel);
 
+    /// <summary>
+    /// A cover or approach search (<see cref="BotCover.Find"/>, <see cref="BotApproach.Plan"/>): a <see cref="Job{T}"/> for a Classic bot; with <see cref="ClassicBotOptions.InlineSearches"/> (the Warfront
+    /// retainers, review F1) it runs here and now and its task is already complete, so its result is taken at the brain's next tick whatever the threads do (deterministic: no wall clock).
+    /// </summary>
+    System.Threading.Tasks.Task<T> Search<T>(string what, Func<T> work, System.Threading.CancellationToken cancel)
+    {
+        if (!_options.InlineSearches) return Job(what, work, cancel);
+        if (cancel.IsCancellationRequested) return System.Threading.Tasks.Task.FromCanceled<T>(cancel);
+        try { return System.Threading.Tasks.Task.FromResult(work()); }
+        catch (OperationCanceledException) { return System.Threading.Tasks.Task.FromCanceled<T>(new System.Threading.CancellationToken(true)); }
+        catch (Exception e) { return System.Threading.Tasks.Task.FromException<T>(e); }
+    }
+
     bool CmdFlag(string name) => _args.Flag(name);
     string? CmdArg(string name) => _args.Arg(name);
     string[] CmdArgs(string name, int count) => _args.Args(name, count);
@@ -189,6 +202,8 @@ public sealed partial class ClassicBotBrain
     public InputButtons NavJump => _navJump;
     /// <summary>The path follower of the bot's own side (null before the graph is built).</summary>
     public NavAgent? NavAgent => _navAgent;
+    /// <summary>The graph of the bot's own side and pack in use (null before one is built or handed over, <see cref="UseGraph"/>).</summary>
+    public NavGraph? Graph => _nav;
     /// <summary>
     /// Seam (T1, ours; no Classic use): whether the bot is in the middle of a move it must not be pulled out of: a navigation jump in flight, a jump or pound, a
     /// charge or dash attack, a melee attack, a throw or an evade. A strategy with a leash (Warfront, T4) waits for it before it turns the bot round.

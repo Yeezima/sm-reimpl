@@ -25,6 +25,8 @@ public sealed class WarfrontRetainer
     public float ReviveShare { get; internal set; }
     /// <summary>Phase B T4: its jump-pound mark while the order runs (a jump-pack retainer; its own landing round the owner's mark), null otherwise.</summary>
     public System.Numerics.Vector3? PoundAt { get; internal set; }
+    /// <summary>The World tick the jump-pound order was given (its timeout, <see cref="WarfrontRetainers.PoundTimeoutSeconds"/>).</summary>
+    public long PoundTick { get; internal set; }
 }
 
 /// <summary>
@@ -47,6 +49,15 @@ public sealed class WarfrontRetainers
     readonly List<SquadDown> _downs = [];
 
     public WarfrontRetainers(World world, SquadRosters rosters) { _world = world; _rosters = rosters; }
+
+    /// <summary>
+    /// A jump-pound mark is dropped this long after the order (review F3: a retainer that never gets its press, for want of power or ground, would otherwise keep the order for the battle).
+    /// Kind: ours; confidence: low (a full jump and pound take about 3 s).
+    /// </summary>
+    public const float PoundTimeoutSeconds = 6f;
+
+    /// <summary>Battles begun so far (the brains' host starts each battle's brains afresh at a change).</summary>
+    public int Battles { get; private set; }
 
     /// <summary>
     /// The retainers' brain (Phase B T4's seam, the Classic bot brain through a Warfront strategy): the input of retainer <c>id</c> as it stands this tick; null, or no brain: it stands still keeping its heading.
@@ -123,6 +134,7 @@ public sealed class WarfrontRetainers
     {
         _all.Clear(); _hits.Clear(); _kills.Clear(); _revives.Clear(); _downs.Clear();
         Array.Clear(_ownerUsed);
+        Battles++;
         Orders.Clear(); _serverOrders.Clear();   // every battle lands on Follow (review fix 2026-11-25: a Hold of the last battle, or a leaver's, does not carry over)
     }
 
@@ -179,6 +191,7 @@ public sealed class WarfrontRetainers
     {
         if (!Orders.Apply(player, command)) return false;
         _serverOrders.Remove(player);   // his own order replaces the server's
+        DropPounds(player);   // review F3: a new Follow, Hold or Attack ends a jump-pound under way
         Place(player, Orders.Of(player), command.Point);
         return true;
     }
@@ -192,7 +205,7 @@ public sealed class WarfrontRetainers
         var packs = new List<WarfrontRetainer>();
         foreach (var r in _all)
             if (r.Owner == player && r.State == SquadState.Standing && _world.Players.TryGetValue(r.WorldId, out var p) && Loadouts.JumpPack(_world.Config, p) is not null) packs.Add(r);
-        for (int k = 0; k < packs.Count; k++) packs[k].PoundAt = HoldPlace(mark, k, packs.Count);
+        for (int k = 0; k < packs.Count; k++) { packs[k].PoundAt = HoldPlace(mark, k, packs.Count); packs[k].PoundTick = _world.Tick; }
         return packs.Count > 0;
     }
 
@@ -206,9 +219,12 @@ public sealed class WarfrontRetainers
     public bool ServerOrder(int player, MarineOrder order, Vector3 point = default)
     {
         _serverOrders[player] = order;
+        DropPounds(player);
         Place(player, order, point);
         return true;
     }
+
+    void DropPounds(int player) { foreach (var r in _all) if (r.Owner == player) r.PoundAt = null; }
 
     /// <summary>The order's places: a Hold with a point gives each retainer its own place on a ring round it (the old squad sim's rule), without one each holds where it stands; an Attack goes for its point.</summary>
     void Place(int player, MarineOrder order, Vector3 point)
@@ -242,15 +258,17 @@ public sealed class WarfrontRetainers
     {
         _kills.Clear(); _revives.Clear(); _downs.Clear();
         int window = Math.Max(1, (int)MathF.Round(WarfrontRetainerRules.DownedSeconds * Math.Max(1, _world.Config.TickRate)));
+        long poundTicks = (long)MathF.Round(PoundTimeoutSeconds * Math.Max(1, _world.Config.TickRate));
         foreach (var r in _all)
         {
+            if (r.PoundAt is not null && (r.State != SquadState.Standing || _world.Tick - r.PoundTick > poundTicks)) r.PoundAt = null;   // review F3: downed, out or timed out
             if (r.WorldId == 0) { if (r.State != SquadState.Out) r.State = SquadState.Out; continue; }
             if (!_world.Players.TryGetValue(r.WorldId, out var p)) { _world.Tfw?.Battle?.WarfrontRetainerOut(r.WorldId); r.State = SquadState.Out; r.WorldId = 0; continue; }   // dismissed by someone else
             if (r.State == SquadState.Out) continue;   // waits for the puppets' step to leave the World (TakeOut)
             switch (r.State)
             {
                 case SquadState.Standing when !p.Alive:
-                    r.State = SquadState.Downed; r.DownedTicks = window; r.ReviveShare = 0f;
+                    r.State = SquadState.Downed; r.DownedTicks = window; r.ReviveShare = 0f; r.PoundAt = null;
                     if (_rosters.Marine(r.Key, r.Slot) is { } m) m.Record.TimesDowned++;
                     _downs.Add(new SquadDown(r.Key, r.Slot));
                     break;

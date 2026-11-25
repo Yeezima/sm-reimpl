@@ -218,7 +218,6 @@ public sealed partial class GameServer
         {
             c.ApplyProgress(key, new SmSim.Extras.Warfront.Progression.WarfrontProgressFile());
             WarfrontRosterSync(s, key, []);
-            s.PendingExtras.Remove(key);
             s.ResetApplied.Add(key);
             s.ProgressAckDue.Add(player);   // the flagged copy goes out at once: the client may now clear its pending-reset mark
             WfLog($"P{player} (key {KeyTail(key)}) reset the progression: level 1, no cards, two retainers (the stats stay)");
@@ -255,7 +254,6 @@ public sealed partial class GameServer
         var file = s.Campaign.ProgressOf(key);
         if (file is null) return null;
         if (WarfrontRosterExtras(key) is { } extras) file.ExtraRetainers = extras;
-        else if (s.PendingExtras.TryGetValue(key, out var pending)) file.ExtraRetainers = pending;
         return SmSim.Extras.Warfront.Progression.WarfrontProgressFile.Sanitize(file);
     }
 
@@ -316,12 +314,9 @@ public sealed partial class GameServer
 
     internal int WarfrontSendProgressSaveFinalForTests() => _wf is { } s ? WarfrontSendProgressSaveFinal(s) : 0;
 
-    /// <summary>Once a tick: queued records at the ship, extras waiting for a roster.</summary>
+    /// <summary>Once a tick: queued records at the ship.</summary>
     void WarfrontProgressStep(WarfrontServerState s)
     {
         WarfrontApplyQueuedProgress(s);
-        if (s.PendingExtras.Count == 0 || _wfWiring is not { } w) return;
-        foreach (var (key, extras) in s.PendingExtras.ToList())
-            if (w.Rosters.Has(key)) { WarfrontRosterSync(s, key, extras); s.PendingExtras.Remove(key); }
     }
 }

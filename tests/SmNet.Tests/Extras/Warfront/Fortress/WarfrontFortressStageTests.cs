@@ -46,7 +46,7 @@ public class WarfrontFortressStageTests : IDisposable
     }
 
     /// <summary>A run in Travel to the fortress through <paramref name="lane"/> (0 = A; cleared: front 4, the others at 2), the server on wf_fortress with one client.</summary>
-    Harness Start(out GameServer server, int lane = 0)
+    Harness Start(out GameServer server, int lane = 0, bool brains = false, int humans = 1)
     {
         var seed = new WarfrontCampaign(5);
         seed.Embark();
@@ -55,24 +55,27 @@ public class WarfrontFortressStageTests : IDisposable
         node["Advanced"] = new System.Text.Json.Nodes.JsonArray(lane == 0, lane == 1, lane == 2);
         node["Phase"] = "Travel";
         // the human is a returning player of the run (a key the run has never seen joins a battle as a held, locked and unharmed spectating joiner): its record, as the campaign saves it
-        node["JoinOrder"] = new System.Text.Json.Nodes.JsonArray(111UL);
-        node["Players"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+        var keys = Enumerable.Range(0, humans).Select(i => 111UL + (ulong)i).ToArray();
+        node["JoinOrder"] = new System.Text.Json.Nodes.JsonArray(keys.Select(k => (System.Text.Json.Nodes.JsonNode?)k).ToArray());
+        node["Players"] = new System.Text.Json.Nodes.JsonArray(keys.Select(k => (System.Text.Json.Nodes.JsonNode?)new System.Text.Json.Nodes.JsonObject
         {
-            ["Key"] = 111UL, ["Name"] = "Alpha", ["Xp"] = 0, ["Level"] = 1, ["PicksTaken"] = 0, ["Cards"] = new System.Text.Json.Nodes.JsonArray(), ["Squad"] = new System.Text.Json.Nodes.JsonArray(),
+            ["Key"] = k, ["Name"] = k == 111UL ? "Alpha" : $"P{k}", ["Xp"] = 0, ["Level"] = 1, ["PicksTaken"] = 0, ["Cards"] = new System.Text.Json.Nodes.JsonArray(), ["Squad"] = new System.Text.Json.Nodes.JsonArray(),
             ["JoinGrantApplied"] = true, ["JoinedAtDeployment"] = 0, ["ClassConfirmed"] = true, ["PendingPicks"] = 0,
-        });
+        }).ToArray());
         node["CurrentTarget"] = new System.Text.Json.Nodes.JsonObject { ["Kind"] = "Fortress", ["Lane"] = lane };
         File.WriteAllText(Path.Combine(_dir, "run.json"), node.ToJsonString());
-        File.WriteAllText(Path.Combine(_dir, "stage.json"), System.Text.Json.JsonSerializer.Serialize(new { Map = "wf_fortress", Expected = new[] { 111UL }, Ship = "wf_" + (char)('a' + lane) + "3" }));
+        File.WriteAllText(Path.Combine(_dir, "stage.json"), System.Text.Json.JsonSerializer.Serialize(new { Map = "wf_fortress", Expected = keys, Ship = "wf_" + (char)('a' + lane) + "3" }));
         var loaded = WarfrontMaps.Load(WarfrontMaps.FortressName, out var problem)!;
         Assert.Null(problem);
         var map = GameServer.TfwGameMap(loaded.Tfw!, "wf_fortress");
-        var h = new Harness(LinkConditions.Perfect, 5, 1, Config, new ServerOptions { Match = Rules }, map: map, clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
+        var h = new Harness(LinkConditions.Perfect, 5, humans, Config, new ServerOptions { Match = Rules }, map: map, clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
         server = h.Server;
-        // Phase B T4: these cases watch the Warboss against one human; the retainers' brain would fight (and kill) him, so they stand as before T4
-        if (server.WarfrontWiringForTests is { } wiring) wiring.Retainers.Brain = null;
+        // Phase B T4: these cases watch the Warboss against one human; the retainers' brain would fight (and kill) him, so they stand as before T4 (review B1: through the server's own test seam,
+        // which drops the brains the Warfront set-up attached); case 5 keeps the brains and takes the retainers out of the boss's line instead
+        if (!brains) Assert.True(server.WarfrontRetainersStandForTests());
         h.Run(TimeSpan.FromSeconds(2));
-        h.Clients[0].SendExtrasCommand(WarfrontWire.CommandTag, WarfrontWire.Encode(new WarfrontClientCommand(WarfrontClientCommandKind.Identify, Key: 111, Name: "Alpha")));
+        for (int i = 0; i < humans; i++)
+            h.Clients[i].SendExtrasCommand(WarfrontWire.CommandTag, WarfrontWire.Encode(new WarfrontClientCommand(WarfrontClientCommandKind.Identify, Key: keys[i], Name: i == 0 ? "Alpha" : $"P{keys[i]}")));
         return h;
     }
 
@@ -396,12 +399,40 @@ public class WarfrontFortressStageTests : IDisposable
         Assert.Empty(r.BossStuck);
     }
 
+    /// <summary>
+    /// Review F5 (measurement, output only beyond the counts): the tick cost on the real fortress stage with its walking graph, four humans with two driven retainers each, 20 s of the battle after 12 s to land.
+    /// The whole server step (h.Step) and the brains' own step (<c>WarfrontRetainerBrains.LastMilliseconds</c>), p50 and p99.
+    /// </summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void F5_tick_cost_on_the_fortress_with_its_graph_four_humans_and_eight_driven_retainers()
+    {
+        var h = Start(out var server, brains: true, humans: 4);
+        h.Run(TimeSpan.FromSeconds(12));
+        var brains = server.WarfrontBrainsForTests!;
+        var wiring = server.WarfrontWiringForTests!;
+        output.WriteLine($"retainers driven: {wiring.Retainers.All.Count(r => r.WorldId != 0)}; graph {(brains.BrainOf(wiring.Retainers.All.First(r => r.WorldId != 0).WorldId)?.Graph is { } g ? g.NodeCount + " cells" : "none")}");
+        var step = new List<double>(); var own = new List<double>();
+        long seen = brains.Steps;
+        for (int t = 0; t < 600; t++)
+        {
+            long s0 = Stopwatch.GetTimestamp();
+            h.Step();
+            step.Add(Stopwatch.GetElapsedTime(s0).TotalMilliseconds);
+            if (brains.Steps != seen) { seen = brains.Steps; own.Add(brains.LastMilliseconds); }
+        }
+        static double Q(List<double> v, double q) { var c = v.OrderBy(x => x).ToList(); return c.Count == 0 ? 0 : c[Math.Min(c.Count - 1, (int)(c.Count * q))]; }
+        output.WriteLine(FormattableString.Invariant($"fortress, 4 humans x 2 driven retainers: harness step p50 {Q(step, 0.5):0.00} ms, p99 {Q(step, 0.99):0.00} ms over {step.Count}; the brains' own step p50 {Q(own, 0.5):0.00} ms, p99 {Q(own, 0.99):0.00} ms over {own.Count}"));
+        Assert.Equal(8, wiring.Retainers.All.Count(r => r.WorldId != 0));
+        Assert.True(own.Count > 0);
+    }
+
     /// <summary>Case 5: a second Warboss, never leashed (a plain Spawn, no fortress rule, no boss script), on the fortress's open outer yard (no wall within 30 m) 30 m from the human; the fortress's own Warboss stays leashed in the plaza. Unchanged by the lean: he closes the 30 m.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
     public void Case_5_a_second_warboss_on_the_open_yard_closes_30m_to_a_human()
     {
-        var h = Start(out var server);
+        var h = Start(out var server, brains: true);
         h.Run(TimeSpan.FromSeconds(12));
         var sim = server.World.Musou!;
         var battle = server.World.Tfw!.Battle!;
@@ -410,6 +441,15 @@ public class WarfrontFortressStageTests : IDisposable
         int id = HumanOf(server);
         var human = new System.Numerics.Vector3(0f, -140f, 0f);
         Assert.True(server.World.TfwRespawnAt(id, human, 0f));
+        // owner 2026-11-25: bosses target retainers like humans (weight 1 against a human's 0.8), so a retainer nearer the boss would draw him; the retainers (driven by their brains) hold 30 m beyond
+        // the human, 60 m from the boss: no retainer is nearer, and the case watches the boss against the human alone
+        var wiring = server.WarfrontWiringForTests!;
+        var holdAt = human + new System.Numerics.Vector3(0f, 30f, 0f);
+        int moved = 0;
+        foreach (var r in wiring.Retainers.All)
+            if (r.WorldId != 0 && server.World.TfwRespawnAt(r.WorldId, holdAt + new System.Numerics.Vector3(2f * moved++, 0f, 0f), 0f, faceCentre: false)) { }
+        Assert.True(wiring.Retainers.ServerOrder(id, MarineOrder.Hold, holdAt));
+        Assert.NotNull(server.WarfrontBrainsForTests);
         var from = new System.Numerics.Vector3(0f, -170f, 0f);
         ushort boss = sim.Spawn(MusouEnemyType.Warboss, from, 0f, 1e6f);
         Assert.NotEqual(0, (int)boss);
@@ -424,8 +464,10 @@ public class WarfrontFortressStageTests : IDisposable
                 if (t % 50 == 0 && sim.TryGet(boss, out var b) && Flat(b.Position, human) <= 10f) { reach = sec - 1 + t / 1000.0; break; }
             }
         }
-        output.WriteLine($"case 5: within 10 m of the human (his melee ring) at {reach:0.00} s");
+        output.WriteLine($"case 5: within 10 m of the human (his melee ring) at {reach:0.00} s ({moved} retainer(s) holding 30 m beyond him)");
         Assert.InRange(reach, 0.0, 15.0);
+        foreach (var r in wiring.Retainers.All)
+            if (r.WorldId != 0 && server.World.Players.TryGetValue(r.WorldId, out var rp)) Assert.True(Flat(rp.Position, from) > Flat(human, from), $"retainer P{r.WorldId} stayed out of the boss's line");
     }
 
     /// <summary>Output only: does Musou's own Warboss (the Warfront object null) pin at the walls of a plaza opening as the fortress's did? A Musou-run Warboss is the same Move without the lean. The finding goes to the lead; Musou is not changed here.</summary>

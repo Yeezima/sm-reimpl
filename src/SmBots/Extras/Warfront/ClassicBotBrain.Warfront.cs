@@ -16,29 +16,8 @@ public sealed partial class ClassicBotBrain
     /// cells as a Classic bot does; no graph build of its own. <paramref name="mapName"/> names the map for the logs and the new-map rules (a Warfront name: Musou's rules).
     /// A later call with the jump pack's graph (<paramref name="graph"/> with jump links) swaps it in between flights.
     /// </summary>
-    public void WarfrontUseGraph(string mapName, CollisionWorld world, NavGraph graph, Team team, string pack)
-    {
-        if (_navMap is null || _navMap.Name != mapName || !ReferenceEquals(_navWorld, world))
-        {
-            _navCancel.Cancel();
-            _navCancel = new System.Threading.CancellationTokenSource();
-            _navSlots.Clear(); _navCurrent = null;
-            ++_navGeneration;
-            _navMap = new MapContent(mapName, "warfront", [], [], 0UL);
-            _navWorld = world;
-        }
-        if (_navSlots.TryGetValue((team, pack), out var was))
-        {
-            if (ReferenceEquals(was.Graph, graph) || was.Agent is { JumpInProgress: true }) return;   // the same graph, or a flight under way: the next call
-            was.Graph = graph;
-            was.Agent = NewNavAgent(graph);
-            return;
-        }
-        var slot = new NavSlot(team, pack) { Graph = graph, Note = $"warfront graph {graph.NodeCount:N0} cells", WatchDone = true, PlanDone = true };
-        slot.Agent = NewNavAgent(graph);
-        _navSlots[(team, pack)] = slot;
-        _navNote = slot.Note;
-    }
+    public bool WarfrontUseGraph(string mapName, CollisionWorld world, NavGraph graph, Team team, string pack) =>
+        UseGraph(_navMap is { } known && known.Name == mapName ? known : new MapContent(mapName, "warfront", [], [], 0UL), world, graph, team, pack);
 
     /// <summary>The brain's clock (seconds since it joined) and the players it sees, for the Warfront strategy.</summary>
     internal double WarfrontNow => _connectedFor;
