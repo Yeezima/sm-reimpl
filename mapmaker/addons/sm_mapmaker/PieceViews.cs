@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using SmMapmaker;
@@ -31,14 +33,38 @@ public static class PieceViews
     /// The piece drawn from its editable shape (docs/mapmaker.md "Edit mode contract"): <paramref name="mesh"/> (the stored mesh, or a drag's preview), else its stock shape
     /// (<see cref="EditMesh.Stock(PieceSpec)"/>), in unit space; the object's scale still sizes it. The faces are the shape's own polygons, so Edit mode's vertex dots sit on the drawn corners.
     /// </summary>
-    public static Node3D Build(PieceSpec piece, EditMesh? mesh, out Aabb bounds)
+    /// <para>An unedited round piece (capture point, round players-only wall) keeps its old drawing, a smooth circle, because that is how it plays (contract v2): a capture point is a circle
+    /// of its X size (pass <paramref name="scale"/> so its Y is drawn at the X size too; MeshDims reads (X, X, Z)), and its first edit turns it into the 16-gon of its topology.</para>
+    public static Node3D Build(PieceSpec piece, EditMesh? mesh, out Aabb bounds, System.Numerics.Vector3? scale = null)
     {
         var shapeMesh = mesh ?? EditMesh.Stock(piece);
-        bounds = ContentFactory.ToGodot(shapeMesh.UnitBounds());
+        bool circle = mesh is null && (piece.Kind == PieceKind.CapturePoint || piece is { Kind: PieceKind.MoveWall, IsCylinder: true });
+        float yFix = circle && piece.Kind == PieceKind.CapturePoint && scale is { } sc && sc.Y != 0 && float.IsFinite(sc.X / sc.Y) ? MathF.Abs(sc.X / sc.Y) : 1f;
+        System.Numerics.Vector3[] tv; int[] ti;
+        List<(System.Numerics.Vector3, System.Numerics.Vector3)> outline = new();
+        if (circle)
+        {
+            (tv, ti) = PieceMesh.Cylinder(40);
+            tv = tv.Select(v => new System.Numerics.Vector3(v.X, v.Y * yFix, v.Z)).ToArray();
+            const int n = 24;
+            for (int i = 0; i < n; i++)
+            {
+                float a0 = i * Mathf.Tau / n, a1 = (i + 1) * Mathf.Tau / n;
+                System.Numerics.Vector3 P(float a, float z) => new(0.5f * MathF.Cos(a), 0.5f * MathF.Sin(a) * yFix, z);
+                outline.Add((P(a0, 0), P(a1, 0))); outline.Add((P(a0, 1), P(a1, 1)));
+                if (i % 6 == 0) outline.Add((P(a0, 0), P(a0, 1)));
+            }
+            bounds = ContentFactory.ToGodot(new Bounds(new System.Numerics.Vector3(-0.5f, -0.5f * yFix, 0f), new System.Numerics.Vector3(0.5f, 0.5f * yFix, 1f)));
+        }
+        else
+        {
+            (tv, ti, _) = shapeMesh.Triangulate();
+            foreach (var (a, b) in shapeMesh.Edges) outline.Add((shapeMesh.Vertices[a], shapeMesh.Vertices[b]));
+            bounds = ContentFactory.ToGodot(shapeMesh.UnitBounds());
+        }
         var root = new Node3D { Basis = Frame.C };
         var colour = ColourOf(piece);
         var info = piece.Info;
-        var (tv, ti, _) = shapeMesh.Triangulate();
         var drawn = Flat(tv, ti);
         StandardMaterial3D material;
         if (info.Solid && piece.Kind != PieceKind.CollisionBox)
@@ -60,11 +86,7 @@ public static class PieceViews
             {
                 // the outline is the shape's own edges (a round piece shows its sides), so an edited marker's wire follows its edited corners
                 lines.SurfaceBegin(Mesh.PrimitiveType.Lines);
-                foreach (var (a, b) in shapeMesh.Edges)
-                {
-                    var p = shapeMesh.Vertices[a]; var q = shapeMesh.Vertices[b];
-                    lines.SurfaceAddVertex(new Vector3(p.X, p.Y, p.Z)); lines.SurfaceAddVertex(new Vector3(q.X, q.Y, q.Z));
-                }
+                foreach (var (p, q) in outline) { lines.SurfaceAddVertex(new Vector3(p.X, p.Y, p.Z)); lines.SurfaceAddVertex(new Vector3(q.X, q.Y, q.Z)); }
                 lines.SurfaceEnd();
             }
             root.AddChild(new MeshInstance3D { Name = "Outline", Mesh = lines, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,

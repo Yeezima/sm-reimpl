@@ -609,7 +609,7 @@ public partial class MapmakerPlugin : EditorPlugin
         {
             var notes = new List<string>();
             Node3D? content; Aabb bounds;
-            if (o.Piece is { } piece) content = PieceViews.Build(piece, o.Mesh, out bounds);   // the edited shape, or the stock one (Edit mode, docs/mapmaker.md)
+            if (o.Piece is { } piece) content = PieceViews.Build(piece, o.Mesh, out bounds, o.Transform.Scale);   // the edited shape, or the stock one (Edit mode, docs/mapmaker.md)
             else
             {
                 var objParts = parts.GetValueOrDefault(o.Id) ?? new List<ResolvedPart>();

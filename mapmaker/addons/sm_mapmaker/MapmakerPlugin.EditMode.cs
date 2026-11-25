@@ -491,7 +491,7 @@ public partial class MapmakerPlugin
             foreach (var (id, mesh) in _drag.Preview)
                 if (NodeOf(id) is { } n && Session.Document.Find(id)?.Piece is { } piece)
                 {
-                    var content = PieceViews.Build(piece, mesh, out var b);
+                    var content = PieceViews.Build(piece, mesh, out var b, Session.Document.Get(id).Transform.Scale);
                     n.SetContent(content, b);   // the content key stays the document's, so a sync meanwhile keeps the preview; cancel and commit redraw
                 }
         RefreshEditViews();

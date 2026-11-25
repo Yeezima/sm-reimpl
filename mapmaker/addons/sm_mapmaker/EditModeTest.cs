@@ -283,6 +283,12 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
             Check(plugin.ReadoutDetail?.Contains("Rotate Z 45.0 deg") == true, $"R Z 45: '{plugin.ReadoutDetail}'");
             Check(plugin.CommitEdit().Ok, "the rotation applies");
 
+            // ---- an unedited capture point reads and draws as a circle of its X size (contract v2) ----
+            var pt = Place(PieceKind.CapturePoint, "Point", V(0, 30, 0), V(8, 6, 4));
+            await Frames(2);
+            Check(Near(Dims(pt), V(8, 8, 4)) && plugin.DimsOf(pt) is { } pd && Near(pd, V(8, 8, 4)), $"an unedited capture point reads X, X, Z ({MeshDims.Label(Dims(pt))})");
+            Check(MathF.Abs(plugin.NodeOf(pt)!.LocalBounds.Size.Z - 8f / 6f) < 1e-4f, $"and is drawn as a circle of its X size (unit depth {plugin.NodeOf(pt)!.LocalBounds.Size.Z:0.000})");
+
             // ---- every Build preset is editable ----
             plugin.NewMap("editmode-presets");
             int n = 0;
