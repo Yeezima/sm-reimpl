@@ -91,6 +91,7 @@ public partial class NetworkView
                 _execX6Step++; _execX6At = 0; break;
             case 2 when t > 0.3:
                 ExecutionX6Check("the marker hides after the window", !ExecutionMarkerShown, $"hidden {_execPromptHidden}");
+                _execRowsOverride = ExecutionX6Rows(30f);   // a long move: a loaded machine's frames lag the tick clock, and the run must not reach its own end tick before the checks (that expiry is a unit test)
                 _execX6RunTick = client.Tick;
                 ExecutionsState.Start(new ExecutionRun(client.PlayerId, ExecutionTargetKind.Player, client.PlayerId, 0, 1.3f, me.Position, me.Position, me.Yaw, 0, _execX6RunTick, false), _connectedFor);
                 _execX6Step++; _execX6At = 0; break;
