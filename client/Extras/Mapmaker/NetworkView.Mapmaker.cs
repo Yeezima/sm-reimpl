@@ -78,7 +78,7 @@ public partial class NetworkView
         if (!CustomMap.IsCustomName(name) || _customMap is null || _gameSpace is null) return;
         try
         {
-            var view = CustomMapView.Build(_customMap);
+            var view = CustomMapView.Build(_customMap, CustomMapFile ?? CustomMaps.Locate(name));
             _gameSpace.AddChild(view);
             if (_lookScene is null && _sun is not null && _environment is not null) CustomMapView.ApplyLook(_sun, _environment);
             drawn = true;
@@ -131,20 +131,22 @@ public partial class NetworkView
 /// edited, or that has a material, is drawn from the core's <see cref="DrawPiece.Render"/> (its edited shape, normals, tangents and UVs: what the editor shows is what plays;
 /// docs/mapmaker.md "Edit mode in play"); an unedited piece without a material keeps the stock path, which draws the same shape.
 /// </summary>
-public static partial class CustomMapView
+public static class CustomMapView
 {
-    public static Node3D Build(CustomMap map)
+    /// <summary>The map's view; <paramref name="file"/> is the map file (a material's pictures are read from beside it first, then the library).</summary>
+    public static Node3D Build(CustomMap map, string? file = null)
     {
         var view = new Node3D { Name = "MapVisuals" };
         var material = Material();
+        var mats = new MaterialBuild.Cache(map.Document, file, new MapLibrary(null));   // each material and picture built once (M3's shared builder: preview = saved = in game)
         foreach (var p in map.Pieces)
         {
             if (!p.Visible || p.Piece.Info.Solid is false || p.Piece.Kind == PieceKind.CollisionBox) continue;
             if (p.Mesh is not null || p.Material is not null)
             {
-                Godot.Material surface = material;
-                PieceMaterial(map, p, ref surface);   // the material editor's surface (plan M3) when the piece has one; the grid otherwise
-                view.AddChild(new MeshInstance3D { Name = $"{p.Id}", Mesh = Rendered(p.Render()), MaterialOverride = surface });
+                // an edited shape or a material: the core's render mesh (edited shape, normals, tangents, UVs) with the material's surface, or the grid look
+                Godot.Material surface = (p.Material is null ? null : (Godot.Material?)mats.For(p.Material)) ?? material;
+                view.AddChild(new MeshInstance3D { Name = $"{p.Id}", Mesh = MaterialBuild.Mesh(p.Render()), MaterialOverride = surface });
                 continue;
             }
             var (v, tri) = PieceMesh.Unit(p.Piece.Kind)!.Value;
@@ -152,45 +154,8 @@ public static partial class CustomMapView
             for (int i = 0; i < tri.Length; i++) corners[i] = System.Numerics.Vector3.Transform(v[tri[i]], p.World);
             view.AddChild(new MeshInstance3D { Name = $"{p.Id}", Mesh = Flat(corners), MaterialOverride = material });
         }
+        foreach (var note in mats.Notes) GD.Print("custom map material: " + note);
         return view;
-    }
-
-    /// <summary>
-    /// The surface of a piece that has a material (<see cref="DrawPiece.Material"/>; plan M3 implements it from <c>MaterialGraph.Resolve</c> and the map's images). Unimplemented, or for a
-    /// piece without a material, <paramref name="surface"/> stays the grid look the stock pieces have.
-    /// </summary>
-    static partial void PieceMaterial(CustomMap map, DrawPiece piece, ref Godot.Material surface);
-
-    /// <summary>
-    /// A <see cref="RenderMesh"/> as a Godot mesh in game space: positions, normals, tangents (Godot's binormal is cross(normal, tangent) times w, the core's handedness) and UVs as the
-    /// core made them; each triangle's last two corners are swapped (the core winds counter-clockwise from outside, Godot's front faces are clockwise), as <see cref="Flat"/> does.
-    /// </summary>
-    static ArrayMesh Rendered(RenderMesh r)
-    {
-        int n = r.Positions.Length;
-        var vertices = new Vector3[n];
-        var normals = new Vector3[n];
-        var tangents = new float[n * 4];
-        var uvs = new Vector2[n];
-        for (int t = 0; t + 2 < n; t += 3)
-            for (int k = 0; k < 3; k++)
-            {
-                int src = t + k, dst = t + (k == 0 ? 0 : 3 - k);
-                var p = r.Positions[src]; var nr = r.Normals[src]; var tg = r.Tangents[src]; var uv = r.Uvs[src];
-                vertices[dst] = new(p.X, p.Y, p.Z);
-                normals[dst] = new(nr.X, nr.Y, nr.Z);
-                tangents[dst * 4] = tg.X; tangents[dst * 4 + 1] = tg.Y; tangents[dst * 4 + 2] = tg.Z; tangents[dst * 4 + 3] = tg.W;
-                uvs[dst] = new(uv.X, uv.Y);
-            }
-        var arrays = new Godot.Collections.Array();
-        arrays.Resize((int)Mesh.ArrayType.Max);
-        arrays[(int)Mesh.ArrayType.Vertex] = vertices;
-        arrays[(int)Mesh.ArrayType.Normal] = normals;
-        arrays[(int)Mesh.ArrayType.Tangent] = tangents;
-        arrays[(int)Mesh.ArrayType.TexUV] = uvs;
-        var mesh = new ArrayMesh();
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-        return mesh;
     }
 
     static StandardMaterial3D Material()

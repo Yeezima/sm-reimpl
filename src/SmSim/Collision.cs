@@ -764,10 +764,10 @@ public sealed partial class CollisionWorld
 public readonly record struct KillVolume(Vector3 Center, Vector3 HalfExtents, float Yaw)
 {
     /// <summary>
-    /// The exact shape when the map gives one (a Mapmaker kill zone whose shape was edited, docs/mapmaker.md "Edit mode in play"; added content builds it): then
+    /// The exact shape when the map gives one (a Mapmaker kill zone whose shape was edited, docs/mapmaker.md "Edit mode in play"; only the Mapmaker compiler builds one): then
     /// <see cref="Contains"/> and <see cref="Crosses"/> test that shape, not the box. Null for every Classic, Musou and Warfront volume and every unedited one: the box, as before.
     /// </summary>
-    public IExactVolume? Shape { get; init; }
+    public MeshVolume? Shape { get; init; }
 
     Vector3 Local(Vector3 p)
     {
@@ -788,7 +788,7 @@ public readonly record struct KillVolume(Vector3 Center, Vector3 HalfExtents, fl
     public bool Crosses(Vector3 a, Vector3 b)
     {
         if (!Geometry.Finite(a) || !Geometry.Finite(b)) return false;
-        if (Shape is { } shape) return shape.Meets(a, b);
+        if (Shape is { } shape) return shape.Crosses(a, b);
         Vector3 la = Local(a), d = Local(b) - la;
         float t0 = 0f, t1 = 1f;
         for (int axis = 0; axis < 3; axis++)
@@ -811,54 +811,8 @@ public readonly record struct KillVolume(Vector3 Center, Vector3 HalfExtents, fl
         {
             foreach (float f in new[] { k.Center.X, k.Center.Y, k.Center.Z, k.HalfExtents.X, k.HalfExtents.Y, k.HalfExtents.Z, k.Yaw })
                 h = Geometry.Fnv(h, BitConverter.SingleToUInt32Bits(f));
-            h = ExactVolumes.Hash(h, k.Shape);   // nothing without a shape: a box-only list hashes as before
+            if (k.Shape is { } shape) h = shape.Hash(Geometry.Fnv(h, 0x56454D58u));   // "XMEV" and the shape; nothing without one: a box-only list hashes as before
         }
-        return h;
-    }
-}
-
-/// <summary>
-/// An exact closed shape a gameplay volume may carry instead of its box (a capture point, start area, spawn-room blocker or kill volume whose shape a Mapmaker author edited;
-/// docs/mapmaker.md "Edit mode in play"). The core never builds one: added content does (<c>SmSim.Extras.Mapmaker</c>), and every Classic, Musou and Warfront volume has none, so their
-/// rules are the box rules exactly as before. Every member must give the same answer on every OS for the same input (server and clients both evaluate it).
-/// </summary>
-public interface IExactVolume
-{
-    /// <summary>The world-space box round the shape.</summary>
-    Vector3 Min { get; }
-    Vector3 Max { get; }
-    /// <summary>The closed triangle mesh (world space): what a solid blocker collides by.</summary>
-    IReadOnlyList<Vector3> Vertices { get; }
-    IReadOnlyList<int> Indices { get; }
-    /// <summary>Whether the point is inside the shape.</summary>
-    bool Contains(Vector3 p);
-    /// <summary>Whether the segment from <paramref name="a"/> to <paramref name="b"/> touches the shape (an end inside, or the segment crossing its surface).</summary>
-    bool Meets(Vector3 a, Vector3 b);
-    /// <summary>The same shape stretched upward from its bottom so its top reaches <paramref name="top"/> (unchanged when it already does); the spawn-room blockers' rise above the level (M31).</summary>
-    IExactVolume StretchedTo(float top);
-}
-
-/// <summary>Helpers shared by the volumes that may carry an <see cref="IExactVolume"/>.</summary>
-public static class ExactVolumes
-{
-    /// <summary>
-    /// How far above a player's feet the exact shape is tested (metres; ours): a shape that sits on the floor has its bottom face exactly at the feet, where the point-in-mesh test
-    /// counts the point as outside, so the test point is lifted this far into the body. The box rules (no shape) test the feet themselves, as before.
-    /// </summary>
-    public const float FeetLift = 0.1f;
-
-    /// <summary>FNV-1a 64 of <paramref name="h"/> and the shape's vertex bits and indices; <paramref name="h"/> itself without a shape.</summary>
-    public static ulong Hash(ulong h, IExactVolume? shape)
-    {
-        if (shape is null) return h;
-        h = Geometry.Fnv(h, 0x56454D58u);   // "XMEV": a shape follows
-        foreach (var v in shape.Vertices)
-        {
-            h = Geometry.Fnv(h, BitConverter.SingleToUInt32Bits(v.X));
-            h = Geometry.Fnv(h, BitConverter.SingleToUInt32Bits(v.Y));
-            h = Geometry.Fnv(h, BitConverter.SingleToUInt32Bits(v.Z));
-        }
-        foreach (int i in shape.Indices) h = Geometry.Fnv(h, (uint)i);
         return h;
     }
 }

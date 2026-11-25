@@ -17,13 +17,13 @@ public sealed record ControlPoint(string Name, Vector3 Center, float Radius, flo
 {
     /// <summary>
     /// The point's exact shape when the map gives one (a Mapmaker capture point whose shape was edited, docs/mapmaker.md "Edit mode in play"): then a player stands on it when
-    /// the shape holds the feet lifted by <see cref="ExactVolumes.FeetLift"/>, and the cylinder is only what the views draw. Null for every Classic point and every unedited one.
+    /// the shape holds the feet (its bottom surface counts as inside), and the cylinder is only what the views draw. Null for every Classic point and every unedited one.
     /// </summary>
-    public IExactVolume? Volume { get; init; }
+    public MeshVolume? Volume { get; init; }
 
     public bool Contains(Vector3 feet)
     {
-        if (Volume is { } shape) return shape.Contains(feet + new Vector3(0f, 0f, ExactVolumes.FeetLift));
+        if (Volume is { } shape) return shape.Contains(feet);
         float dx = feet.X - Center.X, dy = feet.Y - Center.Y;
         return dx * dx + dy * dy <= Radius * Radius && MathF.Abs(feet.Z - Center.Z) <= HalfHeight;
     }
@@ -43,16 +43,16 @@ public sealed record StartArea(Team Side, Vector3 Center, Vector3 Size, float Ya
     /// <see cref="Yaw"/> are then its box, the spawn grid is laid over that box and only the spots the shape holds are kept (<see cref="HoldsSpot"/>). Null for every Classic, Musou and
     /// Warfront area and every unedited one: the grid as before.
     /// </summary>
-    public IExactVolume? Volume { get; init; }
+    public MeshVolume? Volume { get; init; }
 
     /// <summary>
-    /// Whether a spawn spot (a point on the floor) is inside the edited shape with room round it: the shape holds the spot lifted by <see cref="ExactVolumes.FeetLift"/> and the
+    /// Whether a spawn spot (a point on the floor) is inside the edited shape with room round it: the shape holds the spot (its bottom surface counts) and the
     /// same point <paramref name="margin"/> along world +X, -X, +Y and -Y (the grid's margin from the edge, kept from the edited boundary too; ours). True without a shape.
     /// </summary>
     public bool HoldsSpot(Vector3 spot, float margin = 1f)
     {
         if (Volume is not { } shape) return true;
-        var p = spot + new Vector3(0f, 0f, ExactVolumes.FeetLift);
+        var p = spot;
         return shape.Contains(p) && shape.Contains(p + new Vector3(margin, 0f, 0f)) && shape.Contains(p - new Vector3(margin, 0f, 0f))
             && shape.Contains(p + new Vector3(0f, margin, 0f)) && shape.Contains(p - new Vector3(0f, margin, 0f));
     }
@@ -307,7 +307,7 @@ public sealed partial class World
             }
             if (LowestStandable(at.X, at.Y, area.Center.Z + halfHeight, area.Center.Z - halfHeight - 1f) is { } ground && area.HoldsSpot(ground, margin)) spots.Add(ground);
         }
-        if (spots.Count == 0) spots.Add(area.Center);
+        if (spots.Count == 0) spots.Add(area.Volume?.InsidePoint() ?? area.Center);   // an edited area with no spot: a point inside its shape
         _areaSpots[areaIndex] = spots;
         return spots;
     }

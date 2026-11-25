@@ -20,7 +20,7 @@ public readonly record struct MapSpawn(string Name, Vector3 Position, float Yaw)
 public sealed record MapControlPoint(string Name, Vector3 Position, float Yaw, Vector3 Scale, int Shape)
 {
     /// <summary>The exact shape (a Mapmaker point whose shape was edited; added content sets it, docs/mapmaker.md "Edit mode in play"); null for every install map and every unedited point.</summary>
-    public IExactVolume? Volume { get; init; }
+    public MeshVolume? Volume { get; init; }
 
     public ControlPoint ToSim() => new(Name, Position, Scale.X / 2f, Scale.Z / 2f) { Volume = Volume };
 }
@@ -29,7 +29,7 @@ public sealed record MapControlPoint(string Name, Vector3 Position, float Yaw, V
 public sealed record MapStartArea(string Name, Team Side, Vector3 Position, float Yaw, Vector3 Scale, int Shape)
 {
     /// <summary>The exact shape (a Mapmaker spawn area whose shape was edited); null for every install map and every unedited area.</summary>
-    public IExactVolume? Volume { get; init; }
+    public MeshVolume? Volume { get; init; }
 
     public StartArea ToSim() => new(Side, Position, Scale, Yaw, Shape == 3 ? AreaShape.Cylinder : AreaShape.Box) { Volume = Volume };
 }
@@ -42,7 +42,7 @@ public sealed record MapStartArea(string Name, Team Side, Vector3 Position, floa
 public sealed record MapBlocker(string Name, Team Side, Vector3 Position, float Yaw, Vector3 Scale)
 {
     /// <summary>The exact shape (a Mapmaker spawn door whose shape was edited); null for every install map and every unedited door.</summary>
-    public IExactVolume? Volume { get; init; }
+    public MeshVolume? Volume { get; init; }
 
     public SpawnBlocker ToSim() => new(Side, Position, Scale, Yaw) { Volume = Volume };
 }
@@ -76,7 +76,7 @@ public sealed record MapWall(string Name, Vector3 Position, Vector3 RotationDegr
 public sealed record MapKillRegion(string Name, Vector3 Position, float Yaw, Vector3 Scale, int Shape)
 {
     /// <summary>The exact shape (a Mapmaker kill zone whose shape was edited); null for every install map and every unedited zone.</summary>
-    public IExactVolume? Volume { get; init; }
+    public MeshVolume? Volume { get; init; }
 
     public KillVolume ToSim() => new(Position, Scale / 2f, Yaw) { Shape = Volume };
 }

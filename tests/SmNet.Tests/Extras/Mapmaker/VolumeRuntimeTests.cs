@@ -1,6 +1,5 @@
 using System.Numerics;
 using SmSim;
-using SmSim.Extras.Mapmaker;
 
 namespace SmNet.Tests;
 
@@ -96,7 +95,7 @@ public class VolumeRuntimeTests
     // ---- edited shapes ----
 
     /// <summary>A vertical prism over a convex polygon (counter-clockwise in plan) from <paramref name="z0"/> to <paramref name="z1"/>, as a closed triangle mesh.</summary>
-    static ExactMeshVolume Prism(string name, Vector2[] plan, float z0, float z1)
+    static MeshVolume Prism(string name, Vector2[] plan, float z0, float z1)
     {
         int n = plan.Length;
         var v = new List<Vector3>();
@@ -105,11 +104,11 @@ public class VolumeRuntimeTests
         var i = new List<int>();
         for (int k = 1; k + 1 < n; k++) { i.AddRange([0, k + 1, k]); i.AddRange([n, n + k, n + k + 1]); }
         for (int k = 0; k < n; k++) { int j = (k + 1) % n; i.AddRange([k, j, n + j, k, n + j, n + k]); }
-        return new ExactMeshVolume(new MeshVolume(name, [.. v], [.. i]));
+        return new MeshVolume(name, [.. v], [.. i]);
     }
 
     /// <summary>A right-triangle wedge over x 0..10, y 0..10 (the corner at +X +Y is cut away), z 0..3: (2, 2) is inside, (8, 8) is in the box only.</summary>
-    static ExactMeshVolume Wedge(float dx = 0, float dy = 0) => Prism("wedge", [new(dx, dy), new(dx + 10, dy), new(dx, dy + 10)], 0, 3);
+    static MeshVolume Wedge(float dx = 0, float dy = 0) => Prism("wedge", [new(dx, dy), new(dx + 10, dy), new(dx, dy + 10)], 0, 3);
 
     static readonly WeaponSpec Rifle = new("test_rifle", WeaponSlot.Ranged, TriggerKind.SemiAuto, 20f, 0.2f, 30, 90, 1f, 250f, 250f, 250f, 1f, 1f, 1f, 1f, 1f);
     static ClassLoadout Tac(string name, Team side) => new(name, 0, -1, SimConfig.PlaceholderMeleeSteps) { PrimaryChoices = [0], Side = side, Role = "tactical" };

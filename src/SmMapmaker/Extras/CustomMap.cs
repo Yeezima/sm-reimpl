@@ -4,7 +4,6 @@ using System.Text;
 using SmContent;
 using SmFormats.Havok;
 using SmSim;
-using SmSim.Extras.Mapmaker;
 
 namespace SmMapmaker;
 
@@ -256,12 +255,12 @@ public sealed class CustomMap
             }
             // An edited marker's exact shape: kept in Volumes under the record's name and carried by the record into the simulation (plan M2: inside the shape counts, inside only its box does not).
             // Unedited markers get none, so their records and every rule that reads them are exactly as before.
-            IExactVolume? Exact(string recordName)
+            MeshVolume? Exact(string recordName)
             {
                 if (edited is null) return null;
                 var volume = new MeshVolume(recordName, edited, editedTri!);
                 volumes[recordName] = volume;
-                return new ExactMeshVolume(volume);
+                return volume;
             }
             switch (piece.Kind)
             {

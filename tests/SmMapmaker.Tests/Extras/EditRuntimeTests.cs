@@ -55,12 +55,12 @@ public sealed class EditRuntimeTests
         return h;
     }
 
-    // ---- an unedited map is bit for bit what it was (pinned before M2 wired the volumes in) ----
+    // ---- an unedited map is bit for bit what it was: pinned on the contract v2 tip (08be29c6) without the M2 code (the v0 pins, taken on 864fada1, changed with contract v2 alone, checked by running this test on 08be29c6) ----
 
     [Theory]
-    [InlineData("arena", 12107027520657218078UL)]
-    [InlineData("open-field", 7892627044423593843UL)]
-    [InlineData("blank", 4029968937587745437UL)]
+    [InlineData("arena", 16976518806739088172UL)]
+    [InlineData("open-field", 7851701334809318962UL)]
+    [InlineData("blank", 4795470007704499624UL)]
     public void An_unedited_layout_plays_exactly_as_before(string id, ulong expected)
     {
         using var lab = new Lab();

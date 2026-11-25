@@ -135,7 +135,7 @@ public static class MapCheck
     /// <summary>Whether a floor spot is inside start area <paramref name="a"/>: its exact shape when edited (lifted feet), else its box.</summary>
     static bool InArea(MapStartArea a, Vector3 spot)
     {
-        if (a.Volume is { } shape) return shape.Contains(spot + new Vector3(0, 0, ExactVolumes.FeetLift));
+        if (a.Volume is { } shape) return shape.Contains(spot);
         var d = spot - a.Position;
         float c = MathF.Cos(-a.Yaw), s = MathF.Sin(-a.Yaw);
         float lx = d.X * c - d.Y * s, ly = d.X * s + d.Y * c;
