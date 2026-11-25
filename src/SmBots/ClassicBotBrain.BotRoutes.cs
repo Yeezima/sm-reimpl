@@ -69,6 +69,14 @@ public sealed partial class ClassicBotBrain
     public const float ArriveMaxDz = 1.5f;
     readonly HashSet<int> _routeDropped = new();
     BotMapPlan? _routePlan;
+    /// <summary>A route that stalled this many times for the bot (over its lives, on the same plan) is avoided for the rest of the match (4v4 rerun: one Hab Center drop the bots
+    /// could not take stalled the same route every life; ours).</summary>
+    public const int RouteAvoidAfterStalls = 2;
+    readonly Dictionary<int, int> _routeStalls = new();
+    /// <summary>Test view: stalls per route on this plan.</summary>
+    internal IReadOnlyDictionary<int, int> RouteStalls => _routeStalls;
+    bool RouteAvoided(int r) => _routeStalls.GetValueOrDefault(r) >= RouteAvoidAfterStalls;
+    void NoteRouteStall(int r) { _routeDropped.Add(r); _routeStalls[r] = _routeStalls.GetValueOrDefault(r) + 1; }
     int _vantage = -1, _vantageLast = -1;
     bool _vantageArrived;
     double _vantageSince, _vantageUntil, _vantageNext, _vantageArrivedAt, _lastFightAt = double.MinValue;
@@ -95,6 +103,7 @@ public sealed partial class ClassicBotBrain
     internal void BotRouteLife(PlayerState me, BotMapPlan plan)
     {
         if (_routeLife == _botLife && ReferenceEquals(_routePlan, plan)) return;   // a new plan (another class's graph) starts the life's choices again
+        if (!ReferenceEquals(_routePlan, plan)) _routeStalls.Clear();   // the stall memory belongs to a plan's routes
         _routeLife = _botLife; _routePlan = plan;
         int id = Math.Max(_client?.PlayerId ?? 0, 0);
         double roll = new Random(id * 7919 + Math.Max(_botLife, 0) * 104723 + 11).NextDouble();
@@ -103,7 +112,10 @@ public sealed partial class ClassicBotBrain
         _routeVantages = (role == "heavy" && roll >= 1 - DevastatorVantageChance) || (role == "tactical" && !_routeFlank && roll < TacticalFlankChance + TacticalVantageChance);
         int n = plan.Routes.Count, rank = BotRank(me), life = Math.Max(_botLife, 0);
         _routeOfLife = n == 0 ? -1 : _routeFlank && n >= 2 ? ((rank + life) % 2 == 0 ? 0 : n - 1) : (BotMapPlan.Spread(rank, n) + life) % n;
-        _routePoint = 0; _routePointSince = _routeLegSince = _connectedFor; _routeLegDone = n == 0; _routeDropped.Clear();
+        // A route avoided after repeated stalls gives way to the next one that is not (none left: no route leg this life).
+        for (int k = 0; k < n && _routeOfLife >= 0 && RouteAvoided(_routeOfLife); k++) _routeOfLife = k == n - 1 ? -1 : (_routeOfLife + 1) % n;
+        _routePoint = 0; _routePointSince = _routeLegSince = _connectedFor; _routeLegDone = _routeOfLife < 0; _routeDropped.Clear();
+        foreach (var kv in _routeStalls) if (kv.Value >= RouteAvoidAfterStalls) _routeDropped.Add(kv.Key);   // nor for route chases
         _routeViaFor = -1; _routeViaRoute = -1;
         _vantage = -1; _vantageNext = 0; _vantageBad.Clear();
         GD.Print($"t {_connectedFor:F1} s: id {id} life {_botLife}: route {_routeOfLife + 1} of {n}{(_routeOfLife == plan.DirectRoute ? " (direct)" : "")}{(_routeFlank ? ", flanker" : "")}{(_routeVantages ? ", vantages" : "")} ({role}, rank {rank})");
@@ -130,7 +142,7 @@ public sealed partial class ClassicBotBrain
         {
             // No progress toward the point (a point on another floor, a spot the bot cannot reach): the route is dropped for this life and the leg ends.
             GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} route {_routeOfLife + 1} point {_routePoint + 1} stalled: route dropped for this life, leg ends");
-            _routeDropped.Add(_routeOfLife);
+            NoteRouteStall(_routeOfLife);
             _routeLegDone = true; return null;
         }
         if (_routePoint > end || _connectedFor - _routeLegSince > RouteLegTimeout) { _routeLegDone = true; return null; }
@@ -172,7 +184,7 @@ public sealed partial class ClassicBotBrain
         if (next is { } stalledAt && RouteStalled(stalledAt))
         {
             GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} route chase stalled at {stalledAt.X:F0},{stalledAt.Y:F0},{stalledAt.Z:F0}: route {_routeViaRoute + 1} dropped for this life");
-            _routeDropped.Add(_routeViaRoute);
+            NoteRouteStall(_routeViaRoute);
             _routeViaFor = -1;   // choose again next tick
             return null;
         }

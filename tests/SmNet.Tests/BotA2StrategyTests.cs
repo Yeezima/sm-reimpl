@@ -52,6 +52,37 @@ public class BotA2StrategyTests
     }
 
     [Fact]
+    public void A_route_that_stalled_twice_is_avoided_in_later_lives()
+    {
+        var world = new StillWorld();
+        var brain = new ClassicBotBrain(world, BotArgs.None, new ClassicBotOptions(), BotLog.None);
+        var plan = Plan();
+        void NewLife() { var alive = world.Me; world.Me = alive with { Alive = false }; brain.ClassicBegin(world.Me); world.Me = alive; brain.ClassicBegin(world.Me); }
+        uint tick = 1;
+        int StallOnce()
+        {
+            brain.BotRouteLife(world.Me, plan);
+            int r = brain.RouteOfLife;
+            for (int k = 0; k < 60 && !brain.RouteLegDone; k++) { world.Now += 0.1; brain.BotRouteLegInput(world.Me, tick++, null, plan); }
+            Assert.True(brain.RouteLegDone);
+            return r;
+        }
+        brain.ClassicBegin(world.Me);   // life 0
+        var stalledOn = new List<int>();
+        for (int life = 0; life < 2 * plan.Routes.Count + 2; life++)
+        {
+            stalledOn.Add(StallOnce());
+            NewLife();
+        }
+        // Every route was taken at most RouteAvoidAfterStalls times; then no route leg at all (all avoided).
+        foreach (var g in stalledOn.Where(r => r >= 0).GroupBy(r => r)) Assert.True(g.Count() <= ClassicBotBrain.RouteAvoidAfterStalls, $"route {g.Key} taken {g.Count()} times");
+        Assert.All(Enumerable.Range(0, plan.Routes.Count), r => Assert.Equal(ClassicBotBrain.RouteAvoidAfterStalls, brain.RouteStalls[r]));
+        brain.BotRouteLife(world.Me, plan);
+        Assert.Equal(-1, brain.RouteOfLife);
+        Assert.True(brain.RouteLegDone);
+    }
+
+    [Fact]
     public void The_stall_watch_does_not_count_a_wait_at_a_jump_take_off()
     {
         var w = new RouteStallWatch();
