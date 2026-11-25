@@ -109,12 +109,12 @@ public sealed class BuiltMaskRound5Tests
         var raptor = BuiltMaskOverrides.For("csm_armour_raptor_shldrl", null).SelectMany(o => o.Regions).ToList();
         Assert.Contains(raptor, r => r.To == MaskRegion.Primary && r.Ellipse && r.Filter is null);
         Assert.DoesNotContain(raptor, r => r.To == MaskRegion.Tertiary && r.Filter is { MinChroma: 7f, MinHue: 0.9f });
-        // A disc pad, synthetic: the rim ring tertiary, the inside primary, outside untouched.
+        // A disc pad, synthetic: the rim ring tertiary, the inside primary, outside untouched (the berserker pad: round 7 dropped the ring on the raptor and basic pads).
         var dif = new DdsImage(W, H, Enumerable.Repeat((byte)90, W * H * 4).ToArray());
         var m = new byte[W * H * 4];
         for (int i = 0; i < W * H; i++) m[i * 4 + 1] = 255;   // all secondary to start
         var applied = BuiltMaskOverrides.Apply(new PaintMaskBuilder.MaskOnly(W, H, m, 80f, 80f, 62f, 0f, 1f, 0f), dif,
-            BuiltMaskOverrides.For("csm_armour_raptor_shldrl", null).SelectMany(o => o.Regions).Where(r => r.Filter is null || r.Filter.MinLum == 4f).ToList());
+            BuiltMaskOverrides.For("csm_armour_berserker_shldrl", null).SelectMany(o => o.Regions).Where(r => r.Filter is null || r.Filter.MinLum == 4f).ToList());
         Assert.Equal(255, applied.Mask[(13 * W + 15) * 4]);        // the disc's middle: primary
         Assert.Equal(255, applied.Mask[(13 * W + 0) * 4 + 2]);     // the rim at the disc's left edge (U 0.0 to 0.045): tertiary
         Assert.Equal(255, applied.Mask[(31 * W + 0) * 4 + 1]);     // outside the disc: as it was

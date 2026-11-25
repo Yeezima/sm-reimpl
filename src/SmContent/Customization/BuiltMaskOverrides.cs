@@ -533,10 +533,15 @@ public static class BuiltMaskOverrides
 
         // Black Templars torso (DLC and campaign: the same textures): the two pelvis plates (texture's lower left; the silver belt clip at U 0.38 to 0.42 excluded) kept
         // tertiary and primary + tertiary blended texels ("rear pelvis tertiary / blended", purple in test_rgb); they are wholly plate.
+        // Round 7 (re-gate cee3ef6a: "a ragged tertiary patch on the rear shoulder-blade plate beside the pack"): the upper back is the texture's top right island
+        // (mesh: Y -0.2 to -0.3, behind); the patch is a primary + tertiary blend over the light wear at U 0.586 to 0.672, V 0.055 to 0.152 (the model's right
+        // shoulder blade, X +0.15), with a fainter one on the left blade (U 0.768 to 0.807): both wholly plate, as the baked set's plain black plate there.
         .. Each(["sm_armour_blacktemp_torso", "sm_armour_black_temp_torso"],
             [.. Harden(0f, 0.44f, 0.46f, 1f), new MaskRegionOverride(0f, 0.44f, 0.375f, 0.72f, MaskRegion.Primary, From: MaskRegion.Tertiary),
-             new MaskRegionOverride(0f, 0.72f, 0.46f, 1f, MaskRegion.Primary, From: MaskRegion.Tertiary)],
-            "Black Templars torso: pelvis plates wholly plate"),
+             new MaskRegionOverride(0f, 0.72f, 0.46f, 1f, MaskRegion.Primary, From: MaskRegion.Tertiary),
+             .. Harden(0.575f, 0.045f, 0.685f, 0.165f), new MaskRegionOverride(0.575f, 0.045f, 0.685f, 0.165f, MaskRegion.Primary, From: MaskRegion.Tertiary),
+             .. Harden(0.76f, 0.065f, 0.815f, 0.135f), new MaskRegionOverride(0.76f, 0.065f, 0.815f, 0.135f, MaskRegion.Primary, From: MaskRegion.Tertiary)],
+            "Black Templars torso: pelvis plates and the rear shoulder-blade plates wholly plate"),
         // Black Templars backpack: mottled and dingier than the regular pack ("primary/tertiary blend at panel edges; median below the regular pack's"): every texel wholly
         // in its region (as the legs), the plate's painted median (84 at contrast 0.7 and flatten 0.85) raised to the regular pack's 91, and the fine wear grain softened
         // (contrast 0.7 x 0.65: the regular pack's grey is even).
@@ -556,17 +561,16 @@ public static class BuiltMaskOverrides
             "Space Wolves torso: belt wolf skull and pelt wholly tertiary", MinIsland: 30),
         // Campaign raptor torso: much darker than the raptor's helmet and limbs (plate median 50, the regular Chaos torso's, against helmet 83 and arms 61): targets x 1.4.
         new("csm_armour_raptor_torso", null, null, [], "Campaign raptor torso: as bright as the raptor's helmet and limbs", Brightness: 1.4f),
-        // Campaign raptor left pad: the gilded disc's rim ring crossed the dome at the pad's top (a grey fragment beside the helmet): there the ring is plate.
-        new("csm_armour_raptor_shldrl", null, null, [new MaskRegionOverride(0.25f, 0f, 0.75f, 0.07f, MaskRegion.Primary, From: MaskRegion.Tertiary)],
-            "Campaign raptor left pad: no rim fragment at the dome's top"),
-        // Campaign basic left pad: brighter and flatter than the body (plate 106, the regular Chaos left pad's, beside a torso at 49 and arms at 58): targets x 0.82; the rim
-        // ring widened from 0.045 to 0.07 so it reads as trim (the skull emblem again tertiary).
-        new("csm_armour_basic_shldrl", null, null,
-        [
-            new MaskRegionOverride(0f, 0.01f, 0.98f, 0.85f, MaskRegion.Tertiary, new TexelFilter(MinLum: 4f), Ellipse: true),
-            new MaskRegionOverride(0.07f, 0.08f, 0.91f, 0.78f, MaskRegion.Primary, Ellipse: true),
-            new MaskRegionOverride(0.18f, 0.21f, 0.76f, 0.73f, MaskRegion.Tertiary, new TexelFilter(MinLum: 60f, MaxChroma: 14f), Ellipse: true),
-        ], "Campaign basic left pad: as bright as the body, wider rim ring", Brightness: 0.82f),
+        // Campaign raptor and basic left pads, round 7 (re-gate cee3ef6a: basic "the rim is a ragged partial crescent at the dome's top-rear"; raptor "the clearing
+        // rectangle misses the grey fragment" and "skull emblem holes"). Read on the mesh: the dome's top (next to the head, Z highest) is the texture's right edge,
+        // so the UV ellipse ring drew only there, as a crescent, and the raptor's dome runs past the ellipse at U 0.84 to 0.98, V 0.20 to 0.47 (its fragment). No
+        // ring any more: the dome is wholly plate apart from the skull emblem, which is solid by shape (each skull's rayed disc wholly within 0.8 of its radius, the
+        // ray tips by colour; the blade wholly), as the Iron Warriors emblem; fragments under 30 texels join. The round-6 top clearing rectangle stays.
+        .. Each(["csm_armour_raptor_shldrl", "csm_armour_basic_shldrl"], ChaosLeftPadPlate(), "Campaign raptor and basic left pads: dome wholly plate, skull emblem solid",
+            minIsland: 30),
+        // Campaign basic left pad: brighter and flatter than the body (plate 106, the regular Chaos left pad's, beside a torso at 49 and arms at 58): targets x 0.82.
+        // (Round 6 widened its rim ring to 0.07; round 7 drops the ring, above.)
+        new("csm_armour_basic_shldrl", null, null, [], "Campaign basic left pad: as bright as the body", Brightness: 0.82f),
         // Campaign havoc pads: the star and skull panels were ragged primary/tertiary patches (Harden on a blend). The dome is two paints: the olive-gold frame, star and
         // skull panels (measured hue 1.6 to 1.85 rad, chroma 20 and more) wholly tertiary, the dark red field (hue 0.3 to 0.8) wholly primary, by hue (a cut at 1.25 rad;
         // nearly colourless texels by luminance); fragments under 60 texels join their surroundings.
@@ -623,13 +627,18 @@ public static class BuiltMaskOverrides
             "Blood Ravens campaign torso: abdomen smears are plate"),
         // Corvus helmet: the two silver laurel bands still drew as flecks (brown speckle in White Scars): each band (a diagonal strip on the crest) takes its colourless texels
         // in a wide strip and every texel of a narrow core strip as tertiary; fragments under 60 texels join their surroundings.
+        // Round 7 (re-gate cee3ef6a: "crown filigree between and around the laurel bands still a fleck blend"): first the whole crown plate (the V-shaped piece, U 0.29
+        // to 1, V 0 to 0.365) goes crisp and loses its tertiary, then the bands put the laurels back. The bands now follow the laurels as measured (the silver's
+        // mid-line per row fits u = 0.368 + 0.829 v and u = 0.934 - 0.834 v; the round-6 lines drifted up to 0.023 off at the bottom, cutting leaf tips on one side
+        // and taking filigree on the other); the wide colour strip's half-width 0.046 (the leaves' p75 reach), the solid core 0.020.
         new("sm_armour_corvus_helmet", null, null,
         [
-            .. Band(0.384f, 0.031f, 0.615f, 0.270f, 0.042f, MaskRegion.Tertiary, new TexelFilter(MinLum: 15f, MaxChroma: 14f)),
-            .. Band(0.924f, 0.031f, 0.692f, 0.270f, 0.042f, MaskRegion.Tertiary, new TexelFilter(MinLum: 15f, MaxChroma: 14f)),
-            .. Band(0.390f, 0.040f, 0.610f, 0.262f, 0.020f, MaskRegion.Tertiary),
-            .. Band(0.918f, 0.040f, 0.697f, 0.262f, 0.020f, MaskRegion.Tertiary),
-        ], "Corvus helmet: laurel bands tertiary by shape", MinIsland: 60),
+            .. Harden(0.29f, 0f, 1f, 0.365f), new MaskRegionOverride(0.29f, 0f, 1f, 0.365f, MaskRegion.Primary, From: MaskRegion.Tertiary),
+            .. Band(0.394f, 0.031f, 0.592f, 0.270f, 0.046f, MaskRegion.Tertiary, new TexelFilter(MinLum: 15f, MaxChroma: 14f)),
+            .. Band(0.908f, 0.031f, 0.709f, 0.270f, 0.046f, MaskRegion.Tertiary, new TexelFilter(MinLum: 15f, MaxChroma: 14f)),
+            .. Band(0.401f, 0.040f, 0.585f, 0.262f, 0.020f, MaskRegion.Tertiary),
+            .. Band(0.901f, 0.040f, 0.716f, 0.262f, 0.020f, MaskRegion.Tertiary),
+        ], "Corvus helmet: crown plate crisp, laurel bands tertiary by shape", MinIsland: 60),
         // Legion of the Damned right pad: the dome's bone scroll and the skull below the dome were primary + tertiary blends (purple in test_rgb): the scroll's light texels
         // are tertiary, both crisp, and the letters' dark holes (under 40 texels) join the scroll.
         new("sm_armour_mp_dlc1_set1_shldrr", null, null,
@@ -690,6 +699,27 @@ public static class BuiltMaskOverrides
             yield return new(uc - half, v0 + (v1 - v0) * a, uc + half, v0 + (v1 - v0) * b, to, f);
         }
     }
+
+    /// <summary>
+    /// Round 7: the campaign Chaos left pad (raptor and basic: one texture) wholly plate apart from its skull emblem. The disc ellipse, the dome's run past it at the
+    /// crest (U 0.80 to 1, V 0.15 to 0.62), the outer edge left of it (U 0 to 0.12, V 0.05 to 0.72) and the round-6 top strip lose any tertiary (the spikes, separate
+    /// pieces above V 0.15 and below V 0.68 at the right and below V 0.74 at the left, are left alone). The emblem: two rayed skulls (upper centre U 0.394, V 0.396;
+    /// lower U 0.368, V 0.478; radii about 0.12 x 0.058) wholly tertiary within 0.8 of the radius, their light ray tips (luminance 45+, chroma under 14) out to the full
+    /// radius; the silver blade (U 0.512 to 0.808, V 0.398 to 0.462, measured) and its tip wholly.
+    /// </summary>
+    static MaskRegionOverride[] ChaosLeftPadPlate() =>
+    [
+        new(0f, 0.01f, 0.98f, 0.85f, MaskRegion.Primary, Ellipse: true),
+        new(0.80f, 0.15f, 1f, 0.62f, MaskRegion.Primary, From: MaskRegion.Tertiary),
+        new(0f, 0.05f, 0.12f, 0.72f, MaskRegion.Primary, From: MaskRegion.Tertiary),
+        new(0.25f, 0f, 0.75f, 0.07f, MaskRegion.Primary, From: MaskRegion.Tertiary),
+        new(0.276f, 0.337f, 0.512f, 0.455f, MaskRegion.Tertiary, new TexelFilter(MinLum: 45f, MaxChroma: 14f), Ellipse: true),
+        new(0.248f, 0.420f, 0.488f, 0.536f, MaskRegion.Tertiary, new TexelFilter(MinLum: 45f, MaxChroma: 14f), Ellipse: true),
+        new(0.300f, 0.349f, 0.488f, 0.443f, MaskRegion.Tertiary, Ellipse: true),
+        new(0.272f, 0.432f, 0.464f, 0.524f, MaskRegion.Tertiary, Ellipse: true),
+        new(0.512f, 0.398f, 0.808f, 0.462f, MaskRegion.Tertiary),
+        new(0.488f, 0.408f, 0.515f, 0.452f, MaskRegion.Tertiary),
+    ];
 
     /// <summary>Alpha Legion blue and teal plate paint (hue from 2.6 round through pi to -1.0 rad).</summary>
     static TexelFilter AlBlueTeal => new(MinLum: 10f, MinHue: 2.6f, MaxHue: -1.0f, MinChroma: 8f);
