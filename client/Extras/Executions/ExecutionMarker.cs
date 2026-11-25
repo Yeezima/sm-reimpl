@@ -59,7 +59,7 @@ public sealed partial class ExecutionMarker : MeshInstance3D
             float fizz = (vnoise(ang * 5.0 + TIME * 7.0) - 0.5) * 0.020 + (vnoise(ang * 13.0 - TIME * 11.0) - 0.5) * 0.010;
             float edge = r - radius - fizz;
             float core = 1.0 - smoothstep(-0.004, 0.004, edge);            // solid and opaque
-            float glow = exp(-max(edge, 0.0) * 22.0) * (1.0 - core);         // the soft red halo
+            float glow = exp(-max(edge, 0.0) * 22.0) * (1.0 - core) * (1.0 - smoothstep(size.x * 0.36, size.x * 0.49, r));   // the soft red halo, gone before the quad's edge (no box)
             float sparks = step(0.0, edge) * step(edge, 0.05) * step(0.93, vnoise(ang * 40.0 + TIME * 23.0)) * (1.0 - edge / 0.05);
             float drips = max(drip(m, -0.075, 0.00, 0.45, c.y), max(drip(m, 0.010, 0.37, 0.38, c.y), drip(m, 0.085, 0.71, 0.52, c.y)));
             float hot = 1.0 - smoothstep(0.0, radius * 0.75, r);             // the hot centre

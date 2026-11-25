@@ -113,7 +113,7 @@ public partial class NetworkView
         if (!(viewTick > 0) || !ExecutionPromptRules.ClassicOpen(offer, viewTick)) return ExecutionPromptHidden.NoOffer;   // X3: a press before the view tick reaches the kill is refused (NoOffer) and spends the edge, so no dot until then
         if (!_execOthers.TryGetValue(offer.Victim, out var corpse) && !(offer.Victim == client.PlayerId && (ExecutionX6Test || ExecutionX6Demo is not null))) return ExecutionPromptHidden.NoOffer;
         var feet = offer.Victim == client.PlayerId ? client.Predicted.Position : corpse.Position;   // the own id only under the test aid
-        anchor = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + MarkerOverCorpse);
+        anchor = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + (offer.Victim == client.PlayerId ? MarkerOverOrk : MarkerOverCorpse));   // the test aids' standing own player: over the head
         return ExecutionPromptHidden.None;
     }
 
