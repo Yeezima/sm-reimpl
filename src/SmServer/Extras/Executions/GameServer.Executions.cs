@@ -24,6 +24,7 @@ public sealed partial class GameServer
     readonly List<(byte[] Bytes, int Left)> _executionRepeats = new();
     uint _executionLiveNext, _executionOvershieldNext;
     byte[]? _executionOvershieldLast;
+    int _executionOvershieldEmptyLeft;   // repeats of the list's change to empty still to send
 
     /// <summary>Tag-50 messages sent (tests and the log).</summary>
     public int ExecutionMessagesSent { get; private set; }
@@ -99,8 +100,10 @@ public sealed partial class GameServer
             var shields = ExecutionsOvershields(w);
             var list = ExecutionWire.Encode(shields);
             bool changed = _executionOvershieldLast is null || !list.AsSpan().SequenceEqual(_executionOvershieldLast);
-            if (changed || (shields.Length > 0 && tick >= _executionOvershieldNext))
+            if (changed) _executionOvershieldEmptyLeft = shields.Length == 0 ? ExecutionWire.StartRepeats : 0;   // the change to an empty list goes out StartRepeats times (a lost datagram would leave a stale overshield drawn)
+            if (changed || (shields.Length > 0 && tick >= _executionOvershieldNext) || _executionOvershieldEmptyLeft > 0)
             {
+                if (_executionOvershieldEmptyLeft > 0) _executionOvershieldEmptyLeft--;
                 _executionOvershieldLast = list;
                 _executionOvershieldNext = tick + (uint)Math.Max(1, (int)Math.Round(rate / ExecutionWire.OvershieldHz));
                 sections.Add((ExecutionWire.Tag, list));

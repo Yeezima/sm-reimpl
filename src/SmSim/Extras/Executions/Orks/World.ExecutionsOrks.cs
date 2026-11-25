@@ -53,7 +53,7 @@ public sealed partial class World
     /// Test aid until Chaos C2's <c>SimConfig.WarfrontFaction</c> lands (X4 phase 2 adds <c>|| Config.WarfrontFaction == WarfrontFaction.Chaos</c> to <see cref="ExecutionsChaosStage"/>): treat
     /// the stage as a Chaos one. Never set outside tests.
     /// </summary>
-    public bool ExecutionsChaosStageForTests { get; set; }
+    internal bool ExecutionsChaosStageForTests { get; set; }
 
     /// <summary>Whether the stage's enemies are Chaos (no executions until X4b).</summary>
     bool ExecutionsChaosStage => ExecutionsChaosStageForTests;
@@ -71,7 +71,7 @@ public sealed partial class World
     public IReadOnlyList<ExecutionWarfrontReward> ExecutionsRewardedThisTick => _executionRewardsTick == Tick ? _executionRewards : [];
 
     /// <summary>Test seam: sets player <paramref name="id"/>'s health and armour (a hit taken earlier, an overshield to test).</summary>
-    public void ExecutionsSetVitalsForTests(int id, float health, float shield)
+    internal void ExecutionsSetVitalsForTests(int id, float health, float shield)
     {
         if (_players.TryGetValue(id, out var p)) _players[id] = p with { Health = health, Shield = shield };
     }

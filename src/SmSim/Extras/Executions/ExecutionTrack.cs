@@ -68,7 +68,7 @@ public static class ExecutionTrack
 
     /// <summary>
     /// <paramref name="s"/> with no action that could land or fire during the lock: no melee attack in progress or buffered (light or heavy), no charge held and no released charge shot waiting,
-    /// no throw in progress (its item is spent only at the release, so nothing is lost). The server applies it when a run starts (so the swing under way never lands on the first locked tick)
+    /// no throw in progress (its item is spent only at the release, so nothing is lost), no weapon raise or burst round waiting, and nothing in the input buffer. The server applies it when a run starts (so the swing under way never lands on the first locked tick)
     /// and in every pin; the own prediction pin (X6) applies it at the start tick and in every pin as well.
     /// </summary>
     public static PlayerState Disarm(in PlayerState s) => s with
@@ -76,6 +76,8 @@ public static class ExecutionTrack
         MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false,
         Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f,
         Throwing = false, ThrowTime = 0f,
+        RaiseTicks = 0, BurstLeft = 0,   // X3 re-review (lead 40): no waiting shot or burst round leaves on a locked tick
+        Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false,   // and no buffered melee, roll / take-off, grenade, switch or reload replays inside Combat.StepPlayer
     };
 
     /// <summary>Whether <paramref name="tick"/> is a locked tick of <paramref name="run"/> (<c>StartTick + 1</c> to the end tick, inclusive).</summary>
