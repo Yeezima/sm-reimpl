@@ -1,0 +1,137 @@
+using System;
+using Godot;
+using SmClient.Extras.Warfront.Chaos.Finale;
+using SmNet;
+using SmSim;
+using SmNet.Extras.Warfront;
+using SmSim.Extras.Musou;
+using SmSim.Extras.Warfront.Chaos.Finale;
+using Num = System.Numerics;
+
+namespace SmClient;
+
+/// <summary>
+/// The Chaos finale on the client (Chaos Warfront C5c; tag 51 kinds 16 and 17, <see cref="WarfrontChaosDuelWire"/>). C4c's tag 51 forward hands kinds 16 to 31 to <see cref="WarfrontChaosDuelSection"/>, which
+/// puts them into a <see cref="ChaosDuelModel"/>: the duel HUD (<see cref="DuelHud"/>, everyone), the Lord's leap and bolt cues (<see cref="LordTelegraphFx"/>), and the spectator camera on the champion for everyone
+/// else (<see cref="WarfrontChaosDuelSpectate"/>, forwarded from Warfront's spectator view). The first duel state of a battle sets <see cref="SmClient.Extras.Warfront.Chaos.Breach.ChaosBreachModel.SilentCloses"/>
+/// (C4c's contract), so the server's silent close of every breach at the duel start shows no closure (the server sends that state before the list). Only a Chaos stage sends these kinds, past its fortress's
+/// bodyguard: nothing here runs in Classic, Faithful, Musou Mode or an Orks Warfront run. A bot or a headless client keeps the model and the log lines and draws nothing. The frame runs on its own node under the
+/// game space (a <see cref="ChaosBreachDriver"/>), so no other file carries a frame line.
+/// </summary>
+public partial class NetworkView
+{
+    readonly ChaosDuelModel _wfDuel = new();
+    ChaosBreachDriver? _wfDuelDriver;
+    LordTelegraphFx? _wfDuelFx;
+    DuelHud? _wfDuelHud;
+
+    /// <summary>C5c's seam at the top of Warfront's spectator view (<c>NetworkView.WarfrontClientHooks.cs</c>, pinned by <c>DuelHudModelTests.SpectateForwardIsPinned</c>).</summary>
+    partial void WarfrontChaosDuelSpectate(PlayerState me, ref (Vector3 Eye, Vector3 Target)? view, ref bool taken);
+
+    /// <summary>The duel model, for the tests and the capture aid.</summary>
+    internal ChaosDuelModel WarfrontDuelModel => _wfDuel;
+
+    /// <summary>The finale's sections (C4c's forward): kinds 16 and 17 into the model; anything else of 16 to 31 is refused.</summary>
+    partial void WarfrontChaosDuelSection(byte tag, ReadOnlySpan<byte> payload, ref bool handled)
+    {
+        if (tag != WarfrontChaosWire.Tag) return;
+        handled = true;
+        WarfrontDuelApply(payload, _connectedFor);
+    }
+
+    void WarfrontDuelApply(ReadOnlySpan<byte> payload, double now)
+    {
+        if (!_wfDuel.Apply(payload, now)) { WarfrontDroppedChaos++; return; }
+        if (_wfDuel.State is { Phase: not WarfrontDuelPhase.Bodyguard } && !_wfBreach.SilentCloses)
+        {
+            _wfBreach.SilentCloses = true;   // C4c's contract: the duel's CloseAll is silent
+            GD.Print($"t {now:F1} s: warfront chaos: the finale's relay is on; breach closures from now are the duel's silent close");
+        }
+        if (_wfDuel.PhaseChanged && _wfDuel.State is { } s)
+            GD.Print($"t {now:F1} s: warfront chaos: duel {s.Phase}: champion P{s.Champion}, next P{s.Next}, {s.Remaining} waiting, attempt {(s.Attempt == 255 ? "-" : (s.Attempt + 1).ToString())}, "
+                     + $"the Lord {s.Permille / 10.0:0.#} % ({s.Health:0.###} hp, bits 0x{BitConverter.SingleToInt32Bits(s.Health):X8})");
+        foreach (var t in _wfDuel.NewTelegraphs)
+        {
+            GD.Print($"t {now:F1} s: warfront chaos: the Lord's {AbilityName(t.Told.Ability)} at {t.Told.Position.X:F1},{t.Told.Position.Y:F1},{t.Told.Position.Z:F1} in {t.Told.Seconds:0.0} s (tick {t.Told.Tick})");
+            if (WarfrontDuelDraws) { WarfrontDuelEnsureDriver(); _wfDuelFx?.Add(t); }
+        }
+        WarfrontDuelEnsureDriver();
+    }
+
+    static string AbilityName(byte ability) => ability switch
+    {
+        WarfrontLordTelegraph.Slam => "slam",
+        WarfrontLordTelegraph.Charge => "charge",
+        WarfrontLordTelegraph.Bolt => "bolt",
+        WarfrontLordTelegraph.Leap => "leap",
+        _ => "?",
+    };
+
+    bool WarfrontDuelDraws => !Lean && !_bot && _gameSpace is not null && DisplayServer.GetName() != "headless";
+
+    /// <summary>The frame node under the game space (made with the first section of a map; it goes with the map), the telegraphs' node under it, the HUD in Warfront's 1920 by 1080 root.</summary>
+    void WarfrontDuelEnsureDriver()
+    {
+        if (_gameSpace is null) return;
+        if (_wfDuelDriver is not { } d || !IsInstanceValid(d) || !d.IsInsideTree())
+        {
+            _wfDuelDriver = new ChaosBreachDriver { Name = "WarfrontChaosDuel", Step = WarfrontDuelFrame, Gone = WarfrontDuelGone };
+            _gameSpace.AddChild(_wfDuelDriver);
+            _wfDuelFx = null;
+        }
+        if (!WarfrontDuelDraws) return;
+        if (_wfDuelFx is null || !IsInstanceValid(_wfDuelFx))
+        {
+            _wfDuelFx = new LordTelegraphFx { Name = "ChaosLordTelegraphs", Now = () => _connectedFor };
+            _wfDuelDriver.AddChild(_wfDuelFx);
+        }
+        if ((_wfDuelHud is null || !IsInstanceValid(_wfDuelHud)) && _hudView is not null)
+        {
+            _wfDuelHud = new DuelHud();
+            WarfrontFitRoot(_hudView).AddChild(_wfDuelHud);
+        }
+    }
+
+    /// <summary>Once a frame while a duel section has come this map: the model's clock, the HUD's lines, the spectator HUD kept out of the strip's way.</summary>
+    void WarfrontDuelFrame(double dt)
+    {
+        double now = _connectedFor;
+        if (_wfDuel.Tick(now)) WarfrontDuelEnded(now, "no duel state for 3 s");
+        if (_wfDuelHud is not { } hud || !IsInstanceValid(hud)) return;
+        ushort own = _client is { PlayerId: > 0 } c ? (ushort)Math.Clamp(c.PlayerId, 0, ushort.MaxValue) : (ushort)0;
+        var lines = _wfDuel.Lines(own, id => HudName(id), now);
+        hud.Show(lines, _wfBattle is { Visible: true });
+        if (_wfSpectateHud is { } spectate && IsInstanceValid(spectate)) spectate.Modulate = lines.Shown ? new Color(1f, 1f, 1f, 0f) : Colors.White;   // the duel strip stands where its strip would
+    }
+
+    void WarfrontDuelEnded(double now, string why)
+    {
+        GD.Print($"t {now:F1} s: warfront chaos: the duel HUD cleared ({why})");
+        _wfBreach.SilentCloses = false;
+        _wfDuelFx?.ClearAll();
+        if (_wfDuelHud is { } hud && IsInstanceValid(hud)) hud.Show(default, false);
+        if (_wfSpectateHud is { } spectate && IsInstanceValid(spectate)) spectate.Modulate = Colors.White;
+    }
+
+    /// <summary>The frame node went with its map: the finale is forgotten.</summary>
+    void WarfrontDuelGone()
+    {
+        if (_wfDuel.State is not null) WarfrontDuelEnded(_connectedFor, "the map went");
+        _wfDuel.Clear();
+        _wfDuelFx = null;
+    }
+
+    /// <summary>
+    /// The spectator camera during a duel (the forward at the top of Warfront's spectator view): everyone but the champion watches him from behind and above (<see cref="WarfrontSpectatePose"/>), when his body is in
+    /// the snapshot; otherwise the normal views. <paramref name="taken"/> says the duel owns the view.
+    /// </summary>
+    partial void WarfrontChaosDuelSpectate(PlayerState me, ref (Vector3 Eye, Vector3 Target)? view, ref bool taken)
+    {
+        WarfrontDuelDemoFrame();
+        if (_client is not { } c || _gameSpace is null || c.PlayerId <= 0) return;
+        double now = _connectedFor;
+        if (!_wfDuel.Watching((ushort)c.PlayerId, now) || _wfDuel.State is not { } s) return;
+        foreach (var p in c.RemotePlayers().Players)
+            if (p.PlayerId == s.Champion && p.Alive) { view = WarfrontSpectatePose(SpectateG(p.Position), p.Yaw); taken = true; return; }
+    }
+}

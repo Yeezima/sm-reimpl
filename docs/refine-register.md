@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4176 spec table rows: **3099 tagged**, 707 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4182 spec table rows: **3105 tagged**, 707 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 4176 spec table rows: **3099 tagged**, 707 not tagged (read from data wi
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
+| HUD and hit feedback (critical) | 89 | 84 | 67 | 13 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
@@ -51,24 +51,24 @@ Scanned 4176 spec table rows: **3099 tagged**, 707 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 246 | 245 | 65 | 120 | 0 |
+| General game design | 251 | 250 | 65 | 123 | 0 |
 | Ork faction | 300 | 280 | 179 | 74 | 0 |
-| **All areas** | **3099** | 2791 | 2225 | 962 | 37 |
+| **All areas** | **3105** | 2797 | 2225 | 966 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1904 |
+| kind: ours | 1910 |
 | confidence: low | 1068 |
 | confidence: medium | 1046 |
 | notes: ours | 476 |
 | kind: interpretation | 459 |
-| notes: estimate | 323 |
+| notes: estimate | 324 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
-| notes: provisional | 74 |
+| notes: provisional | 77 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
 | section: provisional | 37 |
@@ -1792,7 +1792,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (88)
+### HUD and hit feedback (gameplay-critical) (89)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1956,6 +1956,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1D18E8DA` | Progression sender | the server sends Progress (tag 44) per identified human when its bytes change and every 2 s, and Offer (tag 45) on every send while an offer stands; the picker stays hidden on a live server until W5c's `PickerBusy` hook flips `NetworkView.WarfrontPickerLive`… (s) | kind: ours; confidence: medium | review of W8, finding 1 | Progression sender: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server sends Progress (tag 44) per identified human when its… | ☐ |
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
+
+*Spec section: Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 27, renumbered at integration; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E18568FD` | Duel HUD (C5c) | for everyone while the relay runs: the dark steel strip across the top of the 1920 x 1080 space (y 70, or 190 under the Battle HUD's line; 152 tall), `CHAMPION: NAME` (heading level, gold), `NEXT: NAME` or `LAST CHALLENGER` with `CHALLENGERS WAITING: n` (body… (px) | kind: ours; notes: provisional | plan (C5c); layout and wording ours; owner 2026-11-15 (one style per level) | Duel HUD (C5c): compare with SM1 with side-by-side screenshots in the same spot. Ours: for everyone while the relay runs: the dark steel strip across the… | ☐ |
 
 ### Sound mix (gameplay-critical) (254)
 
@@ -4328,7 +4334,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (246)
+### General game design (251)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4644,7 +4650,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2D44DBEA` | Warp leap | the duelist beyond 18 m (flat) for 4 s: a marker at his feet for 1.0 s (the Lord winds up in place), then the Lord lands there with a slam of 4 m (the slam's damage, 90) and recovers as from a slam; 8 s before another (counted from the landing) (m, s) | kind: ours; notes: estimate; notes: provisional | design (18 m, 4 s; lead: accepted as starting values, provisional); marker, radius, cooldown ours | Warp leap: compare with SM1 by feel or video. Ours: the duelist beyond 18 m (flat) for 4 s: a marker at his feet for 1.0… | ☐ |
 | `R-D896A78F` | Handoff | the Lord's health never written (carried bit for bit, `DuelHandoffTests`); his burns, stun, script, drive, ability under way and cooldowns (back to the first 2 s and 3 s) cleared; put back on his spot (teleported, no heal; ours: the pause hides it) and held… (s) | kind: ours | brief + design; the teleport ours | Handoff: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the Lord's health never written (carried bit for bit… | ☐ |
 | `R-183434F4` | Chosen and Lord bodies | in the Chaos table the four Chosen rows (the Boss Ork slots) take a body of 0.6 m x 2.76 m (a marine's 0.5 m x 2.3 m x1.2, as C3 draws them) and a reach of 2.2 m; the Lord's row a marine's body scaled by a Chaos-only `BossScale` 1.35 (0.675 m x 3.105 m for… (m) | kind: ours; notes: provisional | C3's drawn scales (lead 40, 2026-11-25); the reaches ours | Chosen and Lord bodies: compare with SM1 by measuring on a flat spot of the same map. Ours: in the Chaos table the four Chosen rows (the Boss Ork slots) take a… | ☐ |
-| `R-44B06A9F` | Left for later | the spectator HUD and the telegraph rings are C5c's (client); a stage crash mid-duel replays the battle (design accepts it; the queue is not saved); the `SM_WF_FINALE` test aid is not in this branch | kind: ours; notes: provisional | plan | Left for later: compare with SM1 by feel or video. Ours: the spectator HUD and the telegraph rings are C5c's (client); a stage… | ☐ |
+| `R-44B06A9F` | Left for later | a stage crash mid-duel replays the battle (design accepts it; the queue is not saved); the `SM_WF_FINALE` test aid is not written (C5c's evidence is a synthetic-section client aid, `--wf-duel-demo`) | kind: ours; notes: provisional | plan | Left for later: compare with SM1 by feel or video. Ours: a stage crash mid-duel replays the battle (design accepts it; the… | ☐ |
+| `R-524EE827` | Send order (C5c) | on every server tick of a Chaos stage the finale's state and telegraphs (kinds 16, 17) go out before the breach list and closures (kinds 1, 2), so on the snapshot tick a client reads the duel state before the list that shows the silent close's breaches Closed | kind: ours | lead 40 (C5c: C4c's silent-close contract) | Send order (C5c): compare with SM1 by feel or video. Ours: on every server tick of a Chaos stage the finale's state and… | ☐ |
+| `R-9E9548DF` | Silent close on the client (C5c) | the first duel state past the bodyguard sets `ChaosBreachModel.SilentCloses`: a breach the list shows closed with no kind 2 plays no closure (no flash, implosion, ring, sound or BREACH CLOSED marker); a kind 2 still shows; the switch clears when no duel state… (s) | kind: ours | C4c's contract | Silent close on the client (C5c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the first duel state past the bodyguard sets… | ☐ |
+| `R-D8F5B6B3` | Duel centre line (C5c) | one banner-level line at y 380: the duelist's `DUEL: YOU ALONE AGAINST THE CHAOS LORD` for 3 s from each entry (alert red); in the handoff `THE NEXT CHALLENGER ENTERS IN 3, 2, 1` (the next one: `YOUR DUEL BEGINS IN n`, red) with `NAME HAS FALLEN` (or `YOU`… (s) | kind: ours; notes: provisional | plan (3 s entry line, 3 s handoff); wording and timings ours | Duel centre line (C5c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one banner-level line at y 380: the duelist's DUEL: YOU ALONE AGAINST… | ☐ |
+| `R-B7D34D37` | Duel spectator camera (C5c) | everyone but the champion watches him from 6 m behind and 3.5 m above (Warfront's watch pose) while a duel is on and his body is in the snapshot; the forward at the top of Warfront's spectator view (`WarfrontChaosDuelSpectate`, WARFRONT-HOOK, pinned by… (m) | kind: ours; notes: provisional | plan (spectators follow the duelist) | Duel spectator camera (C5c): compare with SM1 by measuring on a flat spot of the same map. Ours: everyone but the champion watches him from 6 m behind and 3.5 m above… | ☐ |
+| `R-845E0DE9` | Lord telegraph cues (C5c) | the leap: a red-violet (0.86, 0.18, 0.62) additive ground ring at the target shrinking from 6.4 m (x1.6) to the landing's 4 m over the marker's 1.0 s, over a faint disc of 4 m; the bolt: a hot yellow (1.0, 0.78, 0.32) flash of 0.35 m at the Lord's chest… (m, s) | kind: ours; notes: estimate | plan (code-made, ours) | Lord telegraph cues (C5c): compare with SM1 by feel or video. Ours: the leap: a red-violet (0.86, 0.18, 0.62) additive ground ring at the… | ☐ |
 
 *Spec section: Warfront Chaos presentation (Chaos Warfront C3, branch `claude/chaos-client-1125`, 2026-11-25; client presentation plus one sim rule: the Chaos table's bodies (`MusouRules.ShotHeightsFromTable`, `WarfrontRules.Version` 26, the lead renumbers at integration); no wire, protocol or config-hash change; added content, Warfront only)*
 
