@@ -27,7 +27,7 @@ namespace SmSim.Extras.Executions;
 public static class ExecutionRows
 {
     /// <summary>Raised when the rows change (hashed by <c>ExecutionCatalogue.Write</c>, X1's Executions block, with <see cref="ExecutionChoice.RulesVersion"/>).</summary>
-    public const int DataVersion = 3;   // 3: the knife's arm break crossover O4.combat_knife appended (executions cues, 2026-11-27)
+    public const int DataVersion = 3;   // 3: the crossover candidates O4.combat_knife, O8.chainsword, O6.chainsword appended (executions cues, 2026-11-27)
 
     /// <summary>Where the victims' halves are (docs/executions-coverage.md 4.9): kind to (archive, rig entry). The attacker clips are all on <see cref="AttackerRig"/>.</summary>
     public static readonly IReadOnlyDictionary<string, (string Archive, string Entry)> VictimRigs = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
@@ -172,5 +172,10 @@ public static class ExecutionRows
         // medium). Priority 0: below the knife's own O3 (2) and O8 (1), so the prompt's first fit is unchanged; the press's seeded pick takes it among the moves that align.
         Row("O4", CK, Boy, "SM_SYN_ARMBREAK_01_4m", 3.0f, "BOY_SYN_ARMBREAK_01_4m", 3.0f, O4T, 0.07f, 4.00f, CsGraph, "Ork Raised Grind Sequence02", 0, O4V,
             "crossover (ours): the chainsword's arm break with the combat knife"),
+        // The knife's stab with the chainsword (and so the power sword) and the axe's hack with the chainsword (source: the Support worksheet, medium and medium-low; lead 42 2026-11-27 "do try").
+        Row("O8", CS, Boy, "SM_MEL_CK_XATK_HVY_3.5m", 2.8f, "BOY_MEL_CK_XATK_HVY_3.5m", 1.933f, O8T, -0.08f, 3.36f, CkGraph, "SequencerGenerator08", 0, O8V,
+            "crossover (ours): the knife's stab with the chainsword or power sword"),
+        Row("O6", CS, Boy, "SM_SYN_PA_Boy_AxeHack_3.5m", 3.667f, "BOY_SYN_PA_Boy_AxeHack_3.5m", 3.667f, O6T, 0.00f, 3.37f, PaGraph, "SequencerGenerator30", 0, O6V,
+            "crossover (ours): the axe's hack with the chainsword or power sword; the 3.5 m variant only"),
     ];
 }

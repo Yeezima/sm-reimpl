@@ -398,6 +398,17 @@ public sealed class ExecutionCueTimeline
     }
 
     readonly Dictionary<RunKey, Track> _tracks = new();
+    readonly HashSet<RunKey> _closed = new();
+    readonly Queue<RunKey> _closedOrder = new();
+    /// <summary>How many closed runs are remembered against a restart (ours; a run's key is never reused: its start tick only grows).</summary>
+    public const int ClosedMemory = 256;
+
+    void Close(RunKey key)
+    {
+        if (!_closed.Add(key)) return;
+        _closedOrder.Enqueue(key);
+        while (_closedOrder.Count > ClosedMemory) _closed.Remove(_closedOrder.Dequeue());
+    }
 
     public int Fired { get; private set; }
     public int Skipped { get; private set; }
@@ -410,6 +421,7 @@ public sealed class ExecutionCueTimeline
     /// <summary>Advances <paramref name="key"/> to clock <paramref name="clock"/> (seconds of the move) with <paramref name="cues"/> (taken at the first call), adding the due cues to <paramref name="steps"/>.</summary>
     public void Advance(RunKey key, IReadOnlyList<ExecutionCue> cues, float clock, List<Step> steps)
     {
+        if (_closed.Contains(key)) return;   // a run that finished or was interrupted never starts again (a stale frame, a late repeat)
         if (!_tracks.TryGetValue(key, out var t)) _tracks[key] = t = new Track { Cues = cues };
         if (!float.IsFinite(clock)) return;
         if (!t.Seen)
@@ -425,7 +437,7 @@ public sealed class ExecutionCueTimeline
         }
         if (t.Finishing && (t.Next >= t.Cues.Count && (t.Cues.Count == 0 || clock >= t.Cues[^1].At + FinishGraceSeconds) || t.Next >= t.Cues.Count && clock >= LastAt(t) + FinishGraceSeconds))
         {
-            _tracks.Remove(key);
+            _tracks.Remove(key); Close(key);
             Finished++;
             steps.Add(new Step(StepKind.Finish, key, null));
         }
@@ -443,6 +455,7 @@ public sealed class ExecutionCueTimeline
     public void Interrupt(RunKey key, List<Step> steps)
     {
         if (!_tracks.Remove(key, out var t)) return;
+        Close(key);
         Skipped += t.Cues.Count - t.Next;
         Interrupted++;
         steps.Add(new Step(StepKind.Interrupt, key, null));
