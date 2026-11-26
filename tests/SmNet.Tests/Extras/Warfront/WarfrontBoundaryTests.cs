@@ -154,6 +154,7 @@ public class WarfrontBoundaryTests
         ("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontColoursOnly"),
         // Guardsmen G1 (2026-11-26): the line step, the retreat's fall-back place, the lane battle's rally, the reinforcement weight and the arrival note (no-ops outside a Warfront lane battle; WfLine)
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontLine"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontLineRows"),   // G5 F5
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.Retreats.cs", "WarfrontGuardFallBack"),
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.Retreats.cs", "WarfrontRallies"),
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.Garrisons.cs", "WarfrontReinforceNeed"),
@@ -182,6 +183,7 @@ public class WarfrontBoundaryTests
     [InlineData("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontPuppetWearer(playerId, ref wearer, ref ownPieces);   // WARFRONT-HOOK")]
     [InlineData("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "if (!ownPieces) WarfrontColoursOnly(ref code);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontLine();   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "if (alive == 0) { WarfrontLineRows(); return; }   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.Retreats.cs", "WarfrontGuardFallBack(a, ref place);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.Retreats.cs", "WarfrontRallies(ref skip);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.Garrisons.cs", "WarfrontReinforceNeed(k, need[k], ref weight[k]);   // WARFRONT-HOOK")]

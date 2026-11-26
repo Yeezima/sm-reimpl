@@ -6,10 +6,9 @@ using SmSim.Extras.Warfront;
 namespace SmServer;
 
 /// <summary>
-/// Guardsmen G2 live check (test aid; loopback-bound servers with <c>--dev-tools</c> only): <c>SM_WF_GUARD_PUSH=1</c> scripts the controlled push of the tools' trial in a real lane battle, so a headless client sees
-/// the vox lines and hears the barks. 3 s after the first human is in the field: A, B and C are secured (<c>ClearAndSecureForTests</c>) and the human is kept at the landing zone; every second every enemy that
-/// belongs to no army dies (the controlled stage). 20 s later a 400-Ork wave at 0.6 elites goes for A with a 100-Ork army 80 m off its flank. When A's line reaches Withdrawn (or 120 s after the wave), the Orks within
-/// 40 m of A die every second for 60 s, so the push is broken and the line rallies. Each step is logged as <c>test aid SM_WF_GUARD_PUSH</c>; the vox lines as <c>guard vox &lt;seq&gt; &lt;kind&gt;</c>.
+/// Guardsmen live check and capture aid (test aid; loopback-bound servers with <c>--dev-tools</c> only): <c>SM_WF_GUARD_PUSH=1</c> scripts the whole journey of the line in a real lane battle. 3 s after the first human
+/// is in the field A, B and C are secured and the human is kept at the landing zone; every second every enemy outside an army dies. 20 s later a wave sized from A's men (14 Orks a man, 400 to 1400, 0.6 elites) goes for
+/// A; at pressure 40 a flank arm of half its size comes 60 m off its side; AIDED: while A holds its squads are cut to 3 men; once a line has fallen back the Orks within 70 m of it die every second until it rallied. Each step is logged as <c>test aid SM_WF_GUARD_PUSH</c>; the vox lines as <c>guard vox &lt;seq&gt; &lt;kind&gt;</c>.
 /// </summary>
 public sealed partial class GameServer
 {
@@ -116,7 +115,7 @@ public sealed partial class GameServer
         }
     }
 
-    /// <summary>Every enemy outside an army dies; with <paramref name="breakAt"/>, every enemy within 40 m of it too (the Marines breaking the push).</summary>
+    /// <summary>Every enemy outside an army dies; with <paramref name="breakAt"/>, every enemy within 70 m of it too (the Marines breaking the push, the line's quiet ring).</summary>
     void QuietNonArmy(TfwBattle battle, Vector3? breakAt)
     {
         if (World.Musou is not { } musou) return;

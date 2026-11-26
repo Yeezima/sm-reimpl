@@ -126,4 +126,38 @@ public class WarfrontLineTests
         var alive = withdrawn!.Where(s => w.TfwGuards!.AliveIn(s) > 0).ToArray();
         Assert.All(alive, s => Assert.Contains(s, rejoined.Concat(b.ArmyList.SelectMany(a => a.Squads))));
     }
+
+    /// <summary>G5 F1: a reinforcement column broken on the march goes to the base, as before, and is not rallied back while its quiet destination stands.</summary>
+    [Fact]
+    public void A_column_broken_on_the_march_goes_home_and_is_not_rallied()
+    {
+        var (w, b) = Ready(settle: 4);
+        var column = b.ReinforceForTests(1, 60);
+        Assert.NotNull(column);
+        TfwRig.Seconds(w, 3f);
+        TfwBattle.LoseForTests(column!, 40);
+        b.RetreatForTests(column!);
+        Assert.Equal(TfwArmyOrder.Retreat, column!.Order);
+        Assert.Equal(TfwBattle.LandingGoal, column.Goal);
+        int rallies = b.WarfrontLineRallies;
+        for (int t = 0; t < 20 * 30 && b.ArmyList.Contains(column); t++) w.Step(_ => default);
+        Assert.Equal(rallies, b.WarfrontLineRallies);
+        Assert.True(!b.ArmyList.Contains(column) || column.Order == TfwArmyOrder.Retreat, $"the column was rallied: {column.Order} goal {column.Goal}");
+    }
+
+    /// <summary>G5 F1/F2: a garrison's retreat goes to a friendly point; when that point falls on the way the army is sent on to the next place (or the base).</summary>
+    [Fact]
+    public void A_retreating_garrison_is_sent_on_when_its_fall_back_point_falls()
+    {
+        var (w, b) = Ready(settle: 12);   // the armies' routes are in after 5 s
+        var garrison = b.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 0, 40, b.Layout.Positions[0]);
+        Assert.NotNull(garrison);
+        b.RetreatForTests(garrison!);
+        int dest = garrison!.Goal;
+        Assert.True(dest is 1 or 2, $"a friendly point first: goal {dest}");
+        b.LosePointForTests(dest);
+        TfwRig.Seconds(w, 1.5f);
+        Assert.True(!b.ArmyList.Contains(garrison) || garrison.Goal != dest, $"still bound for the fallen point {dest}");
+        if (b.ArmyList.Contains(garrison)) Assert.True(garrison.Goal == TfwBattle.LandingGoal || b.Objectives[garrison.Goal].State == TfwPositionState.Secured);
+    }
 }

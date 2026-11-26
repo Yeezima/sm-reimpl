@@ -293,7 +293,7 @@ internal sealed record WarfrontLineTrialResult(
 /// <summary>
 /// The battle-level trial of the Guardsmen's line (design-guardsmen-1125, G0): one lane battle in-process, the points secured, the scripted human standing at the landing zone, then one of five scripted pushes:
 /// <c>routine</c> (a 200-Ork low-elite wave on one point), <c>elite</c> (the same size, 0.6 elites), <c>flank</c> (the routine wave and a second Ork army from another bearing at the same point), <c>collapse</c> (a 400-Ork,
-/// 0.6-elite wave: no help comes) and <c>break</c> (as collapse, then at 90 s the human walks onto the point and for 60 s the Orks within 40 m die each second, as the Marines breaking the push). Seeded: the seed only moves the wave's
+/// 0.6-elite wave: no help comes) and <c>break</c> (as collapse, then once a line has fallen back, else at 90 s, the human walks onto that point and for 60 s the Orks within 70 m die each second, as the Marines breaking the push). Seeded: the seed only moves the wave's
 /// delay (0 to 5 s), its size (+/- 10 %), its elite share (+/- 0.05) and the flank's side, so the same seed is the same run. Reads the simulation only through its public test aids; the simulation is unchanged.
 /// The same logic is copied into <c>smtool warfront-guards --scenario</c> (SmTool is not referenced by the tests), which runs it on the real lane maps; keep the two in step.
 /// </summary>

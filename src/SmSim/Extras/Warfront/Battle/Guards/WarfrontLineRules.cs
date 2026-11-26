@@ -75,8 +75,6 @@ public static class WarfrontLineRules
     public const int FlankSeconds = 4, FlankClearSeconds = 6;
     /// <summary>Squads that answer a flank: one, two when the point has <see cref="FlankTwoAt"/> squads or more.</summary>
     public const int FlankSquadsMost = 2, FlankTwoAt = 6;
-    /// <summary>The flank slot stands this share of the point's radius along the flank bearing.</summary>
-    public const float FlankSlotShare = 0.5f;
     /// <summary>A flank squad is swapped (battered) at most once every this many seconds.</summary>
     public const int FlankSwapSeconds = 10;
 

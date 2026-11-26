@@ -100,6 +100,18 @@ public class WarfrontVoxRulesTests
     [InlineData(WarfrontVoxKind.Flank, 1, 255, "FLANK AT B")]
     public void The_lines_read_as_the_brief_writes_them(WarfrontVoxKind kind, byte from, byte to, string text) => Assert.Equal(text, WarfrontVox.Text(kind, from, to));
 
+    /// <summary>G5 F6: a waiting Falling back line about a point whose record ended (the origin fell) is never said late.</summary>
+    [Fact]
+    public void A_waiting_line_about_a_retired_point_is_dropped()
+    {
+        var v = new WarfrontVox(Rate);
+        v.Offer(WarfrontVoxKind.Flank, 2, WarfrontVox.None, 0);
+        v.Offer(WarfrontVoxKind.FallingBack, 0, 1, S(1));   // waits for the spacing
+        v.DropAbout(0);
+        for (int t = (int)S(1); t <= S(40); t++) v.Step((uint)t);
+        Assert.Equal(1, v.Made);
+    }
+
     [Fact]
     public void Unknown_kinds_are_ignored()
     {
