@@ -27,7 +27,7 @@ public class ExecutionRowsTests(ITestOutputHelper output)
         var notes = new List<string>();
         var c = ExecutionCatalogue.Create(ExecutionRows.All, notes);
         Assert.Empty(notes);
-        Assert.Equal(28, c.Rows.Count);   // 25 original moves and 3 crossover candidates (execution cues, 2026-11-27)
+        Assert.Equal(27, c.Rows.Count);   // 25 original moves and 2 crossover candidates (execution cues, 2026-11-27)
         Assert.Equal(ExecutionRows.All.Count, c.Rows.Count);
         foreach (var r in ExecutionRows.All)
         {
@@ -44,9 +44,9 @@ public class ExecutionRowsTests(ITestOutputHelper output)
             Assert.Same(r, c.AtWire(c.WireIndexOf(r.Id)));
         }
         // Per kind and per family (docs/executions-coverage.md section 5, owner answers).
-        Assert.Equal(new Dictionary<string, int> { ["ork_boy"] = 15, ["gretchin"] = 4, ["chaos_marine"] = 3, ["bloodletter"] = 3, ["renegade"] = 3 },
+        Assert.Equal(new Dictionary<string, int> { ["ork_boy"] = 14, ["gretchin"] = 4, ["chaos_marine"] = 3, ["bloodletter"] = 3, ["renegade"] = 3 },
             c.Rows.GroupBy(r => r.Target).ToDictionary(g => g.Key, g => g.Count()));
-        Assert.Equal(new Dictionary<string, int> { ["chainsword"] = 10, ["power_axe"] = 8, ["thunder_hammer"] = 6, ["combat_knife"] = 4 },
+        Assert.Equal(new Dictionary<string, int> { ["chainsword"] = 9, ["power_axe"] = 8, ["thunder_hammer"] = 6, ["combat_knife"] = 4 },
             c.Rows.GroupBy(r => r.Weapon).ToDictionary(g => g.Key, g => g.Count()));
         Assert.Equal(["bloodletter", "chaos_marine", "gretchin", "ork_boy", "renegade"], c.Kinds);
     }
@@ -54,7 +54,7 @@ public class ExecutionRowsTests(ITestOutputHelper output)
     [Fact]
     public void Rows_order_by_the_original_conduit_priority()
     {
-        Assert.Equal(["O1.chainsword", "O2.chainsword", "O3.chainsword", "O4.chainsword", "O8.chainsword", "O6.chainsword"], Ids(Catalogue.For("Assault", "sm_mp_melee_chainsword", ExecutionTargets.OrkBoy)));
+        Assert.Equal(["O1.chainsword", "O2.chainsword", "O3.chainsword", "O4.chainsword", "O8.chainsword"], Ids(Catalogue.For("Assault", "sm_mp_melee_chainsword", ExecutionTargets.OrkBoy)));
         Assert.Equal(["O5.power_axe", "O4.power_axe", "O3.power_axe", "O6.power_axe"], Ids(Catalogue.For("Tactical", "sm_mp_melee_power_axe", ExecutionTargets.OrkBoy)));
         Assert.Equal(["O7.thunder_hammer", "O3.thunder_hammer"], Ids(Catalogue.For("Assault", "sm_mp_melee_2hand_thunder_hammer", ExecutionTargets.OrkBoy)));
         Assert.Equal(["O3.combat_knife", "O8.combat_knife", "O4.combat_knife"], Ids(Catalogue.For("Tactical", "sm_mp_melee_combat_knife", ExecutionTargets.OrkBoy)));
@@ -167,7 +167,7 @@ public class ExecutionRowsTests(ITestOutputHelper output)
                 Assert.Equal(row.KillSeconds + 0.1f, r.KillSeconds, 2);
             filled.Add(r);
         }
-        Assert.Equal(28, ExecutionCatalogue.Create(filled).Rows.Count);
+        Assert.Equal(27, ExecutionCatalogue.Create(filled).Rows.Count);
         // A missing clip leaves the row out with a note, never a wrong clip.
         notes.Clear();
         Assert.Null(ExecutionCatalogueLoader.Fill(ExecutionRows.All[0] with { VictimClip = "Missing" }, attacker, attackerGraphs, victims[ExecutionTargets.OrkBoy], [], notes));

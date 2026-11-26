@@ -18,7 +18,7 @@ Those entries hold three kinds of command:
 - `post_speech_exertion_event`: the grunts, roars and pain lines;
 - `play_fx`: blood sprays, sparks, the decap geyser, and swing trails at weapon or body markers.
 
-The client builds 931 cues over 41 row and weapon lists (760 original bindings, 171 ours). Every sound but 3 is in the banks the match client already loads. The 3 exceptions: `play_sm_sk01_throatgrab` is in no bank of the install, and
+The client builds 871 cues over 39 row and weapon lists (722 original bindings, 149 ours). Every sound but 3 is in the banks the match client already loads. The 3 exceptions: `play_sm_sk01_throatgrab` is in no bank of the install, and
 `play_sm_chain_sword_grind_pre` is missing twice. 29 of the 30 effects compile.
 
 Tools (read-only):
@@ -74,15 +74,15 @@ The worksheet's candidates are a list only; nobody has watched them.
 
 | Candidate | Source | Status | Reason |
 |---|---|---|---|
-| O4 arm break with the combat knife, on the Ork Boy kinds | the brief's first trial; Support worksheet (medium) | **added as a candidate row** (`O4.combat_knife`, wire 25); waits for the lead's footage review | A hands move: the left hand lands the overhand hit (`ACTN_Ork_Sync_OverhandHit`, with `body_smash` at `rig_prop_lhand`). The chainsword's cut window (0.70-1.40 s) runs along the arm, and the knife is far shorter. The clearance and contact check belongs to the review. |
-| O8 stab with the chainsword (and so the power sword), on the Ork Boy kinds | Support worksheet (medium); lead 42 "do try" | **added as a candidate row** (`O8.chainsword`, wire 26); waits for the footage review | The knife's own heavy thrust (`SM_MEL_CK_XATK_HVY`): a one-handed stab. A chainsword or sword is about three times the knife's length, so the risk is the blade passing through the Ork's back at the thrust (1.200 s). |
-| O6 axe hack with the chainsword (and so the power sword), on the Ork Boy kinds | Support worksheet (medium-low); lead 42 "do try" | **added as a candidate row** (`O6.chainsword`, wire 27); waits for the footage review | The axe's one-handed hooking chop (hits at 2.600 and 2.724 s); only the 3.5 m variant (3.37 m gap), and the attacker turns 45 degrees. The hook needs an axe head, so a straight blade may read as a slash. |
+| O4 arm break with the combat knife, on the Ork Boy kinds | the brief's first trial; Support worksheet (medium) | **candidate row** (`O4.combat_knife`, wire 25): passed my playback checks; waits for the lead's footage review | Played in the raw-clip test view beside O4 with the chainsword, at normal and quarter speed. Grip: the knife sits in the right hand where the chainsword was; the left hand does the grab, the wrestle and the overhand hit (`ACTN_Ork_Sync_OverhandHit`, `body_smash` at `rig_prop_lhand`). Clearance: the raised blade never meets the Ork. Pose, scale and contact: the same victim half; the slam to the ground reads the same. The chainsword's cut window (0.70-1.40 s) shows no visible blade contact with either weapon, so with the knife its blood plays at the wound (the knife has no `fx_chainsword_spray`). Terrain: the arm break's own footprint and checks, unchanged. |
+| O8 stab with the chainsword (and so the power sword), on the Ork Boy kinds | Support worksheet (medium); lead 42 "do try" | **candidate row** (`O8.chainsword`, wire 26): passed my playback checks; waits for the footage review | Played in the test view at normal and quarter speed. The kill blow is the left hand's strike to the head; the right hand keeps the blade back and low, never through the Ork. The Ork then staggers away on its own clip. Grip: the chainsword in the right hand as in its own moves. Clearance and contact hold; the move reads as a fist blow with the blade held back, not a stab. Scale and terrain: unchanged from the knife's O8. |
+| O6 axe hack with the chainsword (and so the power sword), on the Ork Boy kinds | Support worksheet (medium-low); lead 42 "do try" | **rejected** (weapon clearance), row removed | Played in the test view at normal and quarter speed. The chop buries the weapon in the Ork's chest and holds it there while turning him (2.6-3.6 s). The axe's short head stays inside the body; the chainsword's long blade sticks out of the Ork's back for most of that hold. Clips: `testview-O6-chainsword-*` beside `testview-O6-power_axe-*`. |
 | O3, O9, R1 for the Devastator / Havoc | Support worksheet (high) | rejected (scope) | It would give a finisher to a class that has none today. That changes eligibility, which is outside this brief. It would also need the heavy weapon stowed. |
 | O1/O2 grinds, O5 decap, O7 head pop, C1-C3, B1-B3 on other families | Support worksheet, "not recommended" | rejected (desk check) | Each motion depends on its own weapon: grinding teeth, the axe, the two-handed hammer. |
 
 Distinct playable moves, before and after, on the Boy, Shoota Boy, Rokkit Boy, 'Ard Boy and grounded Stormboy (Warfront; also a Classic Ork-player victim):
 - the knife goes from 2 (O3, O8) to 3 (O3, O8, O4);
-- the chainsword, gold chainsword and power sword go from 4 (O1-O4) to 6 (O1-O4, O8, O6).
+- the chainsword, gold chainsword and power sword go from 4 (O1-O4) to 5 (O1-O4, O8).
 
 No other matchup changes: the axe, hammer and maul, the Gretchin, and every Chaos kind keep their moves. The server's selection and fallback rules are unchanged. A press still makes a seeded pick among the rows that align. The prompt still takes the first row that
 fits by priority; the new row has priority 0, after O3 and O8.
@@ -873,76 +873,6 @@ Columns:
 | 2.133 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 2.162 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
 
-#### O6.chainsword (kill 2.600 s, end 3.667 s)
-
-| s | side | kind | place | tag | event / effect | file | |
-|---|---|---|---|---|---|---|---|
-| 0.175 | attacker | motor (ours) | wound | `ACTN_Sync_Poweraxe_Antic` | `play_sm_power_axe_antic -> the wielder's rev` | poweraxe |  |
-| 0.524 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 0.524 | attacker | speech | attacker | `ACTN_Sync_ Poweraxe _Swing` | `speech autodetect effort_short_stab` | poweraxe |  |
-| 0.524-0.629 | attacker | motor (ours) | wound | `ACTN_Sync_ Poweraxe _Swing` | `play_sm_power_axe_swing -> the wielder's swing` | poweraxe |  |
-| 0.567 | victim | speech | victim | `ACTN_SND_Vox_Sync_Damage_Big` | `speech autodetect damage_big` | boy |  |
-| 0.594 | attacker | speech (ours) | victim | `ACTN_Ork_Decap_AxBackHit` | `speech ork_boy_2 damage_big` | poweraxe |  |
-| 0.594 | attacker | speech | attacker | `ACTN_Ork_Decap_AxBackHit` | `speech autodetect roar` | poweraxe |  |
-| 0.594 | attacker | effect | attacker | `ACTN_Ork_Decap_AxBackHit` | `chainsword_blood_rip_out at fx_edge_blood_1 (blood)` | poweraxe |  |
-| 0.594 | attacker | motor (ours) | wound | `ACTN_Ork_Decap_AxBackHit` | `play_sm_sk_power_axe_hit_flesh -> the wielder's hit` | poweraxe |  |
-| 0.700 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
-| 0.833 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
-| 1.167 | attacker | speech | attacker | `ACTN_Nob_Sync_RemoveAx` | `speech autodetect effort_big_pull` | poweraxe |  |
-| 1.167-1.400 | attacker | effect | attacker | `ACTN_Nob_Sync_RemoveAx` | `chainsword_blood_swipe at fx_swing (blood)` | poweraxe |  |
-| 1.167-1.400 | attacker | motor (ours) | wound | `ACTN_Nob_Sync_RemoveAx` | `play_sm_sk_power_axe_release_flesh -> the wielder's hit` | poweraxe |  |
-| 1.222 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 1.400 | attacker | motor (ours) | wound | `ACTN_Sync_Poweraxe_Antic` | `play_sm_power_axe_antic -> the wielder's rev` | poweraxe |  |
-| 1.600 | attacker | speech | attacker | `ACTN_Sync_ Poweraxe _Swing` | `speech autodetect effort_short_stab` | poweraxe |  |
-| 1.600-1.833 | attacker | motor (ours) | wound | `ACTN_Sync_ Poweraxe _Swing` | `play_sm_power_axe_swing -> the wielder's swing` | poweraxe |  |
-| 1.746 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 1.767 | attacker | speech (ours) | victim | `ACTN_Ork_Decap_AxBackHit` | `speech ork_boy_2 damage_big` | poweraxe |  |
-| 1.767 | attacker | speech | attacker | `ACTN_Ork_Decap_AxBackHit` | `speech autodetect roar` | poweraxe |  |
-| 1.767 | attacker | effect | attacker | `ACTN_Ork_Decap_AxBackHit` | `chainsword_blood_rip_out at fx_edge_blood_1 (blood)` | poweraxe |  |
-| 1.767 | attacker | motor (ours) | wound | `ACTN_Ork_Decap_AxBackHit` | `play_sm_sk_power_axe_hit_flesh -> the wielder's hit` | poweraxe |  |
-| 1.851 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 1.867 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
-| 2.600 | attacker | speech | attacker | `ACTN_Nob_Sync_RemoveAx` | `speech autodetect effort_big_pull` | poweraxe |  |
-| 2.600-2.933 | attacker | effect | attacker | `ACTN_Nob_Sync_RemoveAx` | `chainsword_blood_swipe at fx_swing (blood)` | poweraxe |  |
-| 2.600-2.933 | attacker | motor (ours) | wound | `ACTN_Nob_Sync_RemoveAx` | `play_sm_sk_power_axe_release_flesh -> the wielder's hit` | poweraxe |  |
-| 2.700 | attacker | motor (ours) | wound | `ACTN_Sync_Poweraxe_Antic` | `play_sm_power_axe_antic -> the wielder's rev` | poweraxe |  |
-| 3.492 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-
-#### O6.chainsword with the power sword (kill 2.600 s, end 3.667 s)
-
-| s | side | kind | place | tag | event / effect | file | |
-|---|---|---|---|---|---|---|---|
-| 0.175 | attacker | motor (ours) | wound | `ACTN_Sync_Poweraxe_Antic` | `play_sm_power_axe_antic -> the wielder's rev` | poweraxe |  |
-| 0.524 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 0.524 | attacker | speech | attacker | `ACTN_Sync_ Poweraxe _Swing` | `speech autodetect effort_short_stab` | poweraxe |  |
-| 0.524-0.629 | attacker | motor (ours) | wound | `ACTN_Sync_ Poweraxe _Swing` | `play_sm_power_axe_swing -> the wielder's swing` | poweraxe |  |
-| 0.567 | victim | speech | victim | `ACTN_SND_Vox_Sync_Damage_Big` | `speech autodetect damage_big` | boy |  |
-| 0.594 | attacker | speech (ours) | victim | `ACTN_Ork_Decap_AxBackHit` | `speech ork_boy_2 damage_big` | poweraxe |  |
-| 0.594 | attacker | speech | attacker | `ACTN_Ork_Decap_AxBackHit` | `speech autodetect roar` | poweraxe |  |
-| 0.594 | attacker | effect | attacker | `ACTN_Ork_Decap_AxBackHit` | `chainsword_blood_rip_out at fx_edge_blood_1 (blood)` | poweraxe |  |
-| 0.594 | attacker | motor (ours) | wound | `ACTN_Ork_Decap_AxBackHit` | `play_sm_sk_power_axe_hit_flesh -> the wielder's hit` | poweraxe |  |
-| 0.700 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
-| 0.833 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
-| 1.167 | attacker | speech | attacker | `ACTN_Nob_Sync_RemoveAx` | `speech autodetect effort_big_pull` | poweraxe |  |
-| 1.167-1.400 | attacker | effect | attacker | `ACTN_Nob_Sync_RemoveAx` | `chainsword_blood_swipe at fx_swing (blood)` | poweraxe |  |
-| 1.167-1.400 | attacker | motor (ours) | wound | `ACTN_Nob_Sync_RemoveAx` | `play_sm_sk_power_axe_release_flesh -> the wielder's hit` | poweraxe |  |
-| 1.222 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 1.400 | attacker | motor (ours) | wound | `ACTN_Sync_Poweraxe_Antic` | `play_sm_power_axe_antic -> the wielder's rev` | poweraxe |  |
-| 1.600 | attacker | speech | attacker | `ACTN_Sync_ Poweraxe _Swing` | `speech autodetect effort_short_stab` | poweraxe |  |
-| 1.600-1.833 | attacker | motor (ours) | wound | `ACTN_Sync_ Poweraxe _Swing` | `play_sm_power_axe_swing -> the wielder's swing` | poweraxe |  |
-| 1.746 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 1.767 | attacker | speech (ours) | victim | `ACTN_Ork_Decap_AxBackHit` | `speech ork_boy_2 damage_big` | poweraxe |  |
-| 1.767 | attacker | speech | attacker | `ACTN_Ork_Decap_AxBackHit` | `speech autodetect roar` | poweraxe |  |
-| 1.767 | attacker | effect | attacker | `ACTN_Ork_Decap_AxBackHit` | `chainsword_blood_rip_out at fx_edge_blood_1 (blood)` | poweraxe |  |
-| 1.767 | attacker | motor (ours) | wound | `ACTN_Ork_Decap_AxBackHit` | `play_sm_sk_power_axe_hit_flesh -> the wielder's hit` | poweraxe |  |
-| 1.851 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 1.867 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
-| 2.600 | attacker | speech | attacker | `ACTN_Nob_Sync_RemoveAx` | `speech autodetect effort_big_pull` | poweraxe |  |
-| 2.600-2.933 | attacker | effect | attacker | `ACTN_Nob_Sync_RemoveAx` | `chainsword_blood_swipe at fx_swing (blood)` | poweraxe |  |
-| 2.600-2.933 | attacker | motor (ours) | wound | `ACTN_Nob_Sync_RemoveAx` | `play_sm_sk_power_axe_release_flesh -> the wielder's hit` | poweraxe |  |
-| 2.700 | attacker | motor (ours) | wound | `ACTN_Sync_Poweraxe_Antic` | `play_sm_power_axe_antic -> the wielder's rev` | poweraxe |  |
-| 3.492 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-
 #### O6.power_axe (kill 2.600 s, end 3.667 s)
 
 | s | side | kind | place | tag | event / effect | file | |
@@ -1247,4 +1177,4 @@ Columns:
 | 1.233 | attacker | speech | attacker | `ACTN_Renegade_Sync_Punch` | `speech autodetect effort_short_stab` | vanguard |  |
 | 2.400 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 
-Counts: 41 row-wield lists, 931 cues: 760 original bindings, 171 ours; 3 sound posts not in the client's banks.
+Counts: 39 row-wield lists, 871 cues: 722 original bindings, 149 ours; 3 sound posts not in the client's banks.

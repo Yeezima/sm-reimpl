@@ -204,7 +204,7 @@ public class ExecutionCueTests
         var set = ExecutionCatalogue.Create(rows);
         // Distinct moves per matchup (docs/executions-cues.md 3): the knife and the chainsword (and so the power sword) on the Boy kinds.
         Assert.Equal(["O3.combat_knife", "O8.combat_knife", "O4.combat_knife"], set.For("*", "sm_mp_melee_combat_knife", ExecutionTargets.OrkBoy).Select(r => r.Id));
-        Assert.Equal(["O1.chainsword", "O2.chainsword", "O3.chainsword", "O4.chainsword", "O8.chainsword", "O6.chainsword"], set.For("*", "sm_mp_melee_chainsword", ExecutionTargets.OrkBoy).Select(r => r.Id));
+        Assert.Equal(["O1.chainsword", "O2.chainsword", "O3.chainsword", "O4.chainsword", "O8.chainsword"], set.For("*", "sm_mp_melee_chainsword", ExecutionTargets.OrkBoy).Select(r => r.Id));
         Assert.Equal(set.For("*", "sm_mp_melee_chainsword", ExecutionTargets.OrkBoy).Select(r => r.Id), set.For("*", "sm_mp_melee_powersword", ExecutionTargets.OrkBoy).Select(r => r.Id));
         // Unchanged elsewhere: the Gretchin, the axe and the hammer, and the knife on the Chaos kinds.
         Assert.Equal(["O9.combat_knife"], set.For("*", "sm_mp_melee_combat_knife", ExecutionTargets.Gretchin).Select(r => r.Id));
@@ -235,7 +235,6 @@ public class ExecutionCueTests
         // The crossovers' blades differ from their graphs' weapons: their motors are replaced.
         Assert.NotEqual(ExecutionCueRules.GraphFile(Row("O4.combat_knife")), ExecutionCueRules.WieldFile(Row("O4.combat_knife"), ExecutionWield.Own));
         Assert.NotEqual(ExecutionCueRules.GraphFile(Row("O8.chainsword")), ExecutionCueRules.WieldFile(Row("O8.chainsword"), ExecutionWield.Own));
-        Assert.NotEqual(ExecutionCueRules.GraphFile(Row("O6.chainsword")), ExecutionCueRules.WieldFile(Row("O6.chainsword"), ExecutionWield.Own));
         Assert.Equal(ExecutionCueRules.GraphFile(Row("O1.chainsword")), ExecutionCueRules.WieldFile(Row("O1.chainsword"), ExecutionWield.Own));
     }
 }
