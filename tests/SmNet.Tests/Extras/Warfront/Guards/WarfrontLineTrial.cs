@@ -15,20 +15,25 @@ public sealed record WarfrontLineTrialResult(
 /// <summary>
 /// The battle-level trial of the Guardsmen's line (design-guardsmen-1125, G0): one lane battle in-process, the points secured, the scripted human standing at the landing zone, then one of five scripted pushes:
 /// <c>routine</c> (a 200-Ork low-elite wave on one point), <c>elite</c> (the same size, 0.6 elites), <c>flank</c> (the routine wave and a second Ork army from another bearing at the same point), <c>collapse</c> (a 400-Ork,
-/// 0.6-elite wave: no help comes) and <c>break</c> (as collapse, then at 45 s the human walks onto the point and the Orks within 40 m die, as the Marines breaking the push). Seeded: the seed only moves the wave's
+/// 0.6-elite wave: no help comes) and <c>break</c> (as collapse, then at 90 s the human walks onto the point and for 60 s the Orks within 40 m die each second, as the Marines breaking the push). Seeded: the seed only moves the wave's
 /// delay (0 to 5 s), its size (+/- 10 %), its elite share (+/- 0.05) and the flank's side, so the same seed is the same run. Reads the simulation only through its public test aids; the simulation is unchanged.
 /// The same logic is copied into <c>smtool warfront-guards --scenario</c> (SmTool is not referenced by the tests), which runs it on the real lane maps; keep the two in step.
 /// </summary>
 public static class WarfrontLineTrial
 {
+    /// <summary>The Orks' endless trickle from the sources (TfwBattle.Trickle): off for the scripted pushes, so the wave alone is the pressure; on only to see the whole tide.</summary>
+    public static bool TrickleOn { get; set; }
+    /// <summary>Keeps the HQ stronghold's own crowd dead (every second, the Orks that belong to no army within 50 m of its source): once every point is secured the HQ fills its crowd and swarms it, a tide that wipes any line in 2 minutes and would hide the scripted push. False (<c>--hq-tide</c>) lets it come.</summary>
+    public static bool QuietHq { get; set; } = true;
     public static readonly string[] Scenarios = ["routine", "elite", "flank", "collapse", "break"];
     public const int Human = 1, Points = 3;   // the lane battle's three capture points (a fourth objective, where a test arena has one, is the commander's)
-    public const float BreakAtSeconds = 45f, BreakRadius = 40f, FlankDistance = 80f;
+    public const float BreakAtSeconds = 90f, BreakRadius = 40f, FlankDistance = 80f;
 
     /// <summary>Secures every position of the battle (the test aid), kills the Orks that are left and lets the line stand 20 s. The human stands at the landing zone.</summary>
     public static void Prepare(World w, int settleSeconds = 20)
     {
         var battle = w.Tfw!.Battle!;
+        battle.Trickle = TrickleOn;
         for (int k = 0; k < Points; k++) battle.ClearAndSecureForTests(k);
         KillAll(w);
         w.TfwRespawnAt(Human, battle.Layout.LandingZone, 0f);
@@ -87,7 +92,7 @@ public static class WarfrontLineTrial
         int breakAt = (int)(BreakAtSeconds * 30f);
         for (int t = 1; t <= ticks && !battle.Won; t++, ranTicks++)
         {
-            if (brk && t >= breakAt && t <= breakAt + 10 * 30 && (t == breakAt || t % 30 == 0))
+            if (brk && t >= breakAt && t <= breakAt + 60 * 30 && (t == breakAt || t % 30 == 0))
             {
                 if (t == breakAt) w.TfwRespawnAt(Human, point, 0f);
                 var all = new MusouEnemy[MusouSim.Capacity];
@@ -95,7 +100,8 @@ public static class WarfrontLineTrial
                 for (int k = 0; k < n; k++)
                     if (all[k].Alive && new Vector2(all[k].Position.X - point.X, all[k].Position.Y - point.Y).Length() <= BreakRadius) w.Musou.Damage(all[k].Id, Human, 1e6f, Vector3.Zero, out _);
             }
-            if (t % 30 == 0 && !(brk && t >= breakAt) && w.Players.TryGetValue(Human, out var me) && !me.Alive) w.TfwRespawnAt(Human, battle.Layout.LandingZone, 0f);
+            if (QuietHq && t % 30 == 0) QuietHqCrowd(w, battle);
+            if (t % 30 == 0 && w.Players.TryGetValue(Human, out var me) && !me.Alive) w.TfwRespawnAt(Human, brk && t >= breakAt ? point : battle.Layout.LandingZone, 0f);
             long start = Stopwatch.GetTimestamp();
             w.Step(_ => default);
             double ms = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
@@ -116,6 +122,17 @@ public static class WarfrontLineTrial
         return new WarfrontLineTrialResult(scenario, seed, target, size, size * share, outcome, lost, secured, firstLoss < 0 ? -1 : Math.Round(firstLoss / 30.0, 1),
             guardsStart, guards.Alive, guardsMin, squadsStart, guards.SquadsAlive, orksPeak, w.Musou!.Alive, battle.WavesSent - natural0 - 1, ranTicks / 30,
             steps.Count == 0 ? 0 : steps.Average(), P(0.5), P(0.95), P(0.99), steps.Count == 0 ? 0 : steps[^1], liveGuards / (double)Math.Max(1, steps.Count), liveOrks / (double)Math.Max(1, steps.Count), steps.Count, hash);
+    }
+
+    static void QuietHqCrowd(World w, TfwBattle battle)
+    {
+        var src = battle.Layout.Sources.Length > 3 ? battle.Layout.Sources[3] : battle.Layout.Hq;
+        var army = new HashSet<ushort>();
+        foreach (var a in battle.ArmyList) foreach (ushort id in a.Orks) army.Add(id);
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = w.Musou!.CopyTo(all);
+        for (int k = 0; k < n; k++)
+            if (all[k].Alive && !army.Contains(all[k].Id) && new Vector2(all[k].Position.X - src.X, all[k].Position.Y - src.Y).Length() <= 50f) w.Musou.Damage(all[k].Id, Human, 1e6f, Vector3.Zero, out _);
     }
 
     /// <summary>A short state hash (the Guardsmen's and Orks' places in id order, the objectives): the same seeded run gives the same one; the baseline of the restore switch.</summary>
