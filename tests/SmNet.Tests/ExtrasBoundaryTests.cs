@@ -86,6 +86,7 @@ public class ExtrasBoundaryTests
         ("client/Hud.cs", "ExtrasHudDraw"),                          // Hud.ExtrasHudDraw(Vector2), in _Draw after DrawCentre: the Execute prompt (X6)
         ("client/NetworkView.cs", "ExtrasExecutionTestPress"),     // NetworkView.ExtrasExecutionTestPress(ref PlayerInput), in SampleInput after ExtrasInputGate: test aid --execution-bot-press taps Execute on the own Classic offer (X5)
         ("client/NetworkView.Weapons.cs", "ExtrasExecutionMeleeShown"),   // NetworkView.ExtrasExecutionMeleeShown(PlayerState, ref bool), in SyncWeapons before rig.Update: a live executor holds its melee weapon (X5)
+        ("client/NetworkView.Weapons.cs", "ExtrasExecutionPistolStowed"),   // NetworkView.ExtrasExecutionPistolStowed(PlayerState, ref bool), in SyncWeapons after HammerHoldsBothHands: a live executor's pistol is holstered (X4b review)
         ("src/SmSim/Teams.cs", "ExtrasStepMatch"),                 // World.ExtrasStepMatch(ref bool handled), top of StepMatch; the core skips its flow when handled (Musou: one side)
         ("src/SmSim/Teams.cs", "ExtrasJoinSide"),                  // World.ExtrasJoinSide(ref Team, ref bool forced), in AssignClass / AssignSide (Musou: Space Marines only, no balance)
         ("src/SmServer/GameServer.cs", "ExtrasCreated"),           // GameServer.ExtrasCreated(), end of the constructor when Extras is not None (Musou: the nav graph, World.StartMusou)

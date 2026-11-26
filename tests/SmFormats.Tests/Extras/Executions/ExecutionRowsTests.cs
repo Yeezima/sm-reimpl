@@ -72,9 +72,10 @@ public class ExecutionRowsTests(ITestOutputHelper output)
             Assert.Equal(Ids(Catalogue.For("*", "thunder_hammer", kind)), Ids(Catalogue.For("*", "csm_mp_melee_daemon_maul", kind)));
             foreach (var none in new[] { "displace_kick", "lightning_claw", "power_spear", "bolter" }) Assert.Empty(Catalogue.For("*", none, kind));
         }
-        // The knife: Ork rows only.
+        // The knife: its own rows on the Orks only; on every other kind the chainsword's (owner 2026-11-26, card "Knife"; ours, a lookalike).
         foreach (var kind in new[] { ExecutionTargets.ChaosMarine, ExecutionTargets.Bloodletter, ExecutionTargets.Renegade })
-            Assert.Empty(Catalogue.For("*", "combat_knife", kind));
+            Assert.Equal(Ids(Catalogue.For("*", "chainsword", kind)), Ids(Catalogue.For("*", "combat_knife", kind)));
+        Assert.DoesNotContain(Catalogue.Rows, r => r.Weapon == ExecutionWeapons.CombatKnife && !ExecutionTargets.IsOrk(r.Target));   // no knife row of its own on a non-Ork kind
         // No row of the power sword's own or of a weapon that is no family; no row on a never-executed kind.
         Assert.DoesNotContain(Catalogue.Rows, r => r.Weapon.Contains("sword", StringComparison.OrdinalIgnoreCase) && r.Weapon != ExecutionWeapons.Chainsword);
         Assert.DoesNotContain(Catalogue.Rows, r => ExecutionTargets.Never.Contains(r.Target));
@@ -102,14 +103,15 @@ public class ExecutionRowsTests(ITestOutputHelper output)
                 Assert.True(Catalogue.For("*", w, kind).Count > 0, $"{name} with {w}");
         Assert.Equal(3, Catalogue.Rows.Count(r => r.Target == ExecutionTargets.Bloodletter));
         Assert.Equal(["R1.chainsword", "R1.power_axe", "R1.thunder_hammer"], Ids(Catalogue.Rows.Where(r => r.Target == ExecutionTargets.Renegade)));
-        foreach (var never in new[] { "chosen", "chaos_lord", "BombSquig" }) Assert.Null(ExecutionTargets.Of(never, ExecutionTargets.ChaosRun));
+        foreach (var never in new[] { "chaos_lord", "BombSquig" }) Assert.Null(ExecutionTargets.Of(never, ExecutionTargets.ChaosRun));
+        Assert.Equal(ExecutionTargets.ChaosMarine, ExecutionTargets.Of("chosen", ExecutionTargets.ChaosRun));   // owner 2026-11-26: the Chosen take C1 to C3
         Assert.Equal(ExecutionTargets.ChaosMarine, ExecutionTargets.Of("chaos_raptor", ExecutionTargets.ChaosRun));   // grounded only (owner 2026-11-25; X4b's check)
         // Classic: a Chaos victim takes C1 to C3; a loyalist the same rows with the races swapped (no loyalist rows of its own).
         Assert.Equal(["C1.chainsword"], Ids(Catalogue.For("*", "sm_mp_melee_chainsword", ExecutionTargets.ChaosMarine)));
         Assert.Equal(["C2.power_axe"], Ids(Catalogue.For("*", "mp_melee_chain_axe", ExecutionTargets.ChaosMarine)));
         Assert.Equal(["C3.thunder_hammer"], Ids(Catalogue.For("*", "csm_mp_melee_daemon_maul", ExecutionTargets.ChaosMarine)));
         Assert.Equal(["C1.chainsword"], Ids(Catalogue.For("*", "sm_mp_melee_powersword", ExecutionTargets.ChaosMarine)));
-        Assert.Empty(Catalogue.For("*", "combat_knife", ExecutionTargets.ChaosMarine));
+        Assert.Equal(["C1.chainsword"], Ids(Catalogue.For("*", "combat_knife", ExecutionTargets.ChaosMarine)));   // the knife borrows the chainsword's (owner 2026-11-26)
         Assert.DoesNotContain(Catalogue.Rows, r => r.Target == ExecutionTargets.SpaceMarine);
         Assert.Contains((ExecutionTargets.ChaosMarine, true), ExecutionTargets.Classic(Team.SpaceMarines));
         Assert.Equal([(ExecutionTargets.ChaosMarine, false)], ExecutionTargets.Classic(Team.Chaos));
@@ -253,8 +255,9 @@ public class ExecutionRowsTests(ITestOutputHelper output)
         Assert.Equal(1.32f, Vector2.Distance(new Vector2(classic.Attacker.Position.X, classic.Attacker.Position.Y), new Vector2(0f, 1.5f)), 1);
         var swapped = ExecutionChoice.ChooseClassic(marine with { Team = Team.Chaos }, "tactical", "csm_mp_melee_2hand_power_mace", chaosCorpse with { Team = Team.SpaceMarines }, rows, c, level, null);
         Assert.Equal((true, "C3.thunder_hammer", true), (swapped.Ok, swapped.Row?.Id, swapped.RaceSwapped));
-        // The knife has no Classic row: the normal kill stands.
-        Assert.False(ExecutionChoice.ChooseClassic(marine, "tactical", "sm_mp_melee_combat_knife", chaosCorpse, rows, c, level, null).Ok);
+        // The knife on a marine plays the chainsword's C1 (owner 2026-11-26, card "Knife"; ours, a lookalike).
+        var knifed = ExecutionChoice.ChooseClassic(marine, "tactical", "sm_mp_melee_combat_knife", chaosCorpse, rows, c, level, null);
+        Assert.Equal((true, "C1.chainsword", false), (knifed.Ok, knifed.Row?.Id, knifed.RaceSwapped));
     }
 
     [Fact]

@@ -50,7 +50,7 @@ public class WarfrontWeatherBaselineTests
         // The catalog and the pool are in no hash; a retune that leaves WarfrontRules.Version alone would let two builds disagree silently. Change this pin together with the version.
         string signature = $"catalog {WeatherCatalog.Version}: " + string.Join(';', WeatherCatalog.All.Select(d => FormattableString.Invariant($"{d.Key}/{d.Real}/{d.OpeningLevel}/{string.Join(',', d.Seconds)}")))
             + $" pool {WarfrontForecast.PoolVersion}: " + string.Join(';', WarfrontForecast.Pool.Select(p => $"{p.Id}/{p.Node1}/{p.Node2}/{p.Node3}"));
-        Assert.Equal("29|catalog 3: none/True/0/60,60,120,60;clear/True/0.5/60,60,240,60;low_fog/True/0.35/45,60,240,90;ash_squall/True/0.1/60,45,90,60;rain/True/0.3/45,60,180,75;thunderstorm/True/0.2/45,75,150,75;ember_wind/True/0.3/45,60,180,60 pool 2: None/3/2/2;Clear/4/2/1;LowFog/1/3/3;Rain/1/3/3;Thunderstorm/0/2/3",
+        Assert.Equal("30|catalog 3: none/True/0/60,60,120,60;clear/True/0.5/60,60,240,60;low_fog/True/0.35/45,60,240,90;ash_squall/True/0.1/60,45,90,60;rain/True/0.3/45,60,180,75;thunderstorm/True/0.2/45,75,150,75;ember_wind/True/0.3/45,60,180,60 pool 2: None/3/2/2;Clear/4/2/1;LowFog/1/3/3;Rain/1/3/3;Thunderstorm/0/2/3",
             WarfrontRules.Version + "|" + signature);
     }
 }

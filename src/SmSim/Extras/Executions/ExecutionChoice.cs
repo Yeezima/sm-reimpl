@@ -192,19 +192,26 @@ public static class ExecutionTargets
     };
 
     /// <summary>
-    /// The Chaos run's roster (owner 2026-11-25; names for the roster to come): Traitor Guard and Cultists on the renegade guardsman's rows, the Chaos Tactical,
-    /// Havoc and Champion marines on the Chaos Marine's (C1 to C3), the grounded Chaos Raptor too (owner 2026-11-25: never while airborne; the caller, X4b,
-    /// leaves a Raptor in the air out of the candidates), the Bloodletter on its own; never the Chosen or the Lord (<see cref="Never"/>).
+    /// The Chaos run's roster (owner 2026-11-25, and 2026-11-26 "Chosen can be executed"): Traitor Guard and Cultists on the renegade guardsman's rows, the Chaos Tactical,
+    /// Havoc and Champion marines and the Chosen bodyguard on the Chaos Marine's (C1 to C3), the grounded Chaos Raptor too (owner 2026-11-25: never while airborne; the
+    /// choice leaves a Raptor in the air out of the candidates by its state), the Bloodletter on its own. The Lord is in <see cref="Never"/>: only his duel's gate
+    /// (<see cref="ExecutionKindMap.Chaos"/> with the Lord allowed) gives him the Chaos Marine rows (owner 2026-11-26, "Lord finisher at low health").
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> ChaosRun = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["traitor_guard"] = Renegade, ["cultist"] = Renegade,
         ["chaos_tactical"] = ChaosMarine, ["chaos_havoc"] = ChaosMarine, ["chaos_champion"] = ChaosMarine, ["chaos_raptor"] = ChaosMarine,
+        ["chosen"] = ChaosMarine,
         ["bloodletter"] = Bloodletter,
     };
 
-    /// <summary>Never executed, whatever a map says: the Bomb Squig (owner), the Chaos run's Chosen and Lord (owner); elites and bosses are excluded by <see cref="Of(MusouEnemyType)"/>.</summary>
-    public static readonly IReadOnlySet<string> Never = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { nameof(MusouEnemyType.BombSquig), "chosen", "chaos_lord" };
+    /// <summary>The Chaos run's Lord: never a target of the roster map (<see cref="Never"/>); in his finale duel, once under the duel's health gate, his rows are <see cref="ChaosLordKind"/>'s.</summary>
+    public const string ChaosLord = "chaos_lord";
+    /// <summary>The kind the Lord's rows are in his duel: the Chaos Marine's (C1 to C3; the Lord is the co-op elite Chaos Marine, owner 2026-11-25 "Elite marine, hammer").</summary>
+    public const string ChaosLordKind = ChaosMarine;
+
+    /// <summary>Never executed by a roster map, whatever it says: the Bomb Squig (owner) and the Chaos run's Lord (owner: only in his duel, <see cref="ChaosLord"/>); elites and bosses of the Orks are excluded by <see cref="Of(MusouEnemyType)"/>.</summary>
+    public static readonly IReadOnlySet<string> Never = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { nameof(MusouEnemyType.BombSquig), ChaosLord };
 
     /// <summary>The kind <paramref name="rosterName"/> maps to in <paramref name="map"/>, or null (unmapped or in <see cref="Never"/>).</summary>
     public static string? Of(string rosterName, IReadOnlyDictionary<string, string> map) =>
@@ -245,6 +252,43 @@ public static class ExecutionTargets
 
     /// <summary>Whether a player of <paramref name="race"/> can perform an execution: not an Ork (no Ork attacker clips exist; lead 38, 2026-11-25).</summary>
     public static bool CanExecute(Race race) => race != Race.Orks;
+
+    /// <summary>Whether <paramref name="kind"/> is an Ork victim kind (the Ork Boy's or the Gretchin's rows): the combat knife keeps its own Ork rows there (<see cref="ExecutionWeapons.RowFamily"/>).</summary>
+    public static bool IsOrk(string kind) => string.Equals(kind, OrkBoy, StringComparison.OrdinalIgnoreCase) || string.Equals(kind, Gretchin, StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// Which victim kind (<see cref="ExecutionTargets"/>) each Warfront enemy type byte takes rows of in a battle (X4, and X4b for Chaos, owner 2026-11-25 and 2026-11-26): an Orks battle's
+/// <see cref="Orks"/> (<see cref="ExecutionTargets.Of(MusouEnemyType)"/>: never an elite, a boss or the Bomb Squig), or a Chaos battle's <see cref="Chaos"/>, built from Warfront's roster key of each
+/// type byte (the Chaos army runs on the Ork type bytes: Chaos C2's aliasing) through <see cref="ExecutionTargets.ChaosRun"/>. Resolved once into a table of 256 (no string per enemy).
+/// </summary>
+public sealed class ExecutionKindMap
+{
+    readonly string?[] _kinds;
+
+    ExecutionKindMap(string?[] kinds) => _kinds = kinds;
+
+    /// <summary>The kind of an enemy of <paramref name="type"/>, or null (never executed in this battle).</summary>
+    public string? Of(MusouEnemyType type) => _kinds[(byte)type];
+
+    /// <summary>An Orks battle's map (X4, unchanged by X4b).</summary>
+    public static ExecutionKindMap Orks { get; } = new(Enumerable.Range(0, 256).Select(i => ExecutionTargets.Of((MusouEnemyType)(byte)i)).ToArray());
+
+    /// <summary>
+    /// A Chaos battle's map: each type byte's roster key from <paramref name="unitKey"/> (Warfront's, e.g. "cultist", "chosen", "chaos_lord"; null: an Ork-only kind) mapped through
+    /// <see cref="ExecutionTargets.ChaosRun"/>; the Lord's key (<see cref="ExecutionTargets.ChaosLord"/>) takes <see cref="ExecutionTargets.ChaosLordKind"/> only with <paramref name="lord"/> (his duel's gate).
+    /// </summary>
+    public static ExecutionKindMap Chaos(Func<MusouEnemyType, string?> unitKey, bool lord = false)
+    {
+        var kinds = new string?[256];
+        for (int i = 0; i < 256; i++)
+        {
+            var t = (MusouEnemyType)(byte)i;
+            if (!Enum.IsDefined(t) || unitKey(t) is not { } key) continue;
+            kinds[i] = string.Equals(key, ExecutionTargets.ChaosLord, StringComparison.OrdinalIgnoreCase) ? (lord ? ExecutionTargets.ChaosLordKind : null) : ExecutionTargets.Of(key, ExecutionTargets.ChaosRun);
+        }
+        return new ExecutionKindMap(kinds);
+    }
 }
 
 /// <summary>
@@ -276,6 +320,17 @@ public static class ExecutionWeapons
         foreach (var (part, family) in Aliases) if (compact.Contains(part, StringComparison.Ordinal)) return family;
         return null;
     }
+
+    /// <summary>
+    /// Whether the combat knife plays the chainsword's rows on every victim that is not an Ork (owner 2026-11-26, card "Knife": "Use chainsword moves"; <b>ours</b>, a lookalike: the original's knife
+    /// graph has Ork sync kills only, inventory 3.2). Its own Ork rows (O3, O8, O9) stay on the Ork Boy and the Gretchin. A Classic Extended marine of either race (the race swap included) and every
+    /// Chaos Warfront kind take the chainsword's rows (C1, B1, R1).
+    /// </summary>
+    public const bool KnifeBorrowsChainsword = true;
+
+    /// <summary>The family whose rows a weapon of <paramref name="family"/> plays on a victim of <paramref name="kind"/>: the chainsword's for the combat knife on a non-Ork kind (<see cref="KnifeBorrowsChainsword"/>); else <paramref name="family"/>.</summary>
+    public static string RowFamily(string family, string kind) =>
+        KnifeBorrowsChainsword && string.Equals(family, CombatKnife, StringComparison.OrdinalIgnoreCase) && !ExecutionTargets.IsOrk(kind) ? Chainsword : family;
 }
 
 /// <summary>
@@ -299,39 +354,44 @@ public sealed record ExecutionPose(string Clip, float StepSeconds, IReadOnlyList
 /// </summary>
 public static class ExecutionChoice
 {
-    /// <summary>Raised when the rules below change (for X1's hashed Executions block). 2: the Chaos run's map gained the grounded Raptor (X7 review; lead 39).</summary>
-    public const int RulesVersion = 2;
+    /// <summary>
+    /// Raised when the rules below change (for X1's hashed Executions block). 2: the Chaos run's map gained the grounded Raptor (X7 review; lead 39). 3 (X4b, owner 2026-11-26): the Chaos battle's kind map
+    /// (<see cref="ExecutionKindMap.Chaos"/>, the Chosen eligible, the Lord only through his duel's gate), the combat knife on the chainsword's rows for every non-Ork victim
+    /// (<see cref="ExecutionWeapons.RowFamily"/>), and a candidate is never its own bystander (a player-solid target: the Chosen, the Lord).
+    /// </summary>
+    public const int RulesVersion = 3;
 
     /// <summary>Warfront: furthest a target's feet may be from the executor's (metres, horizontal; ours, the design's "about 2.5 m").</summary>
     public const float WarfrontRange = 2.5f;
     /// <summary>Warfront: candidates rank by distance in bands of this many metres, then by angle in bands of <see cref="AngleBand"/> degrees, then by id (the melee lock's defaults, <see cref="MeleeLockSpec"/>).</summary>
     public const float DistanceBand = 1f, AngleBand = 6f;
 
-    /// <summary>Whether a Warfront Ork of <paramref name="type"/> may ever be executed (a mapped kind, not an elite, a boss or the Bomb Squig); rows decide the rest.</summary>
-    public static bool EligibleType(MusouEnemyType type) => ExecutionTargets.Of(type) is not null;
+    /// <summary>Whether a Warfront enemy of <paramref name="type"/> may ever be executed in a battle of <paramref name="kinds"/> (null: an Orks battle's: a mapped kind, not an elite, a boss or the Bomb Squig); rows decide the rest.</summary>
+    public static bool EligibleType(MusouEnemyType type, ExecutionKindMap? kinds = null) => (kinds ?? ExecutionKindMap.Orks).Of(type) is not null;
 
     /// <summary>
     /// Whether <paramref name="e"/> may be executed now: alive and in play (not spawning, dying or in a Stormboy's hop), of an eligible type, and with at least one
     /// valid row in <paramref name="rows"/> for its kind (an Ork with nothing to play is never chosen; the coverage matrix lists such gaps).
     /// </summary>
-    public static bool Eligible(in MusouEnemy e, IReadOnlyList<ExecutionRow> rows)
+    public static bool Eligible(in MusouEnemy e, IReadOnlyList<ExecutionRow> rows, ExecutionKindMap? kinds = null)
     {
         if (!e.Alive || e.State is MusouEnemyState.Spawning or MusouEnemyState.Airborne) return false;
-        if (ExecutionTargets.Of(e.Type) is not { } kind) return false;
+        if ((kinds ?? ExecutionKindMap.Orks).Of(e.Type) is not { } kind) return false;
         foreach (var r in rows) if (r.IsValid && string.Equals(r.Target, kind, StringComparison.OrdinalIgnoreCase)) return true;
         return false;
     }
 
     /// <summary>
-    /// Warfront: the Orks <paramref name="executor"/> could take, best first (ids): eligible (<see cref="Eligible"/>), not in <paramref name="reserved"/>, within
+    /// Warfront: the enemies <paramref name="executor"/> could take, best first (ids), their kinds by <paramref name="kinds"/> (null: an Orks battle's, <see cref="ExecutionKindMap.Orks"/>): eligible (<see cref="Eligible"/>), not in <paramref name="reserved"/>, within
     /// <see cref="WarfrontRange"/> (horizontal) and the melee lock's vertical reach, seen and not behind a spawn-room blocker (<see cref="MeleeLock.Sees"/>; the Ork
     /// stands in through <see cref="StandIn"/>), and with a row the executor's class and weapon play on its kind; ranked by distance band, then angle band (from
     /// <paramref name="facingYaw"/>, any direction), then id. The caller aligns them in this order (<see cref="ExecutionAlign.Align"/>) and takes the first that fits.
     /// </summary>
     public static IReadOnlyList<ushort> RankOrks(in PlayerState executor, float facingYaw, string attackerClass, string weaponKey, IReadOnlyList<MusouEnemy> enemies,
-        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, IReadOnlySet<ushort>? reserved = null)
+        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, IReadOnlySet<ushort>? reserved = null, ExecutionKindMap? kinds = null)
     {
         if (ExecutionWeapons.FamilyOf(weaponKey) is not { } family || !ExecutionTargets.CanExecute(Races.Of(c, executor.Class, executor.Team))) return [];
+        var map = kinds ?? ExecutionKindMap.Orks;
         // Which Ork types have a playable row, resolved once per call (a handful of kinds), never per enemy.
         Span<bool> playable = stackalloc bool[256];
         Span<bool> known = stackalloc bool[256];
@@ -352,7 +412,7 @@ public static class ExecutionChoice
             if (!known[t])
             {
                 known[t] = true;
-                playable[t] = ExecutionTargets.Of(e.Type) is { } kind && HasRow(rows, attackerClass, family, kind);
+                playable[t] = map.Of(e.Type) is { } kind && HasRow(rows, attackerClass, ExecutionWeapons.RowFamily(family, kind), kind);
             }
             if (!playable[t]) continue;
             float distance = MathF.Sqrt(d2);
@@ -387,14 +447,14 @@ public static class ExecutionChoice
     /// </summary>
     public static (ushort Id, ExecutionAlignResult Result) ChooseAlignedOrk(in PlayerState executor, float facingYaw, string attackerClass, string weaponKey,
         IReadOnlyList<MusouEnemy> enemies, IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, IReadOnlySet<ushort>? reserved = null,
-        Func<ushort, ulong?>? seedFor = null, IReadOnlyList<Vector3>? bystanders = null)
+        Func<ushort, ulong?>? seedFor = null, IReadOnlyList<Vector3>? bystanders = null, ExecutionKindMap? kinds = null)
     {
         ExecutionAlignResult? first = null;
-        foreach (ushort id in RankOrks(executor, facingYaw, attackerClass, weaponKey, enemies, rows, c, world, reserved))
+        foreach (ushort id in RankOrks(executor, facingYaw, attackerClass, weaponKey, enemies, rows, c, world, reserved, kinds))
             for (int k = 0; k < enemies.Count; k++)
             {
                 if (enemies[k].Id != id) continue;
-                var r = Warfront(executor, attackerClass, weaponKey, enemies[k], rows, c, world, seedFor?.Invoke(id), bystanders, firstFit: seedFor is null);
+                var r = Warfront(executor, attackerClass, weaponKey, enemies[k], rows, c, world, seedFor?.Invoke(id), bystanders, firstFit: seedFor is null, kinds);
                 if (r.Ok) return (id, r);
                 first ??= r;
                 break;
@@ -404,8 +464,8 @@ public static class ExecutionChoice
 
     /// <summary>The best of <see cref="RankOrks"/>, or 0. It does not align: <see cref="ChooseAlignedOrk"/> gives the Ork whose move fits (use that for the prompt).</summary>
     public static ushort ChooseOrk(in PlayerState executor, float facingYaw, string attackerClass, string weaponKey, IReadOnlyList<MusouEnemy> enemies,
-        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, IReadOnlySet<ushort>? reserved = null) =>
-        RankOrks(executor, facingYaw, attackerClass, weaponKey, enemies, rows, c, world, reserved) is { Count: > 0 } r ? r[0] : (ushort)0;
+        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, IReadOnlySet<ushort>? reserved = null, ExecutionKindMap? kinds = null) =>
+        RankOrks(executor, facingYaw, attackerClass, weaponKey, enemies, rows, c, world, reserved, kinds) is { Count: > 0 } r ? r[0] : (ushort)0;
 
     /// <summary>An Ork as a player state for the level checks (<see cref="MeleeLock.Sees"/>, <see cref="ExecutionAlign"/>): its place and yaw, alive, grounded, no side, the executor's class.</summary>
     public static PlayerState StandIn(in PlayerState executor, in MusouEnemy e) =>
@@ -414,10 +474,11 @@ public static class ExecutionChoice
     /// <summary>
     /// The valid rows <paramref name="attackerClass"/> with a weapon of <paramref name="family"/> (<see cref="ExecutionWeapons.FamilyOf"/>) plays on a victim of
     /// <paramref name="kind"/>: rows with fewer "*" keys (class, weapon) first, then by <see cref="ExecutionRow.Priority"/> (higher first), then catalogue order.
-    /// The variants <see cref="ExecutionAlign.Align"/> checks.
+    /// The variants <see cref="ExecutionAlign.Align"/> checks. The combat knife on a non-Ork kind plays the chainsword's (<see cref="ExecutionWeapons.RowFamily"/>).
     /// </summary>
     public static IReadOnlyList<ExecutionRow> Rows(IReadOnlyList<ExecutionRow> rows, string attackerClass, string family, string kind)
     {
+        family = ExecutionWeapons.RowFamily(family, kind);
         var list = new List<(int Wild, int Priority, int Index, ExecutionRow Row)>();
         for (int i = 0; i < rows.Count; i++)
         {
@@ -454,16 +515,36 @@ public static class ExecutionChoice
     /// <paramref name="bystanders"/>: as <see cref="ExecutionAlign.Align"/> (null: none checked; see <see cref="ChooseAlignedOrk"/> on who should count).
     /// </summary>
     public static ExecutionAlignResult ChooseWarfront(in PlayerState executor, string attackerClass, string weaponKey, in MusouEnemy e,
-        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed, IReadOnlyList<Vector3>? bystanders = null) =>
-        Warfront(executor, attackerClass, weaponKey, e, rows, c, world, seed, bystanders, firstFit: false);
+        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed, IReadOnlyList<Vector3>? bystanders = null, ExecutionKindMap? kinds = null) =>
+        Warfront(executor, attackerClass, weaponKey, e, rows, c, world, seed, bystanders, firstFit: false, kinds);
+
+    /// <summary>A candidate's own feet are never its own bystander (X4b: a player-solid target, the Chosen or the Lord, is in the bystander list as a body): within this distance (metres, horizontal; ours).</summary>
+    public const float SelfBystander = 0.05f;
 
     static ExecutionAlignResult Warfront(in PlayerState executor, string attackerClass, string weaponKey, in MusouEnemy e,
-        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed, IReadOnlyList<Vector3>? bystanders, bool firstFit)
+        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed, IReadOnlyList<Vector3>? bystanders, bool firstFit, ExecutionKindMap? kinds = null)
     {
         var family = ExecutionWeapons.FamilyOf(weaponKey);
-        var kind = ExecutionTargets.Of(e.Type);
+        var kind = (kinds ?? ExecutionKindMap.Orks).Of(e.Type);
         var variants = family is null || kind is null || !ExecutionTargets.CanExecute(Races.Of(c, executor.Class, executor.Team)) ? [] : Rows(rows, attackerClass, family, kind);
-        return ExecutionAlign.Check(executor, StandIn(executor, e), variants, c, world, seed, bystanders, firstFit);
+        return ExecutionAlign.Check(executor, StandIn(executor, e), variants, c, world, seed, WithoutSelf(bystanders, e.Position), firstFit);
+    }
+
+    /// <summary><paramref name="bystanders"/> without the feet at <paramref name="self"/> (within <see cref="SelfBystander"/> flat and 0.5 m up or down); the same list when none is there (no copy).</summary>
+    static IReadOnlyList<Vector3>? WithoutSelf(IReadOnlyList<Vector3>? bystanders, Vector3 self)
+    {
+        if (bystanders is null) return null;
+        const float near2 = SelfBystander * SelfBystander;
+        List<Vector3>? kept = null;
+        for (int i = 0; i < bystanders.Count; i++)
+        {
+            var b = bystanders[i];
+            float dx = b.X - self.X, dy = b.Y - self.Y;
+            bool own = dx * dx + dy * dy <= near2 && MathF.Abs(b.Z - self.Z) <= 0.5f;
+            if (own && kept is null) { kept = new List<Vector3>(bystanders.Count); for (int k = 0; k < i; k++) kept.Add(bystanders[k]); }
+            else if (!own) kept?.Add(b);
+        }
+        return kept ?? bystanders;
     }
 
     /// <summary>

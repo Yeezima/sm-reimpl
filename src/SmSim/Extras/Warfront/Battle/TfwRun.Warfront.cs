@@ -77,6 +77,7 @@ public sealed partial class TfwRun
         rules.Node = node;
         rules.InNode = true;
         _spectating.Clear();
+        WarfrontDuelHoldReset();   // executions X4b review: no win hold carries into a new battle (Chaos/Finale/TfwRun.WarfrontDuel.cs)
         rules.BattleBegan?.Invoke(lane, node);
     }
 
@@ -89,6 +90,7 @@ public sealed partial class TfwRun
     {
         if (Warfront is null) return;
         handled = true;
+        if (DuelWinHeld(w)) return;   // executions X4b: a finisher on the Chaos Lord plays out first (Chaos/Finale/TfwRun.WarfrontDuel.cs)
         Leave(w, left: false, TfwMapResult.Won);   // no victory wave, no pickup: everyone back in the hub the same tick
     }
 
@@ -97,6 +99,7 @@ public sealed partial class TfwRun
         if (Warfront is not { } rules) return;
         bool was = rules.InNode;
         _spectating.Clear();
+        WarfrontDuelHoldReset();   // executions X4b review: the battle is left, its win hold with it
         rules.EndBattle();
         if (!was) return;
         rules.BattleEnded?.Invoke(result);

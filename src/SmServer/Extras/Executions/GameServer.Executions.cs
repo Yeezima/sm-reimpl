@@ -51,7 +51,8 @@ public sealed partial class GameServer
             _executionRepeats.Add((ExecutionWire.Encode(ExecutionStart.Of(run)), ExecutionWire.StartRepeats));
             ExecutionStartsSent++;
             var row = w.Config.Executions.AtWire(run.Wire);
-            Log?.Invoke($"executions: start player {run.Executor} on {run.TargetKind} {run.Target} with {row?.Id ?? "?"} (wire {run.Wire}) at tick {run.StartTick}: distance {run.Distance:0.000} m, slide {run.SlideTicks} ticks{(run.RaceSwapped ? ", races swapped" : "")}");
+            string type = run.TargetKind == ExecutionTargetKind.Enemy && w.Musou is { } pool && pool.TryGet((ushort)run.Target, out var e) ? $" (type {e.Type}, kind {row?.Target ?? "?"})" : "";   // X4b: a Chaos stage's type byte and the kind it took
+            Log?.Invoke($"executions: start player {run.Executor} on {run.TargetKind} {run.Target}{type} with {row?.Id ?? "?"} (wire {run.Wire}) at tick {run.StartTick}: distance {run.Distance:0.000} m, slide {run.SlideTicks} ticks{(run.RaceSwapped ? ", races swapped" : "")}");
         }
         foreach (var end in w.ExecutionsEndedThisTick)
         {

@@ -29,6 +29,23 @@ public class ExecutionClientStateTests
         Assert.Equal(3, run.Wire); Assert.Equal(3.5f, run.Distance); Assert.Equal(4, run.SlideTicks);
     }
 
+    /// <summary>
+    /// X4b review (bolt pistol during finishers): the hands rule's condition, shared by <c>ExtrasExecutionMeleeShown</c> and <c>ExtrasExecutionPistolStowed</c>: only an alive player with a live run
+    /// holds its melee weapon with the pistol holstered; the victim, a dead executor and everyone after the End do not.
+    /// </summary>
+    [Fact]
+    public void LiveExecutorOnlyWhileAliveAndExecuting()
+    {
+        var s = new ExecutionClientState();
+        Assert.False(s.LiveExecutor(4, alive: true));
+        s.Apply(Start(100, 4, target: 9), 0.0, 1);
+        Assert.True(s.LiveExecutor(4, alive: true));
+        Assert.False(s.LiveExecutor(4, alive: false));   // killed mid-move: the death pose keeps the normal hands
+        Assert.False(s.LiveExecutor(9, alive: true));    // the victim is not an executor
+        s.Apply(End(160, 4), 2.0, 1);
+        Assert.False(s.LiveExecutor(4, alive: true));    // after the move: the pistol comes back
+    }
+
     [Fact]
     public void EndRemovesRun()
     {

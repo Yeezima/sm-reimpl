@@ -52,6 +52,15 @@ public sealed partial class MusouBoss
 
     partial void WarfrontBossStep(MusouEnemy boss, ReadOnlySpan<MusouTarget> targets, List<MusouBossStrike> strikes, ref bool handled)
     {
+        if (_sim.WarfrontIsChaosLord(Id) && _sim.ExecutionsIsHeld(Id))
+        {
+            // Executions X4b (owner 2026-11-26): the duelist's finisher holds him: no slam, charge, leap or bolt; one under way is dropped (the pool's held step keeps him standing at the pair's yaw).
+            if (Action != MusouBossAction.None) WarfrontLordIdle();
+            _leaping = false; _leapTicks = 0; _farTicks = 0;
+            _toldAction = Action;
+            handled = true;
+            return;
+        }
         if (!_sim.WarfrontLordDuelOn(Id, out int duelist))
         {
             _leaping = false; _farTicks = 0;

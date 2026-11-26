@@ -30,6 +30,8 @@ public readonly record struct ExecutionRun(int Executor, ExecutionTargetKind Tar
     int SlideTicks, uint StartTick, bool RaceSwapped)
 {
     public bool KillDone { get; init; }
+    /// <summary>The victim is an enemy (its <see cref="Target"/> an enemy id, not a player id); for callers outside the executions folders, which never name the kind (X4b review).</summary>
+    public bool OnEnemy => TargetKind == ExecutionTargetKind.Enemy;
     public Vector3 VictimAt { get; init; }
     public float VictimYaw { get; init; }
     public int VictimClass { get; init; } = -1;

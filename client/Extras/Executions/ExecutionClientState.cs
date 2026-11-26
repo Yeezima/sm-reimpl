@@ -83,6 +83,12 @@ public sealed class ExecutionClientState
     /// <summary>Whether <paramref name="id"/> is executing now.</summary>
     public bool TryLive(int id, out ExecutionRun run) => _live.TryGetValue(id, out run);
 
+    /// <summary>
+    /// Whether player <paramref name="id"/> is a live executor: alive and executing now. The client's hands rule for the move (X5; X4b review, 2026-11-26): its melee weapon in hand
+    /// (<c>ExtrasExecutionMeleeShown</c>) and its pistol holstered (<c>ExtrasExecutionPistolStowed</c>), as the campaign sync-kill clips grab the victim with the left hand.
+    /// </summary>
+    public bool LiveExecutor(int id, bool alive) => alive && _live.ContainsKey(id);
+
     /// <summary>The live run whose target is <paramref name="target"/> of <paramref name="kind"/>, if any.</summary>
     public bool TryTarget(ExecutionTargetKind kind, int target, out ExecutionRun run)
     {

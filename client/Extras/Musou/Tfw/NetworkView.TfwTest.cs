@@ -241,7 +241,7 @@ public partial class NetworkView
 
     TfwWarView TfwNow => _tfwState.War!.Value;
 
-    string TfwPromptNow => _tfwState.War is { } war ? TfwHudModel.Prompt(war, _client!.Predicted.Alive) : "";
+    string TfwPromptNow => _tfwState.War is { } war ? TfwHudModel.Prompt(war, _client!.Predicted.Alive, TfwFreePickupLine) : "";
 
     /// <summary>An order key: the order the server reports follows, the key's old action does not.</summary>
     async Task TfwOrder(Key key, MarineOrder order, GameAction? old)

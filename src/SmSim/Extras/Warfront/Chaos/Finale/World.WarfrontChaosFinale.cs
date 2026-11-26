@@ -15,8 +15,11 @@ namespace SmSim;
 /// <item><b>Snapshot:</b> the tick the last Chosen is gone, the connected humans of the battle, the downed included (lead 40), are ranked (<see cref="WarfrontDuelRanking"/>); nobody: no snapshot, the wipe rule decides.</item>
 /// <item><b>Isolation</b>, at the start and every tick of the relay: every other human aboard and held (no input, no damage); retainers benched; Guardsmen withdrawn; the sources and trickle stopped;
 /// the breaches closed silently; every other enemy removed without credit; every projectile, lingering area and pending blast not the duelist's removed, and every burn not his; barrages and drop pods
-/// called off (support is outside help); drops and buffs cleared; every open card offer withdrawn (its picks wait); executions aborted (the X3 seam); only the duelist's hits, staggers and throws land on the Lord.</item>
-/// <item><b>Entry:</b> a fresh life at the plaza entry facing the Lord (full health, armour, ammunition and charges; the current class and loadout), the Lord freed and unshielded.</item>
+/// called off (support is outside help); drops and buffs cleared; every open card offer withdrawn (its picks wait); only the duelist's hits, staggers and throws land on the Lord.</item>
+/// <item><b>Executions</b> (X4b, owner 2026-11-26): a finisher already playing at the snapshot runs to its end (never aborted) and the first entry waits for every one of them; from the snapshot on nobody
+/// starts one but the duelist, and he only on the Lord while his health is under <see cref="WarfrontDuelRules.LordExecutableBelow"/> of his maximum (<see cref="WarfrontDuelGate"/>); that finisher's
+/// kill frame kills the Lord through the normal damage path, so the duel's own win path ends it. A held Lord does nothing of his own (<c>MusouBoss.WarfrontLord.cs</c>).</item>
+/// <item><b>Entry:</b> a fresh life at the plaza entry facing the Lord (full health, armour, ammunition and charges; the current class and loadout; no overshield), the Lord freed and unshielded.</item>
 /// <item><b>Handoff:</b> a defeat or a disconnect; the Lord's health never written; his burns, stun, script and cooldowns cleared; put back on his spot (no heal) and held there; a 3 s pause; the next present challenger.</item>
 /// <item><b>End:</b> his death by the duelist is the fortress's win (the battle sees it); the queue exhausted is <see cref="WarfrontFinaleLost"/>, the run's duel hook leaves the battle as lost.</item>
 /// </list>
@@ -75,8 +78,44 @@ public sealed partial class World
     /// <summary>Whether the relay holds the battle under way now.</summary>
     bool DuelHolding => _duel is { Active: true } && _tfw?.Battle is { } b && ReferenceEquals(b, _duelBattle);
 
-    /// <summary>The executions seam (abort every execution under way, and at an entry the overshield goes): an intentional no-op in the series-37 candidate (lead 41): executions are refused on every Chaos stage (X4 phase 2), so none runs in a duel; wiring it needs a pinned cross-extra hook (follow-up).</summary>
-    partial void WarfrontDuelExecutions(int duelist);
+    /// <summary>
+    /// The executions at an entry (owner 2026-11-26: the overshield is cleared on duel entry): the duelist's armour is clamped to his body's bar (the fresh life of <see cref="TfwRespawnAt"/> already sets
+    /// it; this is the guard). Nothing is aborted: a finisher playing at the snapshot ran to its end before the first entry (<see cref="DuelFinishersPlaying"/>).
+    /// </summary>
+    void DuelEntryClearsOvershield(int duelist)
+    {
+        if (!_players.TryGetValue(duelist, out var p)) return;
+        float max = Loadouts.Body(Config, p).ShieldMax;
+        if (p.Shield > max) { _players[duelist] = p with { Shield = max }; DuelLog($"P{duelist}'s overshield cleared at the entry"); }
+    }
+
+    bool _duelWaitLogged;
+
+    /// <summary>
+    /// Whether a finisher is playing in the battle (executions X4b, owner 2026-11-26 "Finishers run into the duel"): the first entry waits for it to end (the snapshot stays taken; nobody starts another,
+    /// <see cref="WarfrontDuelGate"/>), so a move that killed the last Chosen, or any other under way, plays whole.
+    /// </summary>
+    bool DuelFinishersPlaying()
+    {
+        int live = ExecutionsLive.Count;
+        if (live > 0 && !_duelWaitLogged) { _duelWaitLogged = true; DuelLog($"{live} finisher{(live == 1 ? "" : "s")} playing: the first entry waits for {(live == 1 ? "it" : "them")} to end"); }
+        else if (live == 0 && _duelWaitLogged) { _duelWaitLogged = false; DuelLog("the finishers ended: the first entry"); }
+        return live > 0;
+    }
+
+    /// <summary>
+    /// The executions' gate in the finale (X4b; the World's <c>WarfrontDuelGate</c> hook in <c>Extras/Executions/Orks/World.ExecutionsChaos.cs</c>): while the relay holds the battle under way (the snapshot,
+    /// a duel, a handoff) <paramref name="duel"/> is set, and <paramref name="lord"/> is the Lord's id only for the duelist on the plaza with the Lord alive under <see cref="WarfrontDuelRules.LordExecutableBelow"/>.
+    /// </summary>
+    partial void WarfrontDuelGate(int executor, ref bool duel, ref ushort lord)
+    {
+        if (!DuelHolding) return;
+        duel = true;
+        if (_duel!.Phase != WarfrontDuelPhase.Duel || executor <= 0 || executor != _duelist) return;
+        ushort id = _duel.LordId;
+        float max = _duelBattle?.BossMaxHealth ?? 0f;
+        if (id != 0 && max > 0f && _musou is { } m && m.TryGet(id, out var l) && l.Alive && l.Health < WarfrontDuelRules.LordExecutableBelow * max) lord = id;
+    }
 
     /// <summary>
     /// The picker held while the relay is on (its protection would make the duelist unharmed): any offer open now is withdrawn, not taken (<see cref="SmSim.Extras.Warfront.Progression.WarfrontPicker.Leave"/>;
@@ -107,6 +146,7 @@ public sealed partial class World
             _duelBattle = battle;
             _duelist = 0;
             _duelEmptyLogged = false;
+            _duelWaitLogged = false;
             musou.WarfrontLordReset();
             DuelLog($"rules {WarfrontDuelRules.Version}: the bodyguard first, then the duel relay");
         }
@@ -128,6 +168,7 @@ public sealed partial class World
                     return;
                 }
                 DuelLog($"snapshot: the last Chosen fell; queue {string.Join(", ", queue.Select(k => DuelName(rules, k)))}; the Lord at {LordHealthText(lord)}");
+                if (DuelFinishersPlaying()) return;   // X4b: the Snapshot phase begins the duel once they end
                 DuelBegin(rules, run, battle, roster, first: true);
                 return;
             }
@@ -156,7 +197,8 @@ public sealed partial class World
                 if (Tick >= _handoffEnds) DuelBegin(rules, run, battle, roster);
                 return;
             case WarfrontDuelPhase.Snapshot:
-                DuelBegin(rules, run, battle, roster);
+                if (DuelFinishersPlaying()) return;   // X4b: a finisher playing at the snapshot runs to its end first
+                DuelBegin(rules, run, battle, roster, first: true);   // the first entry (a handoff begins from its own phase)
                 return;
         }
     }
@@ -229,7 +271,7 @@ public sealed partial class World
         if (battle.ChaosDuelEntry is { } entry) { _duelEntry = entry.At; _duelEntryYaw = entry.Yaw; }
         TfwRespawnAt(id, _duelEntry, _duelEntryYaw, faceCentre: false);
         if (_players.TryGetValue(id, out var p) && p.FireBoostLeft > 0f) _players[id] = p with { FireBoostLeft = 0f };
-        WarfrontDuelExecutions(id);
+        DuelEntryClearsOvershield(id);
         roster.Shield(lord, false);
         roster.AcceptOnly(lord, id);
         musou.WarfrontFree(lord);
@@ -320,6 +362,5 @@ public sealed partial class World
             if (start) DuelLog($"P{id} aboard to watch");
         }
         DuelHoldPicker(rules);
-        WarfrontDuelExecutions(0);
     }
 }

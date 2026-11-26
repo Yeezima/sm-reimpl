@@ -65,6 +65,25 @@ public sealed class WarfrontChaosRoster
         _ => "-",
     };
 
+    /// <summary>
+    /// The executions roster key of a kind's Chaos unit (executions X4b, owner 2026-11-25 and 2026-11-26; the keys of <c>ExecutionTargets.ChaosRun</c>, asked through the World's <c>WarfrontChaosUnit</c>
+    /// hook): Cultists and Traitor Guardsmen take the renegade's backhand, the Chaos Marine, the Aspiring Champion, the Havocs, the Raptor (grounded only: the choice skips the airborne) and the Chosen
+    /// the Chaos Marine's moves, the Daemon the Bloodletter's, the Lord only in his duel ("chaos_lord"); null for an Ork-only kind.
+    /// </summary>
+    public static string? ExecutionKey(MusouEnemyType kind) => kind switch
+    {
+        MusouEnemyType.Boy => "cultist",
+        MusouEnemyType.ShootaBoy => "traitor_guard",
+        MusouEnemyType.ChaosMarine => "chaos_tactical",
+        MusouEnemyType.Nob => "chaos_champion",
+        MusouEnemyType.BigShootaNob or MusouEnemyType.RokkitBoy => "chaos_havoc",
+        MusouEnemyType.Stormboy => "chaos_raptor",
+        MusouEnemyType.Gretchin => "bloodletter",
+        MusouEnemyType.BossBoy or MusouEnemyType.BossShootaBoy or MusouEnemyType.BossArdBoy or MusouEnemyType.BossNob => "chosen",
+        MusouEnemyType.Warboss => "chaos_lord",
+        _ => null,
+    };
+
     /// <summary>Set by <see cref="MusouSim.SpawnDaemon"/> for the one spawn it makes: the Gretchin row is then the breach's Daemon, not a Cultist.</summary>
     internal bool DaemonPending;
 

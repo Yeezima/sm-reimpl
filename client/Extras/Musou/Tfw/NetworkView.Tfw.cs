@@ -58,6 +58,9 @@ public partial class NetworkView
         TfwRangeTestFrame();   // the Firing Range script (NetworkView.TfwRangeTest.cs); off without --tfw-test-range
     }
 
+    /// <summary>Whether the won battle's "HOLD P FOR A FREE PICKUP" line applies: Musou's flow only; Warfront's win leaves for the hub by itself (X4b review, 2026-11-26), so its win hold shows no such line.</summary>
+    bool TfwFreePickupLine => _config is not { } c || !c.Extras.HasFlag(ContentExtras.Warfront);
+
     /// <summary>The HUD's frame (a client that draws, or the scripted test: a lean bot has no HUD). <see cref="MusouHud"/> keeps the boss bar: here it learns whose it is.</summary>
     void TfwHudFrame(in TfwWarView war, PlayerState me)
     {
@@ -73,6 +76,7 @@ public partial class NetworkView
         f.Objectives = _tfwState.Objectives;
         for (int k = 0; k < f.OrksOn.Length; k++) f.OrksOn[k] = k < _tfwState.Objectives.Count && _tfwState.Objectives[k].State == TfwPositionState.Clearing ? TfwOrksOn(_tfwState.Objectives[k]) : 0;
         f.Alive = me.Alive || Spectate is not null;   // a spectator was never killed
+        f.FreePickup = TfwFreePickupLine;   // X4b review: Warfront's win hold has no P pickup line
         f.Station = _tfwAt == TfwStation.None ? "" : TfwHudModel.StationPrompt(_tfwAt, ControlsInput.Prompt(GameAction.Use));
         f.PickupHold = _tfwKeys.PickupHold;
         f.Kos = _musouScore.Kos;

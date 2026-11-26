@@ -85,7 +85,9 @@ public partial class NetworkView
                 _packLogged[state.PlayerId] = packColour;
                 GD.Print($"t {_connectedFor:F1} s: P{state.PlayerId}'s jump pack is drawn in {packColour.ToHtml(false)} (backpack paint {(rig.PackPaint?.Primary?.Name ?? "none: the side's default")})");
             }
-            rig.StowPistol = !ork && HammerHoldsBothHands(state);   // anim/melee-flow (NetworkView.MeleeFlow.cs): the hammer in both hands holsters the pistol
+            bool stowPistol = !ork && HammerHoldsBothHands(state);   // anim/melee-flow (NetworkView.MeleeFlow.cs): the hammer in both hands holsters the pistol
+            ExtrasExecutionPistolStowed(state, ref stowPistol);   // EXTRAS-HOOK: executions (X4b review): a live executor's pistol is holstered through the move (the left hand grabs the victim)
+            rig.StowPistol = stowPistol;
             var (release, take) = ork ? (0.5f, 0.5f) : SwapFractionsFor(state);   // fix/stow-right: the old weapon leaves the hand on its marker, the new one comes at its draw's tag
             // fix/stim-knife-visuals: the strike's weapon leaves the hand with the strike's upper-body weight (a swing handed over to the legs fades out over the graph's exit while the simulation's
             // step goes on; the knife used to stay in the now rifle-posed hand, pointing up before the step ended), and every weapon is stowed while a combat stim is used (the stim clip's hands left it floating).
@@ -174,4 +176,6 @@ public partial class NetworkView
 
     /// <summary>Hook for added content (executions X5): <paramref name="shown"/> set when this player's melee weapon is in hand regardless of its swing (a live executor).</summary>
     partial void ExtrasExecutionMeleeShown(PlayerState state, ref bool shown);
+    /// <summary>Hook for added content (executions, X4b review): <paramref name="stowed"/> set when this player's pistol goes to its holster regardless of the slot shown (a live executor).</summary>
+    partial void ExtrasExecutionPistolStowed(PlayerState state, ref bool stowed);
 }
