@@ -257,7 +257,7 @@ public class NavJumpResumeTests
             Assert.False(b.Wait(TimeSpan.FromSeconds(3)));   // the other key waits for the map's build
             Assert.Equal(0, Volatile.Read(ref bBuilds));
             release.Set();
-            a.Wait(TimeSpan.FromSeconds(60)); b.Wait(TimeSpan.FromSeconds(60));
+            Assert.True(a.Wait(TimeSpan.FromSeconds(60)) && b.Wait(TimeSpan.FromSeconds(60)));
             Assert.Equal(1, aBuilds);
             Assert.Equal(1, bBuilds);   // then it builds its own key
             Assert.Equal(1, most);   // never two at once
@@ -402,6 +402,7 @@ public class NavJumpResumeTests
             var second = Task.Run(() => { var s = NavCache.LoadOrBuildJumps(dir, "gap", key, graph.NodeCount, () => { secondBuilds++; return whole; }, out string n); secondNote = n; return s; });
             Assert.False(second.Wait(TimeSpan.FromSeconds(3)));   // the map is being built: it waits instead of building beside it
             release.Set();
+            Assert.True(first.Wait(TimeSpan.FromSeconds(60)) && second.Wait(TimeSpan.FromSeconds(60)));   // bounded: fails instead of hanging
             var a = first.Result; var b = second.Result;
             Assert.Equal(1, firstBuilds);
             Assert.Equal(0, secondBuilds);   // it read the finished file

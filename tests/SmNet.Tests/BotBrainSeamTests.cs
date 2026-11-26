@@ -56,7 +56,7 @@ public class BotBrainSeamTests
         SpinWait.SpinUntil(() => false, 50);
         Assert.False(task.IsCompleted);                    // done, but not handed on before the poll
         Assert.Same(task, work.Run("lane|1|nav", () => 7, CancellationToken.None));   // the same key: the same job (a shadow brain shares it)
-        for (int i = 0; i < 200 && !task.IsCompleted; i++) { work.Poll(); if (!task.IsCompleted) Thread.Sleep(10); }
+        Assert.True(PollUntil(work, () => task.IsCompleted));
         Assert.True(task.IsCompletedSuccessfully);
         Assert.Equal(42, task.Result);
         work.Clear();
@@ -77,8 +77,46 @@ public class BotBrainSeamTests
         Assert.Equal(1, work.Keys);
         work.Forget("map x|nav");
         Assert.Equal(0, work.Keys);
-        for (int i = 0; i < 200 && !(search.IsCompleted && kept.IsCompleted); i++) { work.Poll(); Thread.Sleep(10); }
+        Assert.True(PollUntil(work, () => search.IsCompleted && kept.IsCompleted));   // bounded: a bare .Result after a short loop blocked forever (series-37 hang)
         Assert.Equal(1, search.Result);                    // a forgotten job still finishes at a poll
+        Assert.Equal(0, work.Running);
+    }
+
+    /// <summary>
+    /// Polls <paramref name="work"/> until <paramref name="done"/> holds or <paramref name="seconds"/> pass (false then). A held task completes only at a poll, so a test that
+    /// stopped polling after a fixed number of rounds and then read <c>.Result</c> of a job the loaded thread pool had not started yet blocked for ever (the series-37
+    /// integration hang in a full SmNet run); a wait through this fails instead.
+    /// </summary>
+    internal static bool PollUntil(BotWork work, Func<bool> done, double seconds = 60)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        while (true)
+        {
+            work.Poll();
+            if (done()) return true;
+            if (watch.Elapsed.TotalSeconds >= seconds) return false;
+            Thread.Sleep(5);
+        }
+    }
+
+    [Fact]
+    public void BotWork_hands_on_a_job_the_pool_finishes_late_at_a_later_poll_and_a_bounded_wait_fails_instead_of_hanging()
+    {
+        // The race behind the series-37 hang, forced: the job is still running after many polls (as on a starved thread pool), the forgotten key's task stays
+        // incomplete, and it completes at the first poll after the job ends.
+        var work = new BotWork();
+        using var release = new ManualResetEventSlim();
+        using var started = new ManualResetEventSlim();
+        var late = work.Run("brain lane 2|1|cover 1", () => { started.Set(); release.Wait(TimeSpan.FromSeconds(60)); return 5; }, CancellationToken.None);
+        work.Forget(late);
+        Assert.True(started.Wait(TimeSpan.FromSeconds(60)));
+        Assert.False(PollUntil(work, () => late.IsCompleted, seconds: 0.2));   // still running: the wait gives up, it does not block
+        Assert.False(late.IsCompleted);
+        Assert.Equal(1, work.Running);
+        release.Set();
+        SpinWait.SpinUntil(() => false, 50);
+        Assert.True(PollUntil(work, () => late.IsCompleted));
+        Assert.Equal(5, late.Result);
         Assert.Equal(0, work.Running);
     }
 

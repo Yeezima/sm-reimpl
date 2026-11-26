@@ -187,7 +187,7 @@ public class WarfrontDedicatedWarmupTests : IDisposable
             {
                 for (int i = 0; i < 3; i++) SmContent.Extras.Warfront.Maps.WarfrontLayoutCache.LoadOrGenerate(slot, dir, "dotnet", gen, out _);
             })).ToArray();
-            Task.WaitAll(writers);
+            Assert.True(Task.WaitAll(writers, TimeSpan.FromSeconds(120)));   // bounded: fails instead of hanging
             string path = SmContent.Extras.Warfront.Maps.WarfrontLayoutCache.PathIn(dir, slot, "dotnet");
             Assert.True(File.Exists(path));
             Assert.Empty(Directory.GetFiles(dir, "*.tmp"));   // no leftover temp file
