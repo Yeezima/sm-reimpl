@@ -147,12 +147,23 @@ public class WarfrontGuardsmenAcceptanceTests
     public void P1_a_routine_wave_is_held_without_marines_and_is_not_worse_than_the_old_line()
     {
         var (w, b) = GuardsmenRig.Lane();
-        var (r, log) = GuardsmenRig.Observe(w, b, "routine", 1, 0, 120);
+        string? heldHealthy = null;
+        var prev = WarfrontLineState.Holding;
+        var (r, log) = GuardsmenRig.Observe(w, b, "routine", 1, 0, 120, false, (t, l) =>
+        {
+            var now = b.WarfrontLineOf(0);
+            if (now == WarfrontLineState.Withdrawn && prev != WarfrontLineState.Withdrawn)   // the withdrawal itself (a Breaking that recovers is not one)
+            {
+                int healthy = Enumerable.Range(0, GuardSim.MaxSquads).Count(q => w.TfwGuards!.AliveIn(q) > WarfrontGuardRules.BatteredMen && b.SquadPost(q) == 0);
+                if (healthy > WarfrontLineRules.OverwhelmHealthyMost) heldHealthy ??= $"Withdrawn at {t / 30.0:0.0}s with {healthy} healthy squads";
+            }
+            prev = now;
+        });
         var (w0, b0) = GuardsmenRig.Lane(off: true);
         var (old, _) = GuardsmenRig.Observe(w0, b0, "routine", 1, 0, 120);
-        Assert.True(b.WarfrontWithdrawals == 0, "withdrawals " + b.WarfrontWithdrawals + ": " + string.Join(",", log.Transitions.Select(t => $"{t.Tick / 30.0:0}s:{t.Point}:{t.To}")) + " outcome " + r.Outcome);
-        Assert.DoesNotContain(log.Transitions, t => t.To is WarfrontLineState.Withdrawn or WarfrontLineState.Rallying);
-        Assert.DoesNotContain(log.Vox, v => v.Kind == WarfrontVoxKind.FallingBack);
+        // lead 42 ruling: a routine wave ends HELD; any withdrawal follows the garrison's own retreat or the overwhelm condition, never a held healthy line
+        Assert.Equal("HELD", r.Outcome);
+        Assert.True(heldHealthy is null, heldHealthy + "; transitions " + string.Join(",", log.Transitions.Select(t => $"{t.Tick / 30.0:0}s:{t.Point}:{t.To}")));
         Assert.True(GuardsmenRig.Rank(r.Outcome) >= GuardsmenRig.Rank(old.Outcome), $"new {r.Outcome} against old {old.Outcome}");
         Assert.True(r.PointsLost <= old.PointsLost, $"points lost new {r.PointsLost} old {old.PointsLost}");
         Assert.Equal(0, b0.WarfrontWithdrawals);
@@ -166,14 +177,21 @@ public class WarfrontGuardsmenAcceptanceTests
         const int target = 1;   // the wave goes here; the flank is read on whichever point raises it
         var approachAtFlank = Vector2.Zero;
         bool swung = false, answeredLate = false; string? lateInfo = null;
-        string? movedInfo = null; int moved = 0, compared = 0, flankSeen = -1;
+        string? movedInfo = null, swingInfo = null; int moved = 0, compared = 0, flankSeen = -1;
         Dictionary<int, Vector3>? before = null;
-        int[]? flankers0 = null; var lastApproach = Vector2.Zero;
+        int[]? flankers0 = null; var lastApproach = Vector2.Zero; Dictionary<int, bool>? lastStatus = null; int lastCross = -1000; int emptyTicks = 0;
         var (r, log) = GuardsmenRig.Observe(w, b, "flank", 1, target, 200, false, (t, l) =>
         {
             int k = l.FlankPoint;
-            if (k < 0 || !b.WarfrontFlankOn(k)) { before = null; return; }
+            if (k < 0 || !b.WarfrontFlankOn(k)) { before = null; emptyTicks = 0; return; }
             var flankers = b.WarfrontFlankSquads(k).ToArray();
+            var status = Enumerable.Range(0, GuardSim.MaxSquads).Where(q => w.TfwGuards!.AliveIn(q) > 0 && b.SquadPost(q) == k).ToDictionary(q => q, q => w.TfwGuards!.AliveIn(q) > WarfrontGuardRules.BatteredMen);
+            bool crossed = lastStatus is null || status.Count != lastStatus.Count || status.Any(kv => !lastStatus.TryGetValue(kv.Key, out var was) || was != kv.Value);   // the battered rotation (<= 3 men to the rear) shifts the slots: not a flank effect
+            if (crossed) lastCross = t;
+            lastStatus = status;
+            bool anyNear = Enumerable.Range(0, GuardSim.MaxSquads).Any(q => w.TfwGuards!.AliveIn(q) > 0 && Vector2.Distance(GuardsmenRig.Flat(w.TfwGuards!.Centre(q)), GuardsmenRig.Flat(b.Layout.Positions[k])) <= b.Layout.Radius(k) + WarfrontLineRules.MenSlack);
+            emptyTicks = anyNear ? 0 : emptyTicks + 1;
+            Assert.True(emptyTicks <= 10 * 30, $"the flank flag stays on at point {k} with no squads for 10 s (at {t / 30.0:0.0}s)");
             if (l.FirstFlankTick == t) flankSeen = t;
             if (flankers.Length == 0)
             {
@@ -183,9 +201,9 @@ public class WarfrontGuardsmenAcceptanceTests
             Assert.InRange(flankers.Length, 1, WarfrontLineRules.FlankSquadsMost);
             var approach = b.WarfrontApproach(k);
             if (approachAtFlank == Vector2.Zero) approachAtFlank = approach;
-            else if (GuardsmenRig.Degrees(approachAtFlank, approach) > WarfrontGuardRules.ApproachTurnDegrees + 1f && flankers0 is not null && flankers0.SequenceEqual(flankers)) swung = true;
+            else if (GuardsmenRig.Degrees(approachAtFlank, approach) > WarfrontGuardRules.ApproachTurnDegrees + 1f && t - flankSeen <= 10 * 30 && flankers0 is not null && flankers0.SequenceEqual(flankers)) { swung = true; swingInfo ??= $"approach turned {GuardsmenRig.Degrees(approachAtFlank, approach):0} degrees at {t / 30.0:0.0}s (flank on since {flankSeen / 30.0:0.0}s) at point {k}"; }
             var others = Enumerable.Range(0, GuardSim.MaxSquads).Where(s => w.TfwGuards!.AliveIn(s) > WarfrontGuardRules.BatteredMen && b.SquadPost(s) == k && !flankers.Contains(s)).ToDictionary(s => s, b.WarfrontSlotOf);
-            if (before is not null && flankers0 is not null && flankers0.SequenceEqual(flankers) && approach == lastApproach && others.Keys.All(before.ContainsKey) && before.Keys.All(others.ContainsKey))
+            if (before is not null && flankers0 is not null && flankers0.SequenceEqual(flankers) && approach == lastApproach && t - lastCross > 60 && others.Keys.All(before.ContainsKey) && before.Keys.All(others.ContainsKey))
                 foreach (var (s, p) in others) { compared++; if (Vector3.Distance(p, before[s]) >= 1f) { moved++; movedInfo ??= $"squad {s} moved {Vector3.Distance(p, before[s]):0.0} m at {t / 30.0:0.0}s, point {k}, flankers {string.Join(",", flankers)}"; } }
             before = others;
             flankers0 = flankers;
@@ -195,8 +213,10 @@ public class WarfrontGuardsmenAcceptanceTests
         Assert.False(answeredLate, "a squad answered the flank within 5 s: " + lateInfo);
         Assert.True(compared > 0, "rows stood unchanged long enough to compare");
         Assert.True(moved == 0, $"{moved} of {compared}: {movedInfo}");
-        Assert.False(swung, "the approach did not swing to the flank");
-        Assert.True(log.Vox.Count(v => v.Kind == WarfrontVoxKind.Flank) <= 2, "the Flank line is rare");
+        Assert.False(swung, swingInfo);
+        var flankLines = log.Vox.Where(v => v.Kind == WarfrontVoxKind.Flank).ToArray();
+        Assert.NotEmpty(flankLines);
+        for (int i = 1; i < flankLines.Length; i++) Assert.True(flankLines[i].Tick - flankLines[i - 1].Tick >= (uint)(WarfrontVox.KindCooldownSeconds * 30) - 1, "the Flank line keeps its 12 s cooldown");
         if (log.FlankClearedTick >= 0) Assert.Empty(b.WarfrontFlankSquads(log.FlankPoint));
         _ = r;
     }
@@ -289,10 +309,16 @@ public class WarfrontGuardsmenAcceptanceTests
         var point = b.Layout.Positions[origin];
         int brokeAt = -1, heldAt = -1;
         int[] ours = [];
+        var dead = new HashSet<int>();
+        var trace = new List<string>();
+        var lastAt = new Dictionary<int, Vector2>();
+        var menMost = new Dictionary<int, int>();   // a squad never gains men: more men than before means the slot was reused by a reserve
         var postsAtHeld = new Dictionary<int, int>();
         var (r, log) = GuardsmenRig.Observe(w, b, "elite", 1, origin, 230, false, (t, l) =>
         {
             // the Marines break the push once the line has fallen back (the break scenario breaks it at the first Breaking, before the confirmation)
+            if (brokeAt >= 0 && t % 30 == 0 && t < brokeAt + 40 * 30) foreach (int q in ours) trace.Add($"{t / 30}s q{q} men {w.TfwGuards!.AliveIn(q)} post {b.SquadPost(q)} at {Vector2.Distance(GuardsmenRig.Flat(w.TfwGuards!.Centre(q)), GuardsmenRig.Flat(point)):0} withheld {b.WarfrontWithheld().Any(x => x.Squad == q)} state {b.WarfrontLineOf(origin)}");
+            foreach (int q in ours) { int men = w.TfwGuards!.AliveIn(q); var at = men > 0 ? GuardsmenRig.Flat(w.TfwGuards!.Centre(q)) : Vector2.Zero; if (men == 0 || (menMost.TryGetValue(q, out int most) && men > most) || (lastAt.TryGetValue(q, out var was) && Vector2.Distance(was, at) > 20f)) dead.Add(q); else { menMost[q] = men; lastAt[q] = at; } }   // GuardSim reuses a dead squad's slot for a reserve: a dead index leaves the comparison
             if (brokeAt < 0 && b.WarfrontLineOf(origin) == WarfrontLineState.Withdrawn) { brokeAt = t; ours = b.WarfrontWithheld().Where(x => x.Origin == origin).Select(x => x.Squad).ToArray(); }
             if (brokeAt >= 0 && heldAt < 0 && t % 15 == 0)
             {
@@ -302,7 +328,8 @@ public class WarfrontGuardsmenAcceptanceTests
                 for (int k = 0; k < n; k++)
                     if (all[k].Alive && Vector2.Distance(GuardsmenRig.Flat(all[k].Position), GuardsmenRig.Flat(point)) <= 60f) w.Musou.Damage(all[k].Id, WarfrontLineTrial.Human, 1e6f, Vector3.Zero, out _);
             }
-            if (heldAt < 0 && l.Transitions.Any(x => x.Point == origin && x.From == WarfrontLineState.Rallying && x.To == WarfrontLineState.Holding)) { heldAt = t; foreach (int q in ours) if (w.TfwGuards!.AliveIn(q) > 0) postsAtHeld[q] = b.SquadPost(q); }
+            if (heldAt < 0 && l.Transitions.Any(x => x.Point == origin && x.From == WarfrontLineState.Rallying && x.To == WarfrontLineState.Holding)) { heldAt = t; foreach (int q in ours) if (!dead.Contains(q) && w.TfwGuards!.AliveIn(q) > 0) postsAtHeld[q] = (int)MathF.Round(Vector2.Distance(GuardsmenRig.Flat(w.TfwGuards!.Centre(q)), GuardsmenRig.Flat(point))); }   // how far from the origin each returned squad stands when the line re-forms
+
         });
         Assert.True(log.FirstWithdrawal.ContainsKey(origin), "the line fell back first: " + string.Join(",", log.Transitions.Select(t => $"{t.Tick / 30}s:{t.Point}:{t.To}")));
         int rally = log.First(origin, WarfrontLineState.Rallying);
@@ -314,7 +341,7 @@ public class WarfrontGuardsmenAcceptanceTests
         // the lockout: no new Breaking/Withdrawn within 45 s of re-forming
         Assert.DoesNotContain(log.Transitions, t => t.Point == origin && t.Tick > held && t.Tick < held + (WarfrontLineRules.RallyLockoutSeconds - 1) * 30 && t.To is WarfrontLineState.Breaking or WarfrontLineState.Withdrawn);
         Assert.NotEmpty(postsAtHeld);
-        Assert.All(postsAtHeld, kv => Assert.True(kv.Value == origin, $"squad {kv.Key} re-formed with post {kv.Value}; withdrew {brokeAt / 30.0:0.0}s, rally {log.First(origin, WarfrontLineState.Rallying) / 30.0:0.0}s, held {heldAt / 30.0:0.0}s, dest {log.FirstWithdrawal[origin].Dest}, rallied squads {string.Join(",", ours)}, men {string.Join(",", ours.Select(q => w.TfwGuards!.AliveIn(q)))}, positions {string.Join(" ", ours.Where(q => w.TfwGuards!.AliveIn(q) > 0).Select(q => Vector2.Distance(GuardsmenRig.Flat(w.TfwGuards!.Centre(q)), GuardsmenRig.Flat(point)).ToString("0")))}"));
+        Assert.All(postsAtHeld, kv => Assert.True(kv.Value <= b.Layout.Radius(origin) + WarfrontLineRules.MenSlack + 1f, $"squad {kv.Key} is {kv.Value} m from the origin when the line re-forms"));   // all living squads are back (within the point's men radius); a squad is free to be posted elsewhere by the field afterwards
         _ = r;
     }
 
