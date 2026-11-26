@@ -35,7 +35,7 @@ Scanned 4485 spec table rows: **3343 tagged**, 746 not tagged (read from data wi
 | Movement (critical) | 477 | 415 | 400 | 125 | 12 |
 | Combat core (critical) | 30 | 21 | 25 | 20 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
-| Melee (critical) | 176 | 155 | 127 | 60 | 5 |
+| Melee (critical) | 176 | 155 | 128 | 60 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
@@ -53,14 +53,14 @@ Scanned 4485 spec table rows: **3343 tagged**, 746 not tagged (read from data wi
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
 | General game design | 341 | 339 | 113 | 142 | 0 |
 | Ork faction | 303 | 282 | 182 | 74 | 0 |
-| **All areas** | **3343** | 3026 | 2361 | 1009 | 37 |
+| **All areas** | **3343** | 3026 | 2362 | 1009 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 2118 |
-| confidence: medium | 1151 |
+| confidence: medium | 1152 |
 | confidence: low | 1099 |
 | notes: ours | 489 |
 | kind: interpretation | 474 |
@@ -1523,7 +1523,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C778FFFB` | Melee field-of-view widening (camera/melee-fov-widen, owner 2026-11-15) | any melee action (swing, heavy strike, the charge incl. the sprint-RMB charge, the dash attack's lunge, the ground pound) adds 10 horizontal degrees to the configured field of view (`FovMath.Clamp`; unset = the data's look), capped at 120 (115 goes to 120… (horizontal degrees at the window's aspect; 0.3 s) | kind: ours | `MeleeFov`, `NetworkView.MeleeFov`, `NetworkView.RigCamera` | Melee field-of-view widening (camera/melee-fov-widen, owner…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: any melee action (swing, heavy strike, the charge incl. the… | ☐ |
 | `R-6320E2A6` | Melee mode: enter (camera/melee-orbit, owner 2026-11-25) | a move that frees the camera (`MeleeMode.FreesCamera`): a swing or heavy strike (`MeleeStep` > 0) with a melee weapon or the combat knife (`MeleeMode.EntersMeleeMode`: wargear named `..._melee_...`, or the Ork boy's choppa), or the jump pack's dash attack… | kind: ours | `MeleeMode`, `NetworkView.MeleeOrbit` | Melee mode: enter (camera/melee-orbit, owner 2026-11-25): compare with SM1 with an overlaid screenshot taken from the same position. Ours: a move that frees the camera (MeleeMode.FreesCamera): a swing or… | ☐ |
 | `R-651EACCA` | Melee mode: exit | this tick's input: a fire press (or fire held once the strike is over), the aim button held, a reload press; death; respawn. A grenade throw and sprinting keep it. No timer | confidence: medium | `MeleeMode.Step` | Melee mode: exit: compare with SM1 by feel or video. Ours: this tick's input: a fire press (or fire held once the strike is… | ☐ |
-| `R-35E1C382` | Melee mode: during an own finisher (executions, owner 2026-11-26) | while the own execution holds the player (the client's own live run from its Start until its End or the run's own end tick, the same test as the execution orbit camera, `OwnExecuting`) Fire, Aim and Reload do nothing to melee mode: the player comes out of the… | kind: ours | `MeleeMode.Inputs.Locked`, `ExtrasMeleeModeLocked` (client/Extras/Executions/NetworkView.ExecutionMeleeMode.cs) | Melee mode: during an own finisher (executions, owner…: compare with SM1 by feel or video. Ours: while the own execution holds the player (the client's own live run… | ☐ |
+| `R-35E1C382` | Melee mode: during an own finisher (executions, owner 2026-11-26) | while the own execution holds the player (the client's own live run from its Start until its End or the run's own end tick, the same test as the execution orbit camera, `OwnExecuting`; and, before the Start is heard, from an Execute press made while the… (s (the wait for the Start)) | kind: ours; confidence: medium | `MeleeMode.Inputs.Locked`, `FinisherPressHold`, `ExtrasMeleeModeLocked` (client/Extras/Executions/NetworkView.ExecutionMeleeMode.cs) | Melee mode: during an own finisher (executions, owner…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while the own execution holds the player (the client's own live run… | ☐ |
 | `R-05E86E01` | Melee mode: data camera timeout not used | `camera_curve_settings\melee_default_mp` `melee_mode_timeout` **3** (exploration sets 5) (seconds (units by name)) | kind: gap (not reproduced) | not read | Melee mode: data camera timeout not used: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: camera_curve_settings\melee_default_mp melee_mode_timeout 3… | ☐ |
 | `R-33F709E1` | Melee mode: camera orbit | the mouse and right stick turn the camera's yaw (`_yaw`) all the way round the marine; pitch range, distance, rig curve and blend as outside melee mode (the data's `melee_default_mp` set, 7.9 m back, 1 s blend, pitch 45-110, is not used: owner "Today's… (radians) | kind: ours | `NetworkView.MeleeOrbit`, `NetworkView.RigCamera` | Melee mode: camera orbit: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the mouse and right stick turn the camera's yaw (_yaw) all the way… | ☐ |
 | `R-384F0BFA` | Melee mode: body steering ("run where you steer") | the movement keys/left stick read relative to the camera give the run direction (`MeleeOrbitSteer.StickYaw`: camera yaw + atan2(-x, y)); sent as the input yaw with the stick as pure forward (magnitude kept, so the forward run 6.5 / sprint speeds apply in… (radians) | kind: ours; confidence: medium | `MeleeOrbitSteer`, `NetworkView.MeleeOrbitInput` | Melee mode: body steering ("run where you steer"): compare with SM1 by timing a run over a known distance. Ours: the movement keys/left stick read relative to the camera give the run… | ☐ |

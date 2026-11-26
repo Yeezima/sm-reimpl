@@ -239,6 +239,76 @@ public class MeleeModeTests
         Assert.Equal(MeleeMode.Change.Aimed, m.Step(In(aim: true)));
     }
 
+    // ---- before the Start arrives: the Execute press holds the mode (lead 41) ----
+
+    [Fact]
+    public void TheWaitForTheStartIsAtLeast06SecondsOrTwiceTheRoundTrip()
+    {
+        Assert.Equal(0.6, FinisherPressHold.Bound(0.0), 9);
+        Assert.Equal(0.6, FinisherPressHold.Bound(0.2), 9);
+        Assert.Equal(1.0, FinisherPressHold.Bound(0.5), 9);
+        Assert.Equal(0.6, FinisherPressHold.Bound(-1.0), 9);
+    }
+
+    [Fact]
+    public void APressThenALateStartStaysInMeleeModeThroughTheWholeFinisher()
+    {
+        var m = Entered();
+        var hold = new FinisherPressHold();
+        double bound = FinisherPressHold.Bound(0.1);
+        hold.Press(10.0);
+        double t = 10.0;
+        // The round trip: no Start yet; a fire press, a release and an aim press do nothing.
+        foreach (var (fire, aim) in new[] { (false, false), (true, false), (false, false), (false, true), (false, false) })
+        {
+            t += 0.1;
+            bool held = hold.Held(t, live: false, endedSincePress: false, bound);
+            Assert.True(held);
+            Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: fire, aim: aim) with { Locked = held }));
+        }
+        // The Start at 0.55 s: the real lock holds on (the speculative part lets go, the hook ORs the live run in).
+        t = 10.55;
+        Assert.False(hold.Held(t, live: true, endedSincePress: false, bound));
+        for (int i = 0; i < 30; i++) Assert.Equal(MeleeMode.Change.None, m.Step(In(reload: i % 2 == 0) with { Locked = true }));
+        // The End: the press is forgotten, still in melee mode; a fresh press leaves.
+        Assert.False(hold.Held(t + 2.0, live: false, endedSincePress: false, bound));
+        Assert.Equal(MeleeMode.Change.None, m.Step(In()));
+        Assert.True(m.Active);
+        Assert.Equal(MeleeMode.Change.Shot, m.Step(In(fire: true)));
+    }
+
+    [Fact]
+    public void APressWithNoStartReleasesTheHoldAfterTheBound()
+    {
+        var m = Entered();
+        var hold = new FinisherPressHold();
+        double bound = FinisherPressHold.Bound(0.05);   // 0.6 s
+        hold.Press(5.0);
+        Assert.True(hold.Held(5.3, false, false, bound));
+        Assert.True(hold.Held(5.6, false, false, bound));
+        Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: true) with { Locked = true }));   // a press in the wait: nothing
+        Assert.False(hold.Held(5.61, false, false, bound));                                  // refused or lost: the normal rule again
+        Assert.False(hold.Held(5.7, false, false, bound));
+        Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: true)));   // the press made in the wait is spent until released
+        m.Step(In());
+        Assert.Equal(MeleeMode.Change.Shot, m.Step(In(fire: true)));   // a fresh press leaves
+    }
+
+    [Fact]
+    public void AnEndHeardAfterThePressOrNoPressHoldsNothing()
+    {
+        var hold = new FinisherPressHold();
+        Assert.False(hold.Held(1.0, false, false, 0.6));   // no press
+        Assert.True(double.IsNaN(hold.PressedAt));
+        hold.Press(2.0);
+        Assert.Equal(2.0, hold.PressedAt);
+        Assert.False(hold.Held(2.2, live: false, endedSincePress: true, 0.6));   // the run started and ended before a live list showed it
+        Assert.False(hold.Held(2.3, false, false, 0.6));                         // forgotten
+        hold.Press(3.0);
+        hold.Reset();
+        Assert.False(hold.Held(3.1, false, false, 0.6));                         // a new connection
+    }
+
     // ---- the body yaw ----
 
     [Fact]
