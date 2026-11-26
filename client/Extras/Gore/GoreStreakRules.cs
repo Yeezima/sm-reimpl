@@ -374,7 +374,7 @@ public static class GoreStreakRules
             if (band == Band.Upper) alpha = 1f - UpperFade * Smooth(Keys[2].T, Keys[4].T, k.T);
             if (g <= 0f) { len = 0f; alpha = 0f; }
         }
-        return new BandAt(deg * MathF.PI / 180f, len, w, b.Root * k.Exit, alpha, bend * b.Bend, b.Across * MathF.Min(1f, 0.3f + Grow(k)), ShaderHash(seed, 60 + i) * MathF.Tau);
+        return new BandAt(deg * MathF.PI / 180f, len, w, b.Root * k.Exit, alpha, bend * b.Bend, b.Across * (0.3f + 0.7f * Grow(k) * Grow(k)), ShaderHash(seed, 60 + i) * MathF.Tau);   // the roots part late (gore round 4: frame 1's half-fan near the reference's 17 deg)
     }
     /// <summary>The entry band fades out between these ages (s; the reference's entry lasts to frame 8 and is gone by frame 9).</summary>
     public const float EntryFadeFrom = 0.76f, EntryFadeTo = 0.86f;

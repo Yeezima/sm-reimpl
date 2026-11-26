@@ -137,7 +137,7 @@ void vertex() {
         float s = uu * len;
         float meander = ({{F(GoreStreakRules.MeanderWidth)}} * w + {{F(GoreStreakRules.MeanderLength)}} * len) * sin(3.14159265 * uu) * sin(6.2831853 * s / {{F(GoreStreakRules.MeanderWave)}} + phase);
         float across = bend * s * s / max(len, 0.05) + meander + vv * w * prof(uu) * {{F(GoreStreakRules.EdgePad)}};
-        VERTEX = vec3(B_ROOT[band] * ex + cs * s - sn * across, B_ACROSS[band] * min(1.0, 0.3 + g) + sn * s + cs * across, 0.0);
+        VERTEX = vec3(B_ROOT[band] * ex + cs * s - sn * across, B_ACROSS[band] * (0.3 + 0.7 * g * g) + sn * s + cs * across, 0.0);   // the roots part late (GoreStreakRules.BandOf)
         vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
         v_depth = -view.z;
         POSITION = PROJECTION_MATRIX * view;   // written in both branches: once a shader writes POSITION, Godot takes it for every vertex
