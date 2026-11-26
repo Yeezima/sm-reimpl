@@ -43,7 +43,7 @@ public partial class GoreStreakView : Node3D
     }
 
     /// <summary>The strip pass's output on both renderers (repair round 3): the ground replaced by the strip red (times the key's red), no green or blue.</summary>
-    static readonly string StripMix = "    ALBEDO = vec3(strip_red * red, 0.0, 0.0);   // GoreStreakRules.StripRed\n    ALPHA = st;";
+    static readonly string StripMix = "    ALBEDO = out_col(vec3(strip_red * red, 0.0, 0.0));   // GoreStreakRules.StripRed\n    ALPHA = st;";
 
     static string ShaderCode(bool strip) => $$"""
 shader_type spatial;
@@ -60,6 +60,7 @@ uniform float shade = 0.26;              // GoreStreakRules.Shade
 uniform float core_alpha = 0.45;         // GoreStreakRules.CoreAlpha
 uniform float near_from = {{F(GoreStreakRules.NearFadeFrom)}};
 uniform float near_to = {{F(GoreStreakRules.NearFadeTo)}};
+uniform bool srgb_out = false;           // Compatibility: its albedo goes through display-to-linear once more on the way (the colour probe), so the scene-linear values are sent in display form
 
 const int NK = {{GoreStreakRules.Keys.Length}};
 const float K_T[NK] = { {{KeyArray(k => k.T)}} };
@@ -93,6 +94,7 @@ varying flat vec4 v_k;         // opacity x band share x shown, fill, grit, oute
 varying flat vec4 v_r;         // root, texture offset u, texture offset v, how far the side bands have grown
 varying flat vec2 v_m;         // mist, red
 
+vec3 out_col(vec3 c) { return srgb_out ? mix(12.92 * c, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)) : c; }
 float h01(float seed, float salt) { return fract(sin(seed * 12.9898 + salt * 78.233) * 43758.5453); }   // GoreStreakRules.ShaderHash
 float prof(float u) { return (0.7 + 0.3 * smoothstep(0.0, 0.5, u)) * (1.0 - 0.6 * smoothstep(0.82, 1.0, u)); }   // GoreStreakRules.Profile
 
@@ -182,16 +184,17 @@ void fragment() {
     float dens = mottle * (1.0 - 0.4 * min(av, 1.0));   // lighter in the cell centres
     float red = v_m.y;
     // the feathered edge: drawn where the shape clears a threshold the large cells set (GoreStreakRules.Drawn); every drawn texel fully stripped, never a half-stripped pink fringe
-    float cut = {{F(GoreStreakRules.CutLo)}} + {{F(GoreStreakRules.CutHi - GoreStreakRules.CutLo)}} * (1.0 - big);
-    if (probe >= 0.0) { shp = (av < 1.0 && u > 0.1 && u < 0.9) ? 1.0 : 0.0; core = probe; dens = 0.7; red = 1.0; cut = 0.5; nearf = 1.0; }
+    float cut = {{F(GoreStreakRules.CutLo)}} + {{F(GoreStreakRules.CutHi - GoreStreakRules.CutLo)}} * (1.0 - (0.6 * big + 0.4 * small));
+    float blood = min(1.0, band0 * edge * cov * ({{F(GoreStreakRules.BloodCrack)}} + {{F(1f - GoreStreakRules.BloodCrack)}} * (1.0 - small)));   // darker cracks, lighter cells
+    if (probe >= 0.0) { shp = (av < 1.0 && u > 0.1 && u < 0.9) ? 1.0 : 0.0; blood = probe; dens = 0.7; red = 1.0; cut = 0.5; nearf = 1.0; }
     float dr = smoothstep(cut - {{F(GoreStreakRules.DrawRamp)}}, cut + {{F(GoreStreakRules.DrawRamp)}}, shp);
     if (dr <= 0.0) discard;
-    float a = min(1.0, core * core_alpha) * nearf * dr;
+    float a = min(1.0, blood * core_alpha) * nearf * dr;
 {{(strip ? $$"""
     float st = strip_max * dr;
 {{StripMix}}
 """ : $$"""
-    ALBEDO = tint * shade * mix({{F(ClassicBloodRules.RibbonShadeFloor)}}, {{F(ClassicBloodRules.RibbonShadeTop)}}, smoothstep(0.15, 0.85, dens));
+    ALBEDO = out_col(tint * shade * mix({{F(ClassicBloodRules.RibbonShadeFloor)}}, {{F(ClassicBloodRules.RibbonShadeTop)}}, smoothstep(0.15, 0.85, dens)));
     ALPHA = a;
 """)}}
 }
@@ -201,7 +204,7 @@ void fragment() {
     static ImageTexture? _tex;
     static ArrayMesh? _strip;
     static readonly StringName PNow = "now", PAgeOverride = "age_override", PFil = "fil", PTint = "tint", PShade = "shade", PCoreAlpha = "core_alpha", PStripMax = "strip_max",
-        PNearFrom = "near_from", PNearTo = "near_to", PStripRed = "strip_red", PProbe = "probe";
+        PNearFrom = "near_from", PNearTo = "near_to", PStripRed = "strip_red", PSrgbOut = "srgb_out", PProbe = "probe";
 
     MultiMesh _mm = null!;
     MultiMeshInstance3D _node = null!;
@@ -322,7 +325,7 @@ void fragment() {
             m.SetShaderParameter(PFil, Filament()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, GoreStreakRules.Shade);
             m.SetShaderParameter(PStripMax, GoreStreakRules.StripMax); m.SetShaderParameter(PCoreAlpha, GoreStreakRules.CoreAlpha);
             m.SetShaderParameter(PNearFrom, _nearFrom); m.SetShaderParameter(PNearTo, _nearTo);
-            m.SetShaderParameter(PStripRed, GoreStreakRules.StripRed); m.SetShaderParameter(PProbe, _probe ?? -1f);
+            m.SetShaderParameter(PStripRed, GoreStreakRules.StripRed); m.SetShaderParameter(PSrgbOut, RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility"); m.SetShaderParameter(PProbe, _probe ?? -1f);
         }
         _mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true, Mesh = StripMesh() };
         _mm.InstanceCount = GoreStreakRules.PoolSize * NB;

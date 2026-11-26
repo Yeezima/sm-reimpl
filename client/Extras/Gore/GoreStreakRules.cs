@@ -56,17 +56,17 @@ public static class GoreStreakRules
     public static readonly Key[] Keys =
     [
         //   T      Exit   Entry  Fan   Width   Fill   Opac   Grit   Br    Outer  Root   Mist   Red
-        new(0.00f, 1.40f, 0.50f,  5f, 0.015f, 1.00f, 0.95f, 0.00f, 1.0f, 0.00f, 1.00f, 0.30f, 1.00f),
-        new(0.05f, 1.90f, 0.92f, 21f, 0.034f, 1.00f, 0.90f, 0.05f, 1.7f, 0.00f, 1.00f, 0.80f, 1.00f),
-        new(0.10f, 2.20f, 1.00f, 29f, 0.039f, 1.00f, 0.86f, 0.10f, 2.0f, 0.00f, 1.00f, 1.00f, 1.00f),
-        new(0.18f, 2.20f, 1.02f, 29f, 0.039f, 0.90f, 0.76f, 0.15f, 2.0f, 0.55f, 0.90f, 0.50f, 0.88f),
-        new(0.27f, 2.40f, 1.08f, 37f, 0.046f, 0.90f, 0.70f, 0.20f, 2.0f, 0.20f, 0.70f, 1.00f, 0.92f),
-        new(0.37f, 2.52f, 1.16f, 35f, 0.048f, 0.80f, 0.62f, 0.28f, 2.0f, 0.12f, 0.40f, 0.85f, 0.85f),
-        new(0.48f, 2.66f, 1.22f, 34f, 0.049f, 0.64f, 0.56f, 0.36f, 2.0f, 0.06f, 0.00f, 0.70f, 0.78f),
-        new(0.60f, 2.74f, 1.14f, 34f, 0.049f, 0.50f, 0.50f, 0.44f, 2.0f, 0.04f, 0.00f, 0.52f, 0.72f),
-        new(0.72f, 2.82f, 1.08f, 33f, 0.049f, 0.40f, 0.44f, 0.50f, 2.0f, 0.04f, 0.00f, 0.38f, 0.66f),
-        new(0.85f, 2.84f, 0.15f, 30f, 0.048f, 0.27f, 0.38f, 0.56f, 2.0f, 0.08f, 0.00f, 0.22f, 0.60f),
-        new(0.98f, 2.84f, 0.08f, 26f, 0.046f, 0.07f, 0.26f, 0.60f, 2.0f, 0.70f, 0.00f, 0.08f, 0.55f),
+        new(0.00f, 1.40f, 0.44f,  4f, 0.012f, 1.00f, 0.95f, 0.00f, 1.0f, 0.00f, 1.00f, 0.30f, 1.00f),
+        new(0.05f, 1.90f, 0.81f, 12f, 0.028f, 1.00f, 0.90f, 0.05f, 1.7f, 0.00f, 1.00f, 0.80f, 1.00f),
+        new(0.10f, 2.20f, 0.88f, 16f, 0.032f, 1.00f, 0.86f, 0.10f, 2.0f, 0.00f, 1.00f, 1.00f, 1.00f),
+        new(0.18f, 2.20f, 0.90f, 16f, 0.032f, 0.90f, 0.76f, 0.15f, 2.0f, 0.55f, 0.90f, 0.50f, 0.88f),
+        new(0.27f, 2.40f, 0.95f, 20f, 0.037f, 0.90f, 0.70f, 0.20f, 2.0f, 0.20f, 0.70f, 1.00f, 0.92f),
+        new(0.37f, 2.52f, 1.02f, 19f, 0.039f, 0.70f, 0.62f, 0.28f, 2.0f, 0.12f, 0.40f, 0.70f, 0.85f),
+        new(0.48f, 2.66f, 1.07f, 18f, 0.040f, 0.52f, 0.56f, 0.36f, 2.0f, 0.06f, 0.00f, 0.55f, 0.78f),
+        new(0.60f, 2.74f, 1.00f, 18f, 0.040f, 0.42f, 0.50f, 0.44f, 2.0f, 0.04f, 0.00f, 0.42f, 0.72f),
+        new(0.72f, 2.82f, 0.95f, 17f, 0.040f, 0.34f, 0.44f, 0.50f, 2.0f, 0.04f, 0.00f, 0.30f, 0.66f),
+        new(0.85f, 2.84f, 0.13f, 16f, 0.039f, 0.24f, 0.38f, 0.56f, 2.0f, 0.08f, 0.00f, 0.18f, 0.60f),
+        new(0.98f, 2.84f, 0.07f, 13f, 0.037f, 0.07f, 0.26f, 0.60f, 2.0f, 0.70f, 0.00f, 0.08f, 0.55f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -327,12 +327,12 @@ public static class GoreStreakRules
     /// <summary>The bands' layouts, in <see cref="Band"/> order.</summary>
     public static readonly BandShape[] Bands =
     [
-        new(-0.30f, 1.00f, 1.00f, 0.00f,  0.000f, 1.5f, 0.05f, 0.30f, 1f),   // main
-        new( 1.00f, 0.70f, 0.75f, 0.06f,  0.050f, 2.0f, 0.06f, 0.20f),       // upper
+        new(-0.30f, 1.00f, 1.00f, 0.00f,  0.000f, 1.0f, 0.05f, 0.30f, 1f),   // main
+        new( 1.00f, 0.58f, 0.80f, 0.05f,  0.155f, 1.5f, 0.06f, 0.20f),       // upper
         new( 0.50f, 1.00f, 0.85f, 0.00f,  0.000f, 1.5f, 0.08f, 0.15f, 1f),   // entry
-        new(-1.05f, 0.55f, 0.70f, 0.12f, -0.050f, 2.0f, 0.06f, 0.20f),       // lower (heavy and killing hits)
-        new( 0.40f, 0.88f, 0.85f, 0.03f,  0.028f, 2.0f, 0.06f, 0.25f, 0.4f), // middle
-        new(-0.72f, 0.70f, 0.70f, 0.05f, -0.032f, 2.0f, 0.06f, 0.25f),       // low-middle
+        new(-1.00f, 0.60f, 0.75f, 0.08f, -0.135f, 1.5f, 0.06f, 0.20f),       // lower (heavy and killing hits)
+        new( 0.45f, 0.90f, 0.85f, 0.02f,  0.080f, 1.5f, 0.06f, 0.25f, 0.4f), // middle
+        new(-0.70f, 0.60f, 0.80f, 0.03f, -0.085f, 1.5f, 0.06f, 0.25f),       // low-middle
     ];
 
     /// <summary>One band at one age: its angle (radians from the exit axis), reach and half width (table units), where it leaves the axis (along, across; table units), its opacity share and its bend.</summary>
@@ -374,7 +374,7 @@ public static class GoreStreakRules
     /// <summary>A band's width along its length (share <paramref name="u"/> of its reach): narrow where it leaves the wound, widest past the middle, then a tapered tip.</summary>
     public static float Profile(float u) => (0.7f + 0.3f * Smooth(0f, 0.5f, u)) * (1f - 0.6f * Smooth(0.82f, 1.0f, u));
     /// <summary>The strip is this much wider than the core's nominal half width: room for the mist (out to <see cref="MistTo"/>) and its lumps.</summary>
-    public const float EdgePad = 2.7f;
+    public const float EdgePad = 3.1f;
     /// <summary>The strip's segments along its length (vertices = 2 x (segments + 1)).</summary>
     public const int Segments = 12;
 
@@ -403,7 +403,7 @@ public static class GoreStreakRules
     /// <see cref="CellAcrossH"/> across, so a small cell is about 0.03 by 0.02 H (a little longer along the spray, never a long stripe); the large cells (the mist's clumps and the
     /// dither of its edge) span <see cref="BigTileH"/> a tile.
     /// </summary>
-    public const float CellAlongH = 0.5f, CellAcrossH = 0.32f, BigTileH = 0.55f;
+    public const float CellAlongH = 0.5f, CellAcrossH = 0.32f, BigTileH = 0.38f;
     /// <summary>The patch noise's tile (H, isotropic on the plane): the late bands break into blobs about a fifth of H across, not full-width dashes.</summary>
     public const float ErodeTileH = 2.2f;
 
@@ -483,14 +483,14 @@ public static class GoreStreakRules
     /// A band texel: its shape (the core over the soft mist, before the renderer's shares), the core's own opacity (the blood red mixed at core x the renderer's core share), its
     /// coverage after the erosion, its density (lighter in the cell centres), and the dither threshold its shape must clear to be drawn (<see cref="Drawn"/>).
     /// </summary>
-    public readonly record struct Texel(float Alpha, float Core, float Cov, float Density, float Cut = CutLo);
+    public readonly record struct Texel(float Alpha, float Core, float Cov, float Density, float Cut = CutLo, float Blood = 0f);
 
     /// <summary>
     /// The feathered edge (repair round 3: no hard cut, never a half-stripped pink fringe): a texel is drawn where its shape clears a threshold between <see cref="CutLo"/> and
     /// <see cref="CutHi"/> set by the large cells (the brighter a cell, the lower its threshold), so the cores are solid and the mist round them breaks into fewer and smaller red clumps
     /// toward its edge: a soft, mottled body at a glance, each drawn texel fully stripped. <see cref="DrawRamp"/> is the one-pixel antialiasing step.
     /// </summary>
-    public const float CutLo = 0.06f, CutHi = 0.42f, DrawRamp = 0.025f;
+    public const float CutLo = 0.06f, CutHi = 0.42f, DrawRamp = 0.05f;
     /// <summary>The core's edge: it fades out between these shares of its nominal half width (plus the lumps).</summary>
     public const float EdgeFrom = 0.55f, EdgeTo = 1.05f;
     /// <summary>The lumpy outline: each edge moves in and out by up to <see cref="LumpDepth"/> of the half width over about 1 / <see cref="LumpAlong"/> body heights.</summary>
@@ -503,7 +503,7 @@ public static class GoreStreakRules
     /// The mist body under each core (repair round 3: a soft body 2 to 3 times the core's width): <see cref="MistAlpha"/> of the band's opacity times the key's <see cref="Key.Mist"/>,
     /// fading from <see cref="MistFrom"/> to <see cref="MistTo"/> core half widths, clumped by the large cells, eroding later than the core (a haze that outlasts it).
     /// </summary>
-    public const float MistAlpha = 0.42f, MistFrom = 0.7f, MistTo = 2.4f;
+    public const float MistAlpha = 0.48f, MistFrom = 0.7f, MistTo = 2.8f;
     /// <summary>The soft step of the patch erosion.</summary>
     public const float ErodeSoft = 0.06f;
     /// <summary>The root (frames 0 to 4): the first <see cref="RootShare"/> of every band is held whole by the key's root strength, so the bands leave the wound as one mass.</summary>
@@ -512,6 +512,8 @@ public static class GoreStreakRules
     public const float TipHold = 0.3f;
     /// <summary>The core's gain over the mottle (the cell centres saturate, the cracks stay lighter).</summary>
     public const float CoreGain = 1.25f;
+    /// <summary>The blood (the darker red over the strip) follows the cracks between the small cells: its opacity x (floor + (1 - floor) x (1 - cell)), so the cores read as lighter cells with darker seams (the reference's cellular grit).</summary>
+    public const float BloodCrack = 0.25f;
 
     /// <summary>
     /// The texel at (<paramref name="u"/> along 0..1, <paramref name="v"/> across: 1 at the core's nominal edge) of band <paramref name="band"/> at key <paramref name="k"/> (the fragment
@@ -546,8 +548,9 @@ public static class GoreStreakRules
         float core = MathF.Min(1f, band0 * edge * cov * (mf + (1f - mf) * mottle) * CoreGain);
         float mistCov = Smooth(thr - 0.12f, thr + 0.05f, 0.6f * e + 0.4f * big);
         float mist = band0 * k.Mist * MistAlpha * (1f - Smooth(MistFrom, MistTo, av + 0.6f * (lump - 0.5f))) * mistCov * (0.35f + 0.65f * big);
-        float cut = CutLo + (CutHi - CutLo) * (1f - big);
-        return new Texel(MathF.Max(core, mist), core, cov, mottle * (1f - 0.4f * MathF.Min(av, 1f)), cut);
+        float cut = CutLo + (CutHi - CutLo) * (1f - (0.6f * big + 0.4f * small));
+        float blood = MathF.Min(1f, band0 * edge * cov * (BloodCrack + (1f - BloodCrack) * (1f - small)));   // darker cracks, lighter cell centres
+        return new Texel(MathF.Max(core, mist), core, cov, mottle * (1f - 0.4f * MathF.Min(av, 1f)), cut, blood);
     }
 
     /// <summary>How fully a texel of shape <paramref name="shape"/> is drawn against its threshold <paramref name="cut"/> (0 not drawn; 1 drawn and fully stripped; a one-pixel step between).</summary>
@@ -563,13 +566,14 @@ public static class GoreStreakRules
     /// core texels along its middle), the mean blood opacity (core x <paramref name="coreAlpha"/>) of the drawn texels, and the half-fan (half the spread between the area-weighted 5th
     /// and 95th percentile of the drawn texels' angles ahead of 0.15 table units, degrees: the scoring tools' measure, face-on), at <paramref name="age"/>.
     /// </summary>
-    public static (float Area, float ExitReach, float EntryReach, int MainPatches, float MeanAlpha, float HalfFan) Measure(float age, int seed, float bend, bool fourth, byte[] tex, int size,
+    public static (float Area, float ExitReach, float EntryReach, int MainPatches, float MeanAlpha, float HalfFan, float Fill) Measure(float age, int seed, float bend, bool fourth, byte[] tex, int size,
         float widthMul = 1f, float coreAlpha = CoreAlpha, int nu = 160, int nv = 64)
     {
         var k = Sample(age);
         float area = 0f, fwd = 0f, back = 0f, sumA = 0f; int nA = 0, patches = 0;
         var angles = new System.Collections.Generic.List<(float A, float W)>();
-        if (k.Opacity <= 0f) return (0f, 0f, 0f, 0, 0f, 0f);
+        var pts = new System.Collections.Generic.List<(float X, float Y)>();
+        if (k.Opacity <= 0f) return (0f, 0f, 0f, 0, 0f, 0f, 0f);
         for (int bi = 0; bi < MaxBranches; bi++)
         {
             var band = (Band)bi;
@@ -589,16 +593,33 @@ public static class GoreStreakRules
                     var t = TexelAt(k, b, band, u, v, seed, tex, size);
                     if (iv == nv / 2 && band == Band.Main) mainLine[iu] = Drawn(t.Core, t.Cut) >= 0.5f;
                     if (Drawn(t.Alpha, t.Cut) < 0.5f) continue;
-                    area += dA; sumA += MathF.Min(1f, t.Core * coreAlpha); nA++;
+                    area += dA; sumA += MathF.Min(1f, t.Blood * coreAlpha); nA++;
                     var (x, y) = RibbonPoint(b, u, vv);
                     if (x > fwd) fwd = x;
                     if (-x > back) back = -x;
                     if (x > 0.15f) angles.Add((MathF.Atan2(y, x) * 180f / MathF.PI, dA));
+                    if ((iu + iv) % 3 == 0) pts.Add((x, y));
                 }
             }
             if (band == Band.Main) patches = Patches(mainLine);
         }
-        return (area, fwd, back, patches, nA == 0 ? 0f : sumA / nA, HalfSpread(angles));
+        float hull = HullArea(pts);
+        return (area, fwd, back, patches, nA == 0 ? 0f : sumA / nA, HalfSpread(angles), hull > 1e-6f ? MathF.Min(1f, area / hull) : 0f);
+    }
+
+    /// <summary>The area of the convex hull of <paramref name="pts"/> (monotone chain): the scoring tools' fill is the drawn area over it.</summary>
+    static float HullArea(System.Collections.Generic.List<(float X, float Y)> pts)
+    {
+        if (pts.Count < 3) return 0f;
+        pts.Sort((a, b) => a.X != b.X ? a.X.CompareTo(b.X) : a.Y.CompareTo(b.Y));
+        var h = new (float X, float Y)[2 * pts.Count];
+        int n = 0;
+        static float Cross((float X, float Y) o, (float X, float Y) a, (float X, float Y) b) => (a.X - o.X) * (b.Y - o.Y) - (a.Y - o.Y) * (b.X - o.X);
+        for (int i = 0; i < pts.Count; i++) { while (n >= 2 && Cross(h[n - 2], h[n - 1], pts[i]) <= 0f) n--; h[n++] = pts[i]; }
+        for (int i = pts.Count - 2, t = n + 1; i >= 0; i--) { while (n >= t && Cross(h[n - 2], h[n - 1], pts[i]) <= 0f) n--; h[n++] = pts[i]; }
+        float s2 = 0f;
+        for (int i = 0; i < n - 1; i++) s2 += h[i].X * h[i + 1].Y - h[i + 1].X * h[i].Y;
+        return MathF.Abs(s2) / 2f;
     }
 
     /// <summary>Half the spread between the area-weighted 5th and 95th percentiles of <paramref name="angles"/>.</summary>
