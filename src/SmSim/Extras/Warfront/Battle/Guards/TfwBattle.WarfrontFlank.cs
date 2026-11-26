@@ -5,7 +5,7 @@ namespace SmSim.Extras.Musou.Campaign;
 
 /// <summary>
 /// The approach by sectors and the flank answer (Guardsmen G1c). The approach is the heaviest block of three neighbouring 30 degree sectors of the enemies within 70 m (at least six of them), turned only after it
-/// is more than 30 degrees off three steps in a row, so a flanking crowd no longer drags the whole line round. A block at least 75 degrees off the main bearing weighing 8 or more for 4 s is a flank: one squad (two at
+/// is more than 30 degrees off three steps in a row, so a flanking crowd no longer drags the whole line round. A block at least 75 degrees off the main bearing weighing 8 or more and 35 % of the main block for 4 s is a flank: one squad (two at
 /// six squads or more; healthy, not in the front row, nearest the flank slot) turns to face it from half the radius out along its bearing while the others keep their slots; it goes back when the block weighs 3 or less
 /// for 6 s. A battered flank squad is swapped at most once every 10 s.
 /// </summary>
@@ -25,6 +25,8 @@ public sealed partial class TfwBattle
 
     /// <summary>Whether point <paramref name="k"/> answers a flank now, its bearing, and the squads that answer it (tests).</summary>
     public bool WarfrontFlankOn(int k) => k is >= 0 and < Positions && _wfFlankOn[k];
+    /// <summary>Flanks raised so far (a sustained flank's start; tests, the tools' rates).</summary>
+    public int WarfrontFlanksRaised { get; private set; }
     public Vector2 WarfrontFlankBearing(int k) => k is >= 0 and < Positions ? _wfFlankDir[k] : Vector2.Zero;
     public IEnumerable<int> WarfrontFlankSquads(int k)
     {
@@ -100,11 +102,13 @@ public sealed partial class TfwBattle
         {
             if (!Imperial(k) || _wfLine[k] != WarfrontLineState.Holding || _wfApproach[k] == Vector2.Zero) { WfFlankOff(k); continue; }
             var (first, weight) = WfHeaviestBlock(k, _wfApproach[k], WarfrontLineRules.FlankDegrees);
+            float raise = MathF.Max(WarfrontLineRules.FlankWeight, WarfrontLineRules.FlankMainShare * WfHeaviestBlock(k, Vector2.Zero, 0f).Weight);   // relative to the main push (lead 42)
             if (!_wfFlankOn[k])
             {
-                _wfFlankSteps[k] = first >= 0 && weight >= WarfrontLineRules.FlankWeight ? _wfFlankSteps[k] + 1 : 0;
+                _wfFlankSteps[k] = first >= 0 && weight >= raise ? _wfFlankSteps[k] + 1 : 0;
                 if (_wfFlankSteps[k] < WarfrontLineRules.FlankSeconds) continue;
                 _wfFlankOn[k] = true;
+                WarfrontFlanksRaised++;
                 _wfFlankClearSteps[k] = 0;
                 _wfFlankDir[k] = WfBlockBearing(k, first);
                 WfVox(WarfrontVoxKind.Flank, k);
@@ -116,7 +120,7 @@ public sealed partial class TfwBattle
                 continue;
             }
             _wfFlankClearSteps[k] = 0;
-            if (weight >= WarfrontLineRules.FlankWeight) _wfFlankDir[k] = WfBlockBearing(k, first);
+            if (weight >= raise) _wfFlankDir[k] = WfBlockBearing(k, first);
         }
     }
 

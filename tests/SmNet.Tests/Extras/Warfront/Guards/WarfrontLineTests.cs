@@ -73,7 +73,7 @@ public class WarfrontLineTests
         int dest = -1;
         var kinds = new List<WarfrontVoxKind>();
         ushort seen = 0;
-        WarfrontLineTrial.Run(w, "elite", 1, 0, 90, t =>
+        WarfrontLineTrial.Run(w, "elite", 1, 0, 150, t =>
         {
             if (b.WarfrontVoxNewest is { } v && v.Sequence != seen) { seen = v.Sequence; if (v.From == 0) kinds.Add(v.Kind); }
             if (t % 30 != 0) return;

@@ -33,6 +33,9 @@ public sealed class WarfrontVox
     /// <summary>Lines made, and offers dropped (tests, the log).</summary>
     public int Made { get; private set; }
     public int Dropped { get; private set; }
+    readonly int[] _madeOf = new int[6];
+    /// <summary>Lines made of one kind (tests, the tools' rates).</summary>
+    public int MadeOf(WarfrontVoxKind kind) => (int)kind is >= 1 and <= 5 ? _madeOf[(int)kind] : 0;
 
     static bool High(WarfrontVoxKind k) => k <= WarfrontVoxKind.Rallying;
     uint Ticks(float seconds) => (uint)MathF.Round(seconds * _rate);
@@ -71,9 +74,10 @@ public sealed class WarfrontVox
             _sent.Add(line);
             Newest = made = line;
             Made++;
+            _madeOf[(int)p.Kind]++;
         }
         for (int i = _pending.Count - 1; i >= 0; i--)   // what may not wait: low priority lines blocked now, high priority lines past their wait
-            if (!High(_pending[i].Kind) || tick - _pending[i].Tick >= Ticks(WaitSeconds)) { _pending.RemoveAt(i); Dropped++; }
+            if (!High(_pending[i].Kind) || (_pending[i].Kind != WarfrontVoxKind.FallingBack && tick - _pending[i].Tick >= Ticks(WaitSeconds))) { _pending.RemoveAt(i); Dropped++; }   // a fall back is never lost to the wait (only a newer line about its point replaces it)
         return made;
     }
 

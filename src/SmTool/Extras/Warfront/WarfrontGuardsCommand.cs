@@ -158,12 +158,15 @@ static class WarfrontGuardsCommand
                 if (!first && !Boot(slotName, chaos, total, out w, out _, out _, out int code)) return code;
                 first = false;
                 if (sections) SimProfile.On = true;
+                WarfrontLineTrial.QuietStage = chaos && Environment.GetEnvironmentVariable("SM_WF_GUARD_CHAOS_STAGE") != "1";   // the controlled Chaos variant (lead 42); SM_WF_GUARD_CHAOS_STAGE=1 lets the stage's own pressure come
                 WarfrontLineTrial.Prepare(w);
                 bool trace = Environment.GetEnvironmentVariable("SM_WF_GUARD_TRACE") == "1";
                 var bt = w.Tfw!.Battle!;
+                if (Environment.GetEnvironmentVariable("SM_WF_GUARD_LINE_TRACE") == "1")
+                    bt.OnWarfrontWithdraw = (k, d, p, men, healthy) => Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"    WITHDRAW {"ABC"[k]} -> {(d < 3 ? "ABC"[d].ToString() : "LZ")} pressure {p:0} men {men} healthy {healthy}, Guardsmen {w.TfwGuards!.Alive}, garrison {bt.Stationed(k)}"));
                 var r = WarfrontLineTrial.Run(w, name, seed, target, seconds, sections || trace ? t => { if (sections) SimProfile.EndTick(); if (t % 300 == 0 && sections) Console.WriteLine("    sections (mean/worst ms a tick): " + SimProfile.WindowReport()); if (trace && t % 150 == 0) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"    t {t / 30,3} s: Orks {w.Musou!.Alive}, Guardsmen {w.TfwGuards!.Alive} in {w.TfwGuards.SquadsAlive} squads, secured {bt.Objectives.Take(3).Count(o => o.State == TfwPositionState.Secured)}, armies {ArmyText(bt)}")); } : null);
                 results.Add(r);
-                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{slotName}{(chaos ? "/chaos" : "")} {r.Scenario,-8} seed {r.Seed} -> {r.Outcome,-16} points lost {r.PointsLost} (secured {r.PointsSecured}, first loss {r.FirstLossSeconds:0.0} s), Guardsmen {r.GuardsmenStart} -> {r.GuardsmenEnd} (min {r.GuardsmenMin}), squads {r.SquadsStart} -> {r.SquadsEnd}, wave {r.WaveSize} ({r.WaveElites:0} elites), Orks peak {r.OrksPeak} end {r.OrksEnd}, natural waves {r.NaturalWaves}, {r.Seconds} s; tick mean {r.TickMean:0.00} ms p50 {r.TickP50:0.00} p95 {r.TickP95:0.00} p99 {r.TickP99:0.00} worst {r.TickWorst:0.0} (mean {r.MeanGuardsmen:0} Guardsmen, {r.MeanOrks:0} Orks) hash {r.Hash}"));
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{slotName}{(chaos ? "/chaos" : "")} {r.Scenario,-8} seed {r.Seed} -> {r.Outcome,-16} points lost {r.PointsLost} (secured {r.PointsSecured}, first loss {r.FirstLossSeconds:0.0} s), Guardsmen {r.GuardsmenStart} -> {r.GuardsmenEnd} (min {r.GuardsmenMin}), squads {r.SquadsStart} -> {r.SquadsEnd}, wave {r.WaveSize} ({r.WaveElites:0} elites), Orks peak {r.OrksPeak} end {r.OrksEnd}, natural waves {r.NaturalWaves}, {r.Seconds} s; tick mean {r.TickMean:0.00} ms p50 {r.TickP50:0.00} p95 {r.TickP95:0.00} p99 {r.TickP99:0.00} worst {r.TickWorst:0.0} (mean {r.MeanGuardsmen:0} Guardsmen, {r.MeanOrks:0} Orks) hash {r.Hash}; line: withdrawals {r.Withdrawals}, rallies {r.Rallies}, flanks {r.Flanks}, vox {r.VoxLines} (flank {r.VoxFlank}){(r.BreakAtSeconds >= 0 ? $", break at {r.BreakAtSeconds:0.0} s" : "")}"));
             }
         if (json) Console.WriteLine(JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = false }));
         return 0;
@@ -262,7 +265,8 @@ static class WarfrontGuardsCommand
 internal sealed record WarfrontLineTrialResult(
     string Scenario, int Seed, int Target, int WaveSize, double WaveElites, string Outcome, int PointsLost, int PointsSecured, double FirstLossSeconds,
     int GuardsmenStart, int GuardsmenEnd, int GuardsmenMin, int SquadsStart, int SquadsEnd, int OrksPeak, int OrksEnd, int NaturalWaves, int Seconds,
-    double TickMean, double TickP50, double TickP95, double TickP99, double TickWorst, double MeanGuardsmen, double MeanOrks, int Ticks, string Hash);
+    double TickMean, double TickP50, double TickP95, double TickP99, double TickWorst, double MeanGuardsmen, double MeanOrks, int Ticks, string Hash,
+    double BreakAtSeconds = -1, int Withdrawals = 0, int Rallies = 0, int Flanks = 0, int VoxLines = 0, int VoxFlank = 0);
 
 /// <summary>
 /// The battle-level trial of the Guardsmen's line (design-guardsmen-1125, G0): one lane battle in-process, the points secured, the scripted human standing at the landing zone, then one of five scripted pushes:
@@ -277,8 +281,14 @@ internal static class WarfrontLineTrial
     public static bool TrickleOn { get; set; }
     /// <summary>Keeps the HQ stronghold's own crowd dead (every second, the Orks that belong to no army within 50 m of its source): once every point is secured the HQ fills its crowd and swarms it, a tide that wipes any line in 2 minutes and would hide the scripted push. False (<c>--hq-tide</c>) lets it come.</summary>
     public static bool QuietHq { get; set; } = true;
+    /// <summary>
+    /// Guardsmen G1 round 2 (lead 42): the controlled stage. Every second every enemy that belongs to no army dies (the crowds, the swarms, a Chaos stage's breach Daemons and its own sources), so the scripted wave
+    /// (and the flank army, and the stage's natural waves) decide the fight. Set for the Chaos variant, where the stage's own pressure took every point at 23 to 28 s before the wave arrived.
+    /// </summary>
+    public static bool QuietStage { get; set; }
     public static readonly string[] Scenarios = ["routine", "elite", "flank", "collapse", "break"];
     public const int Human = 1, Points = 3;   // the lane battle's three capture points (a fourth objective, where a test arena has one, is the commander's)
+    /// <summary>The Marines break the push when the target's line first reaches Breaking (Guardsmen G1 round 2, lead 42), at the latest <see cref="BreakAtSeconds"/> after the wave left (the restore switch never breaks).</summary>
     public const float BreakAtSeconds = 90f, BreakRadius = 40f, FlankDistance = 80f;
 
     /// <summary>Secures every position of the battle (the test aid), kills the Orks that are left and lets the line stand 20 s. The human stands at the landing zone.</summary>
@@ -344,6 +354,7 @@ internal static class WarfrontLineTrial
         int breakAt = (int)(BreakAtSeconds * 30f);
         for (int t = 1; t <= ticks && !battle.Won; t++, ranTicks++)
         {
+            if (brk && t < breakAt && battle.WarfrontLineOf(target) == WarfrontLineState.Breaking) breakAt = t;   // the break comes at the line's crisis
             if (brk && t >= breakAt && t <= breakAt + 60 * 30 && (t == breakAt || t % 30 == 0))
             {
                 if (t == breakAt) w.TfwRespawnAt(Human, point, 0f);
@@ -353,6 +364,7 @@ internal static class WarfrontLineTrial
                     if (all[k].Alive && new Vector2(all[k].Position.X - point.X, all[k].Position.Y - point.Y).Length() <= BreakRadius) w.Musou.Damage(all[k].Id, Human, 1e6f, Vector3.Zero, out _);
             }
             if (QuietHq && t % 30 == 0) QuietHqCrowd(w, battle);
+            if (QuietStage && t % 30 == 0) QuietStageCrowds(w, battle);
             if (t % 30 == 0 && w.Players.TryGetValue(Human, out var me) && !me.Alive) w.TfwRespawnAt(Human, brk && t >= breakAt ? point : battle.Layout.LandingZone, 0f);
             long start = Stopwatch.GetTimestamp();
             w.Step(_ => default);
@@ -373,7 +385,19 @@ internal static class WarfrontLineTrial
         string hash = Hash(w, battle);
         return new WarfrontLineTrialResult(scenario, seed, target, size, size * share, outcome, lost, secured, firstLoss < 0 ? -1 : Math.Round(firstLoss / 30.0, 1),
             guardsStart, guards.Alive, guardsMin, squadsStart, guards.SquadsAlive, orksPeak, w.Musou!.Alive, battle.WavesSent - natural0 - 1, ranTicks / 30,
-            steps.Count == 0 ? 0 : steps.Average(), P(0.5), P(0.95), P(0.99), steps.Count == 0 ? 0 : steps[^1], liveGuards / (double)Math.Max(1, steps.Count), liveOrks / (double)Math.Max(1, steps.Count), steps.Count, hash);
+            steps.Count == 0 ? 0 : steps.Average(), P(0.5), P(0.95), P(0.99), steps.Count == 0 ? 0 : steps[^1], liveGuards / (double)Math.Max(1, steps.Count), liveOrks / (double)Math.Max(1, steps.Count), steps.Count, hash,
+            brk ? Math.Round(breakAt / 30.0, 1) : -1, battle.WarfrontWithdrawals, battle.WarfrontLineRallies, battle.WarfrontFlanksRaised, battle.WarfrontVoxLimiter?.Made ?? 0,
+            battle.WarfrontVoxLimiter?.MadeOf(SmSim.Extras.Warfront.WarfrontVoxKind.Flank) ?? 0);
+    }
+
+    static void QuietStageCrowds(World w, TfwBattle battle)
+    {
+        var army = new HashSet<ushort>();
+        foreach (var a in battle.ArmyList) foreach (ushort id in a.Orks) army.Add(id);
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = w.Musou!.CopyTo(all);
+        for (int k = 0; k < n; k++)
+            if (all[k].Alive && !army.Contains(all[k].Id)) w.Musou.Damage(all[k].Id, Human, 1e6f, Vector3.Zero, out _);
     }
 
     static void QuietHqCrowd(World w, TfwBattle battle)

@@ -32,6 +32,8 @@ public static class WarfrontLineRules
     /// <summary>Overwhelmed: pressure at least this many times the men collapses the line even while a squad is still healthy (an elite-led push; fodder at equal numbers does not reach it). Ours, set by the G1 trial: with the
     /// design's rule alone (every squad battered) a 0.6-elite push killed the squads in the 4 s confirmation and no line ever withdrew.</summary>
     public const float OverwhelmRatio = 6f;
+    /// <summary>The overwhelm rule applies only with at most this many healthy squads left (round 2 trials: with several healthy squads a fall back gave a point the old line held).</summary>
+    public const int OverwhelmHealthyMost = 1;
     /// <summary>Relief: a healthy squad or a Guard army bound for the point that is this many seconds away or less (at <see cref="ReliefSpeed"/>).</summary>
     public const float ReliefSeconds = 15f, ReliefSpeed = 3.6f;
     /// <summary>A collapse confirmed this many consecutive seconds is a fall back.</summary>
@@ -55,6 +57,8 @@ public static class WarfrontLineRules
     public const float FlankDegrees = 75f;
     /// <summary>A flank's block weighs at least this for <see cref="FlankSeconds"/> to be sustained; it is cleared at <see cref="FlankClearWeight"/> or less for <see cref="FlankClearSeconds"/>.</summary>
     public const float FlankWeight = 8f, FlankClearWeight = 3f;
+    /// <summary>Lead 42 (2026-11-26): a flank must also weigh at least this share of the main block, so a crowd round the whole point does not raise Flank all the time (ours, low).</summary>
+    public const float FlankMainShare = 0.35f;
     public const int FlankSeconds = 4, FlankClearSeconds = 6;
     /// <summary>Squads that answer a flank: one, two when the point has <see cref="FlankTwoAt"/> squads or more.</summary>
     public const int FlankSquadsMost = 2, FlankTwoAt = 6;

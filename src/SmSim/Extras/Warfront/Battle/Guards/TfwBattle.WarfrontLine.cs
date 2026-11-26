@@ -60,6 +60,8 @@ public sealed partial class TfwBattle
     /// <summary>Withdrawals made, refused (nothing real to withhold), and rallies of the line and of retreating armies (tests, the tools).</summary>
     public int WarfrontWithdrawals { get; private set; }
     public int WarfrontWithdrawalsRefused { get; private set; }
+    /// <summary>Test aid (the tools' trace): a line fell back (origin, destination, pressure, men, healthy squads at the break).</summary>
+    public Action<int, int, float, int, int>? OnWarfrontWithdraw { get; set; }
     public int WarfrontLineRallies { get; private set; }
     /// <summary>The newest vox line (null: none) and the limiter (tests, the server's send).</summary>
     public WarfrontVoxLine? WarfrontVoxNewest => _wfVox?.Newest;
@@ -218,6 +220,7 @@ public sealed partial class TfwBattle
     bool WfCollapse(int k)
     {
         if (_now < _wfLockoutUntil[k] || _wfMen[k] < 1) return false;
+        if (_wfHealthy[k] > WarfrontLineRules.OverwhelmHealthyMost) return false;   // two healthy squads or more fight on, whatever the pressure (the G1 round 2 trials: a line of several healthy squads that fell back handed its point to the Orks and the next points were overrun from it)
         float ratio = _wfHealthy[k] > 0 ? WarfrontLineRules.OverwhelmRatio : WarfrontLineRules.CollapseRatio;
         if (_wfPressure[k] < ratio * _wfMen[k]) return false;
         return !WfRelief(k);
@@ -302,6 +305,7 @@ public sealed partial class TfwBattle
         }
         _wfRecords.Add(rec);
         WarfrontWithdrawals++;
+        OnWarfrontWithdraw?.Invoke(k, dest, rec.PushAtBreak, _wfMen[k], _wfHealthy[k]);
         for (int j = 0; j < rec.Squads.Count; j++) WfSendTo(rec.Squads[j], dest, j);
         WfVox(WarfrontVoxKind.FallingBack, k, dest);
     }

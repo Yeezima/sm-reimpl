@@ -19,8 +19,9 @@ public class WarfrontFlankTests
         var guards = w.TfwGuards!;
         bool answered = false, swung = false;
         int checkedPairs = 0, moved = 0;
-        Dictionary<int, Vector3>? before = null;
-        Vector2 approachAtFlank = Vector2.Zero;
+        var befores = new Dictionary<int, Vector3>?[3];
+        var approaches = new Vector2[3];
+        var flankersBefore = new int[3][];
         WarfrontLineTrial.Run(w, "flank", 1, 1, 60, t =>
         {
             if (t % 30 != 0) return;
@@ -35,13 +36,16 @@ public class WarfrontFlankTests
                 Assert.True(angle >= WarfrontLineRules.FlankDegrees - 30f, $"flank {angle:0} degrees off the approach");
                 var others = Enumerable.Range(0, GuardSim.MaxSquads).Where(s => guards.AliveIn(s) > 0 && b.SquadPost(s) == k && !flankers.Contains(s)).ToDictionary(s => s, b.WarfrontSlotOf);
                 var approach = b.WarfrontApproach(k);
-                bool same = before is not null && before.Count == others.Count && others.Keys.All(before.ContainsKey) && approach == approachAtFlank
-                    && others.Keys.All(x => guards.AliveIn(x) > WarfrontGuardRules.BatteredMen);   // the same rows (no death, no rotation, no turn): only the flank answer could move a slot
+                var before = befores[k];
+                var approachAtFlank = approaches[k];
+                bool same = before is not null && flankersBefore[k] is { } fb && fb.SequenceEqual(flankers) && before.Count == others.Count && others.Keys.All(before.ContainsKey) && approach == approachAtFlank
+                    && others.Keys.Concat(flankers).All(x => guards.AliveIn(x) > WarfrontGuardRules.BatteredMen);   // the same rows (no death, no rotation, no turn): only the flank answer could move a slot
                 if (same)
                     foreach (var (s, p) in others) { checkedPairs++; if (Vector3.Distance(p, before![s]) >= 1f) moved++; }
                 if (approachAtFlank != Vector2.Zero && Vector2.Dot(approachAtFlank, approach) < MathF.Cos(MathF.PI / 6f)) swung = true;
-                before = others;
-                approachAtFlank = approach;
+                befores[k] = others;
+                approaches[k] = approach;
+                flankersBefore[k] = flankers;
             }
         });
         Assert.True(answered, "a squad answered the flank");
