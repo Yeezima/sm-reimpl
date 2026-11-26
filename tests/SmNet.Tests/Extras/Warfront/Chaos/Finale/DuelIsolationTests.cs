@@ -1,4 +1,5 @@
 using System.Numerics;
+using SmNet.Tests.CrossExtras;
 using SmNet.Tests.Extras.Musou.Campaign;
 using SmNet.Tests.Extras.Warfront.Chaos.Breach;
 using SmSim;
@@ -202,6 +203,52 @@ public class DuelIsolationTests(ITestOutputHelper output)
         Assert.True(FinaleRig.Flat(q.Position, b.FortressPlan!.BossSpot) <= b.FortressPlan.ArenaRadius);   // on the plaza
     }
 
-    [Fact(Skip = "Intentional no-op for the series-37 candidate (lead 41): WarfrontDuelExecutions stays empty because executions are refused on every Chaos stage (X4 phase 2), so none can run in a duel; wiring ExecutionsAbortAll and the overshield needs a pinned cross-extra hook (follow-up)")]
-    public void Duel_aborts_executions_and_entry_clears_overshield() { }   // renamed at the series-37 integration: the executions boundary scan reads Executions*( as a hook call
+    /// <summary>
+    /// Executions X4b (owner 2026-11-26, "Finishers run into the duel"; this test was the skipped <c>Duel_aborts_executions_and_entry_clears_overshield</c>, whose abort the owner turned down): the
+    /// finisher that kills the last Chosen plays to its end (Done, never aborted), the snapshot is taken at the Chosen's fall but the first entry waits for the finisher, the finisher's reward
+    /// (the one-bar overshield) is given, and the entry clears it (the duelist enters with his bar exactly full).
+    /// </summary>
+    [Fact]
+    public void Duel_lets_a_running_finisher_end_and_entry_clears_overshield()
+    {
+        var (w, b) = FinaleRig.Fortress(config: ChaosExecutionKit.WithRows(WarfrontChaosRosterTests.ChaosConfig));
+        var log = new List<string>();
+        w.WarfrontChaosLog = log.Add;
+        FinaleRig.Steps(w, 10);
+        w.Musou!.Frozen = true;
+        var chosen = b.BossOrks.Where(id => w.Musou.TryGet(id, out var c) && c.Alive).ToList();
+        Assert.NotEmpty(chosen);
+        ushort last = chosen[^1];
+        foreach (ushort id in chosen.Take(chosen.Count - 1)) w.Musou.Damage(id, FinaleRig.Human, 1e7f, Vector3.Zero, out _);
+        Assert.True(w.Musou.TryGet(last, out var target));
+        ChaosExecutionKit.PlaceFacing(w, FinaleRig.Human, target.Position, 1.3f);
+        ChaosExecutionKit.Idle(w);
+        Assert.Equal(WarfrontDuelPhase.Bodyguard, w.WarfrontChaosDuel!.Phase);
+        ChaosExecutionKit.Tap(w);
+        Assert.Equal("C1.chainsword", ChaosExecutionKit.StartedRow(w));
+        Assert.Equal(last, (ushort)ChaosExecutionKit.LiveTarget(w));
+        string? why = null;
+        bool waited = false;
+        var rewards = new List<float>();
+        for (int t = 0; t < 200 && why is null; t++)
+        {
+            ChaosExecutionKit.Idle(w);
+            why = ChaosExecutionKit.EndedWhy(w);
+            rewards.AddRange(ChaosExecutionKit.RewardedShields(w));
+            var phase = w.WarfrontChaosDuel!.Phase;
+            if (why is null && ChaosExecutionKit.KillDone(w) && phase == WarfrontDuelPhase.Snapshot) waited = true;   // the Chosen is dead, the snapshot taken, the entry waits
+            if (why is null) Assert.NotEqual(WarfrontDuelPhase.Duel, phase);   // no entry while the finisher plays
+        }
+        foreach (var l in log) output.WriteLine(l);
+        Assert.Equal("Done", why);   // run to its end, not aborted
+        Assert.True(waited);
+        Assert.Contains(log, l => l.Contains("the first entry waits", StringComparison.Ordinal));
+        var p = w.Players[FinaleRig.Human];
+        float max = Loadouts.Body(w.Config, p).ShieldMax;
+        Assert.Equal(ChaosExecutionKit.RewardShield(max), Assert.Single(rewards));   // the reward's overshield was given ...
+        for (int t = 0; t < 5 && w.WarfrontChaosDuel!.Phase != WarfrontDuelPhase.Duel; t++) ChaosExecutionKit.Idle(w);
+        Assert.Equal(WarfrontDuelPhase.Duel, w.WarfrontChaosDuel!.Phase);
+        Assert.Equal(FinaleRig.Human, w.WarfrontDuelist);
+        Assert.Equal(max, w.Players[FinaleRig.Human].Shield);   // ... and the entry cleared it
+    }
 }

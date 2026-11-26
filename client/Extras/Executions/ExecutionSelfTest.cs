@@ -34,10 +34,25 @@ public partial class NetworkView
     double _execOfferHeardAt = -1;
     bool _execPressHeld;
 
+    double _execDotSince = -1, _execWarfrontPressedAt = -100;
+
     partial void ExtrasExecutionTestPress(ref PlayerInput input)
     {
         if (!ExecBotPress || !ExecutionsOn) return;
         if (_execPressHeld) { _execPressHeld = false; return; }   // one tick down, then up: a tap
+        if (_config is { } config && config.Extras.HasFlag(ContentExtras.Warfront))
+        {
+            // X4b (Warfront, Orks or Chaos): a tap once the red dot has stood over the same enemy for 0.2 s, at most one every 1.5 s (the server's cooldown refuses the rest; a test aid, not a rule).
+            if (!ExecutionMarkerShown || ExecutionPickedEnemy == 0) { _execDotSince = -1; return; }
+            if (_execDotSince < 0) { _execDotSince = _connectedFor; return; }
+            if (_connectedFor - _execDotSince < 0.2 || _connectedFor - _execWarfrontPressedAt < 1.5) return;
+            _execWarfrontPressedAt = _connectedFor;
+            _execDotSince = -1;
+            _execPressHeld = true;
+            input = input with { Buttons = input.Buttons | InputButtons.Execute };
+            GD.Print($"EXECPRESS t {_connectedFor:F2} s: Execute tapped at tick {input.Tick} on enemy {ExecutionPickedEnemy} (type {ExecutionPickedType}) under the red dot");
+            return;
+        }
         if (ExecutionsState.Offer is not { } offer || offer.KillTick == _execPressedKill) { _execOfferHeardAt = -1; return; }
         if (_execOfferHeardAt < 0) { _execOfferHeardAt = _connectedFor; return; }
         if (_connectedFor - _execOfferHeardAt < 0.2) return;

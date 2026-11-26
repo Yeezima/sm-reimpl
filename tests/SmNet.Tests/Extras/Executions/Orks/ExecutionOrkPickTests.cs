@@ -183,16 +183,17 @@ public class ExecutionOrkPickTests
     }
 
     [Fact]
-    public void ChaosStageRefusedBeforeX4b()
+    public void ChaosStageTakesChaosKindsSinceX4b()
     {
+        // X4b: the Boy byte of a Chaos stage is a Cultist (the renegade's rows; this rig has only Ork rows): nothing fits, and no Warfront refusal any more.
         var w = ExecutionOrkKit.Rig();
         ushort boy = ExecutionOrkKit.OrkAhead(w);
         ExecutionOrkKit.Settle(w, boy);
         w.ExecutionsChaosStageForTests = true;
         ExecutionOrkKit.Tap(w);
         Assert.Empty(w.ExecutionsStartedThisTick);
-        Assert.Equal(ExecutionRefusal.Refused, ExecutionOrkKit.RefusedLast(w));
-        Assert.Equal(ExecutionWarfrontRefusal.ChaosStage, w.ExecutionsWarfrontRefusedLast(1));
+        Assert.Equal(ExecutionRefusal.NoTarget, ExecutionOrkKit.RefusedLast(w));
+        Assert.Null(w.ExecutionsWarfrontRefusedLast(1));
         w.ExecutionsChaosStageForTests = false;
         ExecutionOrkKit.Idle(w);
         ExecutionOrkKit.Tap(w);

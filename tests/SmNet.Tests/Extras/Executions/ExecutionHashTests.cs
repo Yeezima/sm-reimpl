@@ -24,8 +24,8 @@ public class ExecutionHashTests
         var extended = new SimConfig { Extras = ContentExtras.All };
         var without = new SimConfig { Extras = ContentExtras.All & ~ContentExtras.Executions };
         Assert.NotEqual(extended.Hash(), without.Hash());
-        Assert.Equal(3, ExecutionRules.Version);   // 3: X4 (Warfront on Orks)
-        Assert.Equal(2, ExecutionChoice.RulesVersion);
+        Assert.Equal(4, ExecutionRules.Version);   // 4: X4b (Warfront on Chaos, the knife on the chainsword rows); 3: X4 (Warfront on Orks)
+        Assert.Equal(3, ExecutionChoice.RulesVersion);   // 3: X4b (the Chaos kind map, the knife rule, no own bystander)
     }
 
     [Fact]

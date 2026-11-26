@@ -129,6 +129,11 @@ public class WarfrontBoundaryTests
         // series-37 integration: executions X4 phase 2 asks Warfront for the army (no executions on a Chaos stage; the marker hides in a Chaos run)
         ("src/SmSim/Extras/Executions/Orks/World.ExecutionsOrks.cs", "WarfrontChaosArmy"),
         ("client/Extras/Executions/NetworkView.ExecutionInput.cs", "WarfrontChaosArmyShown"),
+        // executions X4b (2026-11-26): a Chaos stage's kinds (the roster key of each type byte) and the finale duel's gate (only the duelist, only the Lord under a tenth), on the server and the client's marker
+        ("src/SmSim/Extras/Executions/Orks/World.ExecutionsChaos.cs", "WarfrontChaosUnit"),
+        ("src/SmSim/Extras/Executions/Orks/World.ExecutionsChaos.cs", "WarfrontDuelGate"),
+        ("client/Extras/Executions/NetworkView.ExecutionInput.cs", "WarfrontChaosUnitShown"),
+        ("client/Extras/Executions/NetworkView.ExecutionInput.cs", "WarfrontDuelGateShown"),
         // Phase B T2 (2026-11-25): the retainers as World players (MarineRole.Squad, which only Warfront spawns): their brain, their tick, their damage taken, the owner's answers on the human-only scales, traps and boss stuns
         ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontPuppetInput"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwPuppets.cs", "WarfrontSquadMarineStep"),

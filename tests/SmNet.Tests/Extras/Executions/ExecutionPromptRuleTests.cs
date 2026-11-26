@@ -94,10 +94,26 @@ public class ExecutionPromptRuleTests
     }
 
     [Fact]
-    public void ChaosHidesBeforeX4b()
+    public void ChaosShowsSinceX4b()
     {
-        Assert.False(ExecutionPromptRules.ChaosKindsIn);
-        Assert.Equal(ExecutionPromptHidden.ChaosRun, ExecutionPromptRules.Warfront(Config(), Me(), true, true, null, 5, [Shown(5, new Vector3(0f, 1.3f, 0f))]));
+        // X4b (owner 2026-11-26): a Chaos run's prompt shows with the server's (its kinds by Warfront's roster keys; the duel's gate in ChaosDuelExecutionGateTests).
+        Assert.True(ExecutionPromptRules.ChaosKindsIn);
+        Assert.Equal(ExecutionPromptHidden.None, ExecutionPromptRules.Warfront(Config(), Me(), true, true, null, 5, [Shown(5, new Vector3(0f, 1.3f, 0f))]));
+    }
+
+    [Fact]
+    public void A_chaos_pick_takes_the_chaos_kinds_rows()
+    {
+        // The Boy byte of a Chaos run is a Cultist: with Ork rows alone nothing fits, with the renegade's row it is picked (X4b's kind map; the keys here are a copy of the roster's).
+        static string? Key(MusouEnemyType t) => t == MusouEnemyType.Boy ? "cultist" : null;
+        var chaos = ExecutionKindMap.Chaos(Key);
+        var c = Config() with { Executions = ExecutionRowSet.OfAll([ExecutionTestKit.Row("R1.chainsword", ExecutionTargets.Renegade), ExecutionTestKit.Row("O1.chainsword", ExecutionTargets.OrkBoy)]) };
+        var near = new List<MusouEnemy> { new(5, MusouEnemyType.Boy, MusouEnemyState.Seek, new Vector3(0f, 1.3f, 0f), Vector2.Zero, MathF.PI, 1f, 0, 0, 0, 0) };
+        int choices = 0;
+        Assert.Equal(5, ExecutionPromptRules.PickOrkVictim(Me(), 0f, c, c.Executions.Rows, null, near, [], null, ref choices, chaos));
+        var orksOnly = Config() with { Executions = ExecutionRowSet.OfAll([ExecutionTestKit.Row("O1.chainsword", ExecutionTargets.OrkBoy)]) };
+        Assert.Equal(0, ExecutionPromptRules.PickOrkVictim(Me(), 0f, orksOnly, orksOnly.Executions.Rows, null, near, [], null, ref choices, chaos));
+        Assert.Equal(5, ExecutionPromptRules.PickOrkVictim(Me(), 0f, orksOnly, orksOnly.Executions.Rows, null, near, [], null, ref choices));   // an Orks run: the Boy's own rows
     }
 
     [Fact]

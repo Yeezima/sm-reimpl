@@ -6,8 +6,15 @@ namespace SmSim.Extras.Warfront.Chaos.Finale;
 /// </summary>
 public static class WarfrontDuelRules
 {
-    /// <summary>The finale's own rules version (its log line); <see cref="WarfrontRules.Version"/> carries the run's.</summary>
-    public const int Version = 1;
+    /// <summary>The finale's own rules version (its log line); <see cref="WarfrontRules.Version"/> carries the run's. 2 (executions X4b, owner 2026-11-26): the duelist may execute the Lord under
+    /// <see cref="LordExecutableBelow"/> (his finisher's kill is the win), nobody else executes from the snapshot on, a finisher playing at the snapshot runs to its end before the first entry, the entry clears the overshield.</summary>
+    public const int Version = 2;
+
+    /// <summary>
+    /// The duelist may execute the Lord while his health is under this share of his maximum (owner 2026-11-26, card "Chaos exec": "Lord finisher at low health"; the lead's reading "under 10 %"): his
+    /// finisher (the Chaos Marine's C1 to C3) kills him at its kill frame and wins the duel. Never outside the duel, never anyone but the duelist.
+    /// </summary>
+    public const float LordExecutableBelow = 0.10f;
 
     /// <summary>The pause between one challenger's end and the next one's entry (design: 3 s).</summary>
     public const float HandoffSeconds = 3f;

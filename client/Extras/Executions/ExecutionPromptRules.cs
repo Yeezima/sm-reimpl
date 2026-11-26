@@ -14,6 +14,8 @@ public enum ExecutionPromptHidden : byte
 {
     None, NotAlive, Spectating, Executing, Puppet, Airborne, Busy, NoFamily, OrkPlayer, NoRows,
     NotInBattle, ChaosRun, Cooldown, NoEnemyNear, NoFit, NoOffer, Throttled, Reaction, NotInPlay,
+    /// <summary>X4b: the Chaos finale's relay holds the battle and the own player is not the duelist with the Lord under the duel's gate (the server refuses such a press).</summary>
+    Duel,
 }
 
 /// <summary>
@@ -29,10 +31,19 @@ public static class ExecutionPromptRules
     /// <summary>The crowd's candidates are gathered this far from the executor (metres; X2's range plus X4's 0.5 m margin).</summary>
     public const float GatherRange = ExecutionChoice.WarfrontRange + 0.5f;
     /// <summary>
-    /// Chaos runs (Warfront's renegade roster aliases Ork type bytes) refuse every execution until X4b maps their kinds (plan "Chaos runs refuse executions until X4b"): false, so the prompt never shows
-    /// in a Chaos run. X4b turns it on together with the server.
+    /// Whether a Chaos run (Warfront's Chaos roster on the Ork type bytes) shows the prompt: true since X4b (owner 2026-11-26), together with the server, its kinds by <see cref="ExecutionKindMap.Chaos"/> of
+    /// Warfront's roster keys (the client's <c>WarfrontChaosUnitShown</c> hook). False was the series-37 candidate's: no prompt in a Chaos run.
     /// </summary>
-    public const bool ChaosKindsIn = false;
+    public const bool ChaosKindsIn = true;
+
+    /// <summary>The dot's clearance over a Chaos body's top (metres; ours: the Ork dot's 2.45 m over the Boy's drawn 2.15 m).</summary>
+    public const float MarkerOverTop = 0.3f;
+
+    /// <summary>
+    /// The dot's height over a Chaos enemy's feet (metres; X4b): its body's top as the shots see it (<see cref="MusouSim.ShotBodyOf"/> on the client's latched Chaos rules: the drawn Chaos models' heights,
+    /// Cultist and Traitor Guardsman 2.0 m, the marines 2.3 m, the Aspiring Champion 2.53 m, the Chosen 2.76 m, the Daemon 2.6 m, the Lord a marine's 2.3 m x1.35) plus <see cref="MarkerOverTop"/>.
+    /// </summary>
+    public static float ChaosMarkerHeight(MusouRules? rules, MusouEnemyType type) => MusouSim.ShotBodyOf(rules ?? MusouRules.Default, type).Height + MarkerOverTop;
 
     /// <summary>The melee wargear the executor carries (the X3 rule: the class's melee choice), or null.</summary>
     public static string? MeleeKey(SimConfig c, in PlayerState s)
@@ -141,11 +152,11 @@ public static class ExecutionPromptRules
     /// stand-ins of <see cref="Gather"/>, the reserved Orks (being executed by others) skipped. <paramref name="choices"/> counts the calls (the tests' early-out check).
     /// </summary>
     public static ushort PickOrkVictim(in PlayerState me, float facingYaw, SimConfig c, IReadOnlyList<ExecutionRow> rows, CollisionWorld? world, IReadOnlyList<MusouEnemy> near,
-        IReadOnlyList<Vector3> bystanders, IReadOnlySet<ushort>? reserved, ref int choices)
+        IReadOnlyList<Vector3> bystanders, IReadOnlySet<ushort>? reserved, ref int choices, ExecutionKindMap? kinds = null)
     {
         if (near.Count == 0 || Loadouts.ClassOf(c, me.Class) is not { } loadout || MeleeKey(c, me) is not { } weapon) return 0;
         choices++;
-        return ExecutionChoice.ChooseAlignedOrk(me, facingYaw, loadout.Name, weapon, near, rows, c, world, reserved, seedFor: null, bystanders: bystanders).Id;
+        return ExecutionChoice.ChooseAlignedOrk(me, facingYaw, loadout.Name, weapon, near, rows, c, world, reserved, seedFor: null, bystanders: bystanders, kinds: kinds).Id;
     }
 
     /// <summary>Classic: the own offer's window is open at the client's view of the server tick (<paramref name="renderTick"/>: the press counts at its view tick on the server).</summary>

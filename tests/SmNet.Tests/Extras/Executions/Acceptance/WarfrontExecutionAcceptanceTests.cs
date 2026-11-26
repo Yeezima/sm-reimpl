@@ -402,8 +402,9 @@ public class WarfrontExecutionAcceptanceTests
     // ---- Chaos ----
 
     [Fact]
-    public void ChaosRun_RefusedUntilX4b()
+    public void ChaosRun_TakesTheChaosKindsRows()
     {
+        // X4b (owner 2026-11-26): a Chaos stage is no longer refused; its Boy byte is a Cultist, which takes the renegade's rows: with the Ork rows alone nothing fits (NoTarget, no Warfront refusal).
         var w = ExecutionOrkKit.Rig();
         ushort boy = ExecutionOrkKit.OrkAhead(w);
         ExecutionOrkKit.Settle(w, boy);
@@ -411,7 +412,8 @@ public class WarfrontExecutionAcceptanceTests
         ExecutionOrkKit.Tap(w);
         Assert.Empty(w.ExecutionsStartedThisTick);
         Assert.False(w.Musou!.ExecutionsIsHeld(boy));
-        Assert.Equal(ExecutionWarfrontRefusal.ChaosStage, w.ExecutionsWarfrontRefusedLast(1));
+        Assert.Null(w.ExecutionsWarfrontRefusedLast(1));
+        Assert.Contains((1, ExecutionRefusal.NoTarget), w.ExecutionsRefusedThisTick);
         w.ExecutionsChaosStageForTests = false;
         ExecutionOrkKit.Idle(w);
         ExecutionOrkKit.Tap(w);

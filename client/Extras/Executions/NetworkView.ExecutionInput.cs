@@ -17,7 +17,8 @@ namespace SmClient;
 /// buttons, the state pinned by <see cref="ExecutionTrack"/> as the server pins it); cleared with the flag off.</item>
 /// <item><b>The Execute marker</b> (<see cref="ExecutionMarker"/>, owner 2026-11-25: a red dot, no text) over the one target the press would take: Classic PvP Extended, over the corpse while the own offer's window is open at the view tick; Warfront, over the Ork the press would take
 /// (<see cref="ExecutionPromptRules.PickOrkVictim"/>, recomputed at most <see cref="ExecutionPromptRules.PromptHz"/> times a second after the cheap refusals). Nothing on cooldown (the prompt hides; no
-/// cooldown indicator, lead 39), airborne, without a melee family, in a Chaos run before X4b, for a puppet, or while executing.</item>
+/// cooldown indicator, lead 39), airborne, without a melee family, for a puppet, or while executing. A Chaos run (X4b) picks among its own kinds (<see cref="ExecutionKindMap.Chaos"/> of Warfront's
+/// roster keys) with the dot over each body's top (<see cref="ExecutionPromptRules.ChaosMarkerHeight"/>); in the finale's relay only the duelist sees it, over the Lord under a tenth of his health.</item>
 /// <item><b>The shell</b>: <see cref="OvershieldShell"/> on every living character with an overshield (the own from its Shield, the others from the server's overshield list), freed at 0, on death and
 /// with the character.</item>
 /// </list>
@@ -139,21 +140,36 @@ public partial class NetworkView
     {
         anchor = null;
         bool inBattle = _tfwState.War is { Phase: TfwRunPhase.Battle or TfwRunPhase.Pickup or TfwRunPhase.FinalAssault };
-        var hidden = ExecutionPromptRules.Warfront(config, me, inBattle, ExecutionsChaosRun(), ExecutionsState.OwnLastDoneTick, client.Tick, _tfwShown);
+        bool chaos = ExecutionsChaosRun();
+        var hidden = ExecutionPromptRules.Warfront(config, me, inBattle, chaos, ExecutionsState.OwnLastDoneTick, client.Tick, _tfwShown);
         if (hidden != ExecutionPromptHidden.None) { _execPickedOrk = 0; return hidden; }
+        // X4b: a Chaos run's kinds, and in the finale's relay nobody's dot but the duelist's, over the Lord alone under the duel's gate (the server's WarfrontDuelGate).
+        var kinds = ExecutionKindMap.Orks;
+        ushort lordOnly = 0;
+        if (chaos)
+        {
+            var (duel, lord) = ExecutionsDuelGateShown(me.PlayerId);
+            if (duel && lord == 0) { _execPickedOrk = 0; return ExecutionPromptHidden.Duel; }
+            kinds = duel ? _execChaosKindsLord ??= ExecutionKindMap.Chaos(ExecutionsChaosUnitShown, lord: true) : _execChaosKinds ??= ExecutionKindMap.Chaos(ExecutionsChaosUnitShown);
+            lordOnly = lord;
+            if (lordOnly != 0 && _execPickedOrk != 0 && _execPickedOrk != lordOnly) _execPickedOrk = 0;   // the relay began since the last pick
+        }
         if (_execPromptThrottle.Due(_connectedFor))
         {
             ExecutionPromptRules.Gather(me, _tfwShown, _execNear);
+            if (lordOnly != 0) _execNear.RemoveAll(e => e.Id != lordOnly);
             ExecutionPromptRules.Bystanders(config, me, others, _tfwShown, _execBystanders);
             _execReserved.Clear();
             foreach (var run in ExecutionsState.Live.Values) if (run.TargetKind == ExecutionTargetKind.Enemy && run.Target is > 0 and <= ushort.MaxValue) _execReserved.Add((ushort)run.Target);
-            _execPickedOrk = ExecutionPromptRules.PickOrkVictim(me, me.Yaw, config, rows, client.Collision, _execNear, _execBystanders, _execReserved, ref _execChoices);
+            _execPickedOrk = ExecutionPromptRules.PickOrkVictim(me, me.Yaw, config, rows, client.Collision, _execNear, _execBystanders, _execReserved, ref _execChoices, kinds);
         }
         if (_execPickedOrk == 0) return ExecutionPromptHidden.NoFit;
         foreach (var e in _tfwShown)
             if (e.Id == _execPickedOrk && e.State != MusouEnemyState.Dying)
             {
-                anchor = _gameSpace!.Transform * new Vector3(e.Position.X, e.Position.Y, e.Position.Z + MarkerOverOrk);
+                float over = chaos ? ExecutionPromptRules.ChaosMarkerHeight(config.MusouRules, e.Type) : MarkerOverOrk;   // X4b: over each Chaos body's top (C3's heights; the Lord x1.35)
+                anchor = _gameSpace!.Transform * new Vector3(e.Position.X, e.Position.Y, e.Position.Z + over);
+                _execPickedType = e.Type;
                 return ExecutionPromptHidden.None;
             }
         _execPickedOrk = 0;
@@ -174,6 +190,37 @@ public partial class NetworkView
 
     /// <summary>Hook for Warfront (Chaos C3's latch): sets <paramref name="chaos"/> when the client's config names the Chaos army.</summary>
     partial void WarfrontChaosArmyShown(ref bool chaos);
+
+    ExecutionKindMap? _execChaosKinds, _execChaosKindsLord;
+    MusouEnemyType _execPickedType;
+
+    /// <summary>The type of the enemy the dot is over (the bot press aid's log).</summary>
+    internal MusouEnemyType ExecutionPickedType => _execPickedType;
+    /// <summary>The enemy the dot is over (0: none).</summary>
+    internal ushort ExecutionPickedEnemy => _execPickedOrk;
+
+    /// <summary>The roster key of a Chaos run's type byte (Warfront's; null without Warfront compiled or for an Ork-only kind).</summary>
+    string? ExecutionsChaosUnitShown(MusouEnemyType type)
+    {
+        string? key = null;
+        WarfrontChaosUnitShown(type, ref key);   // WARFRONT-HOOK: the Chaos roster's key (client/Extras/Warfront/Chaos/NetworkView.WarfrontChaosArmy.cs)
+        return key;
+    }
+
+    /// <summary>The finale duel's gate as the client's duel state reads it (X4b; without Warfront compiled: no duel).</summary>
+    (bool Duel, ushort Lord) ExecutionsDuelGateShown(int me)
+    {
+        bool duel = false;
+        ushort lord = 0;
+        WarfrontDuelGateShown(me, ref duel, ref lord);   // WARFRONT-HOOK: the duel state (client/Extras/Warfront/Chaos/NetworkView.WarfrontChaosArmy.cs)
+        return (duel, lord);
+    }
+
+    /// <summary>Hook for Warfront (Chaos C2's roster, X4b): the roster key of a Chaos run's enemy of <paramref name="type"/>.</summary>
+    partial void WarfrontChaosUnitShown(MusouEnemyType type, ref string? key);
+
+    /// <summary>Hook for Warfront (Chaos C5's duel state, X4b): <paramref name="duel"/> while the relay holds the battle, <paramref name="lord"/> the Lord's id when <paramref name="me"/> may execute him now.</summary>
+    partial void WarfrontDuelGateShown(int me, ref bool duel, ref ushort lord);
 
     // ---- the overshield shell ----
 

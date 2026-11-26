@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4484 spec table rows: **3342 tagged**, 746 not tagged (read from data with high confidence), 396 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 857 rows of the changes document.
+Scanned 4501 spec table rows: **3347 tagged**, 756 not tagged (read from data with high confidence), 398 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 857 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,23 +51,23 @@ Scanned 4484 spec table rows: **3342 tagged**, 746 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 52 | 41 | 23 | 12 | 7 |
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
-| General game design | 341 | 339 | 113 | 142 | 0 |
+| General game design | 346 | 344 | 116 | 143 | 0 |
 | Ork faction | 303 | 282 | 182 | 74 | 0 |
-| **All areas** | **3342** | 3025 | 2361 | 1009 | 37 |
+| **All areas** | **3347** | 3030 | 2364 | 1010 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2117 |
-| confidence: medium | 1151 |
-| confidence: low | 1099 |
-| notes: ours | 489 |
+| kind: ours | 2121 |
+| confidence: medium | 1153 |
+| confidence: low | 1100 |
+| notes: ours | 490 |
 | kind: interpretation | 474 |
 | notes: estimate | 346 |
 | kind: estimate | 274 |
 | confidence: none (low) | 111 |
-| kind: provisional | 108 |
+| kind: provisional | 109 |
 | notes: provisional | 83 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
@@ -75,7 +75,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: placeholder | 34 |
 | notes: interpretation | 32 |
 | notes: user's knowledge | 31 |
-| kind: approximation | 28 |
+| kind: approximation | 29 |
 | kind: placeholder | 24 |
 | notes: open question | 22 |
 | kind: gap (not reproduced) | 20 |
@@ -4583,7 +4583,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after **40 s** (the server takes card 1; owner 2026-11-23, card 2: "double the time limit to select a card", was 20 s) or when the player… (s) | notes: ours | owner (protection; 2026-11-23 the doubling); the former 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (341)
+### General game design (346)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4939,8 +4939,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D9F6F734` | Refusal reasons | the cooldown, not in a battle and a Chaos stage are X3's `Refused` (the reason in `ExecutionsWarfrontRefusedLast`); no eligible Ork in range `NoTarget`; an eligible Ork whose moves do not fit `NoFit` | kind: ours | ours | Refusal reasons: compare with SM1 by feel or video. Ours: the cooldown, not in a battle and a Chaos stage are X3's Refused (the… | ☐ |
 | `R-A7745148` | Slot reuse | a hold is dropped when its slot is taken by a new spawn or the pool is cleared; a run whose Ork's slot was freed before its kill frame ends Invalid | kind: ours | design | Slot reuse: compare with SM1 by feel or video. Ours: a hold is dropped when its slot is taken by a new spawn or the pool… | ☐ |
 | `R-64B0E367` | Kill frame | `MusouSim.Damage` with max(health x 8, 10 000) hp, no push, marker 3, cause Melee, through the normal kill, XP, assist and drop path; a kill frame that does not kill ends the move Invalid (no reward, no cooldown; X4 review). The server logs each reward and… (hp) | kind: ours | design; amount ours | Kill frame: compare with SM1 by feel or video. Ours: MusouSim.Damage with max(health x 8, 10 000) hp, no push, marker 3… | ☐ |
-| `R-96924975` | Chaos stages (until X4b) | no executions: refused `ChaosStage` when the stage's `SimConfig.WarfrontFaction` is Chaos (phase 2, wired at the series-37 integration; the test aid `ExecutionsChaosStageForTests` still forces it) | kind: ours | ours (Ork rows would play on another rig) | Chaos stages (until X4b): compare with SM1 by feel or video. Ours: no executions: refused ChaosStage when the stage's… | ☐ |
-| `R-F7C0DEE5` | Executions version | `ExecutionRules.Version` 3 (X4); `MusouSim.Version`, `TfwRules` and `WarfrontRules` unchanged | kind: ours | ours | Executions version: compare with SM1 by feel or video. Ours: ExecutionRules.Version 3 (X4); MusouSim.Version, TfwRules and… | ☐ |
+| `R-F7C0DEE5` | Executions version | `ExecutionRules.Version` 3 (X4; 4 since X4b); `MusouSim.Version`, `TfwRules` and `WarfrontRules` unchanged by X4 | kind: ours | ours | Executions version: compare with SM1 by feel or video. Ours: ExecutionRules.Version 3 (X4; 4 since X4b); MusouSim.Version… | ☐ |
+
+*Spec section: Added content: Executions: Warfront on Chaos, the knife, the finale duel (X4b)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-558C6E5D` | Own bystander | a candidate's own feet (within 0.05 m flat and 0.5 m up or down) are never its bystander: the Chosen and the Lord are player-solid, so they are in the bystander list as bodies (m) | kind: ours | ours (a guard: every row's gap is over the 0.9 m clearance) | Own bystander: compare with SM1 by measuring on a flat spot of the same map. Ours: a candidate's own feet (within 0.05 m flat and 0.5 m up or down) are… | ☐ |
+| `R-C0A3EAD7` | Combat knife | the chainsword's rows on every victim that is not an Ork (a Classic Extended marine of either race, the race swap included: C1; the Chaos kinds: C1, R1, B1); its own rows (O3, O8, O9) on the Ork Boy and the Gretchin only | kind: ours | owner 2026-11-26, card "Knife": "Use chainsword moves" | Combat knife: compare with SM1 by feel or video. Ours: the chainsword's rows on every victim that is not an Ork (a Classic… | ☐ |
+| `R-5AF32345` | Lord's finisher | its kill frame kills him through the normal damage path (the duel's gate admits the duelist's hit) and the duel's own win path ends the relay (`WarfrontDuel.Win`, kind 16, the results); the fortress win leaves the battle at once, so the move's last part after… | kind: ours; confidence: medium | owner 2026-11-26 | Lord's finisher: compare with SM1 by feel or video. Ours: its kill frame kills him through the normal damage path (the duel's… | ☐ |
+| `R-118DA762` | Held Lord | his boss code does nothing while held (no slam, charge, leap, bolt or telegraph; one under way is dropped) | kind: ours | ours | Held Lord: compare with SM1 by feel or video. Ours: his boss code does nothing while held (no slam, charge, leap, bolt or… | ☐ |
+| `R-582752A8` | Lord's scale (known limit) | the Lord's victim half is drawn at his x1.35 about his feet while the attacker plays at a marine's size: the upper-body contacts sit about a third lower on him than his drawn body; horizontal error a few centimetres (docs/executions-coverage.md 6.1) | kind: provisional; kind: approximation; confidence: low; notes: ours | ours | Lord's scale (known limit): compare with SM1 by feel or video. Ours: the Lord's victim half is drawn at his x1.35 about his feet while the… | ☐ |
+| `R-82A97715` | Chaos dot height | over each Chaos body's top: `MusouSim.ShotBodyOf` height on the client's latched Chaos rules + 0.3 m (Cultist and Traitor Guardsman 2.3, the marines 2.6, the Aspiring Champion 2.83, the Daemon 2.9, the Chosen 3.06, the Lord 3.41 m); the Orks keep 2.45 m (m) | kind: ours; confidence: medium | ours (C3's heights; the Ork dot's clearance) | Chaos dot height: compare with SM1 by measuring on a flat spot of the same map. Ours: over each Chaos body's top: MusouSim.ShotBodyOf height on the… | ☐ |
+| `R-177E0DDF` | Chaos dot in the duel | only the duelist sees it, over the Lord, from 9.9 % health down (the duel state's permille is rounded up on the wire, so the dot never promises a refused press); hidden (`Duel`) for everyone else from the snapshot to the end of the relay | kind: ours | ours | Chaos dot in the duel: compare with SM1 by feel or video. Ours: only the duelist sees it, over the Lord, from 9.9 % health down (the… | ☐ |
 
 *Spec section: Added content: no Squigs in Warfront (warfront/no-squigs, branch `claude/warfront-no-squigs-1125`, 2026-11-25; `WarfrontRules.Version` 23; added content, Warfront only; no wire or protocol change)*
 
@@ -5022,7 +5033,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D896A78F` | Handoff | the Lord's health never written (carried bit for bit, `DuelHandoffTests`); his burns, stun, script, drive, ability under way and cooldowns (back to the first 2 s and 3 s) cleared; put back on his spot (teleported, no heal; ours: the pause hides it) and held… (s) | kind: ours | brief + design; the teleport ours | Handoff: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the Lord's health never written (carried bit for bit… | ☐ |
 | `R-183434F4` | Chosen and Lord bodies | in the Chaos table the four Chosen rows (the Boss Ork slots) take a body of 0.6 m x 2.76 m (a marine's 0.5 m x 2.3 m x1.2, as C3 draws them) and a reach of 2.2 m; the Lord's row a marine's body scaled by a Chaos-only `BossScale` 1.35 (0.675 m x 3.105 m for… (m) | kind: ours; notes: provisional | C3's drawn scales (lead 40, 2026-11-25); the reaches ours | Chosen and Lord bodies: compare with SM1 by measuring on a flat spot of the same map. Ours: in the Chaos table the four Chosen rows (the Boss Ork slots) take a… | ☐ |
 | `R-44B06A9F` | Left for later | a stage crash mid-duel replays the battle (design accepts it; the queue is not saved); the `SM_WF_FINALE` test aid is written (C5c second round: dev tools and a private `SM_WF_DIR` only; row "Finale test aid (C5c)"); the synthetic-section client aid… | kind: ours; notes: provisional | plan | Left for later: compare with SM1 by feel or video. Ours: a stage crash mid-duel replays the battle (design accepts it; the… | ☐ |
-| `R-ADAC19D2` | Executions in the duel | none can run: executions are refused on every Chaos stage (executions X4 phase 2), so the duel's executions seam `WarfrontDuelExecutions` (abort any run under way; at an entry the overshield goes) is an intentional no-op in the series-37 candidate; wiring it… | kind: ours | lead 41, series-37 integration | Executions in the duel: compare with SM1 by feel or video. Ours: none can run: executions are refused on every Chaos stage (executions… | ☐ |
 | `R-524EE827` | Send order (C5c) | on every server tick of a Chaos stage the finale's state and telegraphs (kinds 16, 17) go out before the breach list and closures (kinds 1, 2), so on the snapshot tick a client reads the duel state before the list that shows the silent close's breaches Closed | kind: ours | lead 40 (C5c: C4c's silent-close contract) | Send order (C5c): compare with SM1 by feel or video. Ours: on every server tick of a Chaos stage the finale's state and… | ☐ |
 | `R-9E9548DF` | Silent close on the client (C5c) | the first duel state past the bodyguard sets `ChaosBreachModel.SilentCloses`: a breach the list shows closed with no kind 2 plays no closure (no flash, implosion, ring, sound or BREACH CLOSED marker); a kind 2 still shows; the switch clears when no duel state… (s) | kind: ours | C4c's contract | Silent close on the client (C5c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the first duel state past the bodyguard sets… | ☐ |
 | `R-D8F5B6B3` | Duel centre line (C5c) | one banner-level line at y 380: the duelist's `DUEL: YOU ALONE AGAINST THE CHAOS LORD` for 3 s from each entry (alert red); in the handoff `THE NEXT CHALLENGER ENTERS IN 3, 2, 1` (the next one: `YOUR DUEL BEGINS IN n`, red) with `NAME HAS FALLEN` (or `YOU`… (s) | kind: ours; notes: provisional | plan (3 s entry line, 3 s handoff); wording and timings ours | Duel centre line (C5c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one banner-level line at y 380: the duelist's DUEL: YOU ALONE AGAINST… | ☐ |
@@ -7182,6 +7192,8 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-956FC1BA` | Test aids | Added content: Executions: client presentation (executions X5, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only) |
 | `R-CF2299B9` | Row lookup | Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change) |
 | `R-43364C35` | Test aids | Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change) |
+| `R-DCF1B7E7` | Versions | Added content: Executions: Warfront on Chaos, the knife, the finale duel (X4b) |
+| `R-7941EE8C` | Test aids | Added content: Executions: Warfront on Chaos, the knife, the finale duel (X4b) |
 | `R-F62A3D5F` | Wire | Warfront faction (Chaos Warfront C1; added content; owner brief 2026-11-24 rev 1, decision 2026-11-25) |
 | `R-1B6BA160` | Wire | Added content: Warfront Chaos: warp breaches (C4) (branch `claude/chaos-breach-1125`, 2026-11-25; `WarfrontRules.Version` 26, shared with C3's body rule; added content, Warfront only; the Chaos section, envelope tag 51) |
 | `R-86C8D220` | Wire | Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 28; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17) |

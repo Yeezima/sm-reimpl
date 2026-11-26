@@ -171,8 +171,11 @@ lists the rows that implement them.
 - The power sword plays the chainsword's moves in every mode with executions (an owner override of "no lookalike substitutes", for this weapon only).
 - Grounded Stormboys take the Boy's moves. The 'Ard Boy is eligible on the Boy's moves (`ExecutionTargets.Warfront`), the Gretchin on the punch. The
   Bomb Squig never is (squigs are removed from Warfront for now).
-- Chaos runs: Traitor Guard and Cultists take the renegade backhand. Chaos Tactical, Havoc and Champion marines take C1 to C3, and Bloodletters their
-  three moves. The Chosen and the Lord never.
+- Chaos runs (built in X4b, 2026-11-26): Traitor Guard and Cultists take the renegade backhand. Chaos Tactical, Havoc and Champion marines, grounded
+  Raptors and the Chosen bodyguard (owner 2026-11-26, "Chosen can be executed") take C1 to C3, and Bloodletters their three moves. The Chaos Lord only in
+  his finale duel, by the duelist alone, once his health is under 10 % (owner 2026-11-26, "Lord finisher at low health"): C1 to C3, whose kill wins the duel.
+- The combat knife plays the chainsword's moves on every victim that is not an Ork (owner 2026-11-26, card "Knife"; ours, a lookalike): C1 on a Classic
+  marine of either race (the race swap too), C1, R1 and B1 on the Chaos run's kinds. Its own Ork moves (O3, O8, O9) stay on the Orks.
 - Classic: a Chaos killer on a loyalist plays C1 to C3 with the races swapped (ours). Lead decision: an Ork-player victim takes the Ork Boy rows, and
   Ork players cannot execute.
 
@@ -224,7 +227,7 @@ Victims are players on `havok_sm_base_mp`, the marine skeleton. Only the Chaos M
 | Chainsword, gold chainsword, Chaos chainsword | C1 decap (6.333 s, hit 4.367) | `CSM_SYN_CS_StrglWin_ChaosDecap` | starts from the struggle pose: needs a blend from the kill pose (ours) |
 | Power axe, chain axe | C2 axe hack (4.0 s, hit 2.933) | `CSM_SYN_PA_CSM_AxeHack_01` | same |
 | Thunder hammer, daemon maul | C3 (4.0 s, hit 2.533) | `SM2_SYN_Chaos_hamburger` | the victim is carried 4.7 m to the side: the biggest terrain risk |
-| Combat knife | **none** | - | the campaign knife has no Chaos Marine move |
+| Combat knife | **none of its own**; C1 since 2026-11-26 (ours, a lookalike: the owner's card "Knife") | `CSM_SYN_CS_StrglWin_ChaosDecap` | the campaign knife has no Chaos Marine move; it borrows the chainsword's |
 | Power sword | **none** | - | no campaign power-sword graph |
 | Heavy kick / stomp | **none** | - | no paired clip |
 | Lightning claw, power spear | not in Classic | - | Musou-only added items |
@@ -286,8 +289,9 @@ Proposals and decisions for the owner:
   Psyker 1.
 - **Covered.** Warfront: 4 melee weapon families (chainsword, axe, hammer, knife) times regular Boys and Gretchin: 8 + 1 moves. Classic PvP Extended:
   3 weapon families, 3 finishers.
-- **Not covered.** Heavy kick, Dreadnought, claw, spear (both modes); knife (Classic); the Bomb Squig (Warfront). Since the owner's answers (3, 6):
-  the power sword plays the chainsword's rows, the grounded Stormboy the Boy's, and a loyalist victim the Chaos Marine rows with the races swapped.
+- **Not covered.** Heavy kick, Dreadnought, claw, spear (both modes); the Bomb Squig (Warfront). Since the owner's answers (3, 6):
+  the power sword plays the chainsword's rows, the grounded Stormboy the Boy's, and a loyalist victim the Chaos Marine rows with the races swapped;
+  since 2026-11-26 the knife plays the chainsword's rows on every non-Ork victim (ours, a lookalike).
 
 ## 6. Catalogue rows (executions X7)
 
@@ -345,16 +349,26 @@ the priority does not matter.
 | Warfront | grounded Stormboy | ork_boy | as above | as above | as above | as above | ours (owner): no own clips; same skeleton |
 | Warfront | Gretchin | gretchin | O9 | O9 | O9 | O9 | original |
 | Warfront | Scrap Mek, Bomb Squig, elites, bosses | - | none | none | none | none | not eligible |
-| Chaos run | Chaos Tactical, Havoc, Champion; grounded Raptor (owner 2026-11-25, never airborne) | chaos_marine | C1 | C2 | C3 | none | original pairs; struggle skipped (ours) |
-| Chaos run | Bloodletter | bloodletter | B1 | B2 | B3 | none | original |
-| Chaos run | Traitor Guard, Cultist | renegade | R1 | R1 | R1 | none | original guardsman clip on our rosters (ours: the mapping) |
-| Chaos run | Chosen, Chaos Lord | - | none | none | none | none | never (owner) |
-| Classic Extended | Chaos player | chaos_marine | C1 | C2 | C3 | none | original pairs |
-| Classic Extended | loyalist player | chaos_marine, races swapped | C1 | C2 | C3 | none | ours (owner): `ExecutionTargets.ClassicRaceSwap` |
+| Chaos run | Chaos Tactical, Havoc, Champion; grounded Raptor (owner 2026-11-25, never airborne) | chaos_marine | C1 | C2 | C3 | C1 (ours) | original pairs; struggle skipped (ours); X4b |
+| Chaos run | Chosen bodyguard (owner 2026-11-26) | chaos_marine | C1 | C2 | C3 | C1 (ours) | original pairs on the x1.2 marine body; X4b |
+| Chaos run | Chaos Lord, in his duel only, by the duelist only, under 10 % health (owner 2026-11-26) | chaos_marine | C1 | C2 | C3 | C1 (ours) | original pairs on the x1.35 marine body: the contact sits low on him (below the table); the kill wins the duel |
+| Chaos run | Chaos Lord otherwise | - | none | none | none | none | never (owner) |
+| Chaos run | Bloodletter | bloodletter | B1 | B2 | B3 | B1 (ours) | original; X4b |
+| Chaos run | Traitor Guard, Cultist | renegade | R1 | R1 | R1 | R1 (ours) | original guardsman clip on our rosters (ours: the mapping); X4b |
+| Classic Extended | Chaos player | chaos_marine | C1 | C2 | C3 | C1 (ours) | original pairs; the knife a lookalike (owner 2026-11-26) |
+| Classic Extended | loyalist player | chaos_marine, races swapped | C1 | C2 | C3 | C1 (ours) | ours (owner): `ExecutionTargets.ClassicRaceSwap`; the knife a lookalike |
 | Classic Extended | Ork player | ork_boy | O1-O4 | O5, O4, O3, O6 | O7, O3 | O3, O8 | ours (lead): Ork players cannot execute |
 
-The power sword taking the chainsword's rows is an owner override, labelled ours. Nothing covers the heavies' kick, the Dreadnought, the lightning
-claw, the power spear or a loyalist victim of his own race (section 4).
+The power sword taking the chainsword's rows is an owner override, labelled ours; so is the knife's (2026-11-26, `ExecutionWeapons.RowFamily`: the
+chainsword's rows on every non-Ork kind). Nothing covers the heavies' kick, the Dreadnought, the lightning claw, the power spear or a loyalist victim of
+his own race (section 4).
+
+**The Lord's scale (X4b, known limit).** The Chaos Lord is the marine body x1.35 (`WarfrontChaosTuning.LordBossScale`). His victim half is drawn at his look's
+scale about his feet (`ExecutionProxy`, `p.Scale`), while the attacker plays at a marine's size and the sim aligns the pair at the row's authored gap
+(C1 1.32 m, C2 1.46 m, C3 1.11 m: bodies 0.45 + 0.675 m apart do not overlap). The horizontal error of the scaled half is small (its in-place offsets grow
+by 35 %, a few centimetres); the vertical is not: every contact on the victim's upper body (the decap's neck, the axe's shoulder, the hammer's head) sits
+about a third of the way lower on him than his drawn body. Not fixable without retargeting or IK; listed for the owner's playtest. The alternative, drawing
+him at x1.0 for the move, would shrink him visibly at the start (not done). Not checked with a windowed capture.
 
 Known gaps the owner did not take:
 - **'Ard Boy Tombstone** (`SM_SYN_Ardboy_TombStone_1m/3.5m/7m` / `BOY_SYN_Ardboy_TombStone_3.5m` on `havok_ard_boy`, campaign `ebp_sets__s008-001`,

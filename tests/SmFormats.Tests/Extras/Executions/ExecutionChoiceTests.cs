@@ -55,8 +55,8 @@ public class ExecutionChoiceTests
         Assert.Equal(ExecutionTargets.Renegade, ExecutionTargets.Of("Cultist", ExecutionTargets.ChaosRun));
         Assert.Equal(ExecutionTargets.ChaosMarine, ExecutionTargets.Of("chaos_havoc", ExecutionTargets.ChaosRun));
         Assert.Equal(ExecutionTargets.Bloodletter, ExecutionTargets.Of("bloodletter", ExecutionTargets.ChaosRun));
-        Assert.Null(ExecutionTargets.Of("chosen", ExecutionTargets.ChaosRun));
-        Assert.Null(ExecutionTargets.Of("chaos_lord", new Dictionary<string, string> { ["chaos_lord"] = ExecutionTargets.ChaosMarine }));
+        Assert.Equal(ExecutionTargets.ChaosMarine, ExecutionTargets.Of("chosen", ExecutionTargets.ChaosRun));   // owner 2026-11-26: "Chosen can be executed"
+        Assert.Null(ExecutionTargets.Of("chaos_lord", new Dictionary<string, string> { ["chaos_lord"] = ExecutionTargets.ChaosMarine }));   // only through his duel's gate (ExecutionKindMap.Chaos)
     }
 
     [Fact]
@@ -199,8 +199,12 @@ public class ExecutionChoiceTests
         Assert.True(swapped.Ok);
         Assert.Equal("c2", swapped.Row!.Id);
         Assert.True(swapped.RaceSwapped);
-        // The knife and the kick have no Classic row; the power sword plays the chainsword's.
-        Assert.False(ExecutionChoice.ChooseClassic(marine, "tactical", "sm_mp_melee_combat_knife", chaosCorpse, rows[1..], Config, null, null).Ok);
+        // The knife plays the chainsword's rows on a marine (owner 2026-11-26, card "Knife"; ours), the races swapped too; the power sword plays the chainsword's.
+        Assert.Equal("c1", ExecutionChoice.ChooseClassic(marine, "assault", "sm_mp_melee_combat_knife", chaosCorpse, rows, Config, null, null).Row!.Id);
+        var knifeSwap = ExecutionChoice.ChooseClassic(chaos, "assault", "csm_mp_melee_combat_knife", loyalCorpse, rows, Config, null, null);
+        Assert.Equal("c1", knifeSwap.Row!.Id);
+        Assert.True(knifeSwap.RaceSwapped);
+        Assert.False(ExecutionChoice.ChooseClassic(marine, "tactical", "sm_mp_melee_kick", chaosCorpse, rows, Config, null, null).Ok);   // the kick: no family
         Assert.Equal("c1", ExecutionChoice.ChooseClassic(marine, "assault", "sm_mp_melee_powersword", chaosCorpse, rows, Config, null, null).Row!.Id);
         // By race, not team (an Ork Boy player sits on either team): an Ork victim takes the Ork Boy rows; an Ork killer cannot execute.
         var orkConfig = Config with { Classes = [new ClassLoadout("tactical", 0, -1, []), new ClassLoadout("ork_boy", 0, -1, []) { Race = Race.Orks }] };

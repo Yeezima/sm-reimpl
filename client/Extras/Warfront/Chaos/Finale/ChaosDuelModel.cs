@@ -172,6 +172,18 @@ public sealed class ChaosDuelModel
     /// <summary>The Lord's bar: the permille as a fraction, 0 to 1.</summary>
     public static float BarFraction(ushort permille) => Math.Clamp(permille / 1000f, 0f, 1f);
 
+    /// <summary>
+    /// The executions' gate as the client reads it (executions X4b, owner 2026-11-26; the server's is <c>World.WarfrontDuelGate</c>) for player <paramref name="own"/> at <paramref name="now"/>:
+    /// <c>Duel</c> while a fresh state is in its snapshot, duel or handoff (nobody's dot shows but the duelist's); <c>Lord</c> the Lord's id for the champion of a duel while the bar is under
+    /// <see cref="WarfrontDuelRules.LordExecutableBelow"/>. The wire's permille is rounded up, so the dot shows from 9.9 % down: it never promises a press the server refuses (under 10 %).
+    /// </summary>
+    public (bool Duel, ushort Lord) ExecutionGate(int own, double now)
+    {
+        if (!Running(now) || State is not { Phase: WarfrontDuelPhase.Snapshot or WarfrontDuelPhase.Duel or WarfrontDuelPhase.Handoff } s) return (false, 0);
+        bool under = s.Permille < (int)MathF.Round(WarfrontDuelRules.LordExecutableBelow * 1000f);
+        return (true, s.Phase == WarfrontDuelPhase.Duel && own > 0 && s.Champion == own && s.Lord != 0 && under ? s.Lord : (ushort)0);
+    }
+
     /// <summary>The bar's percent: the permille rounded to the nearest whole percent, at least 1 % while the Lord lives (the permille is already rounded up, so a living Lord never shows 0 %).</summary>
     public static string Percent(ushort permille)
     {

@@ -12,8 +12,10 @@ public enum ExecutionWarfrontRefusal : byte
     Cooldown = 1,
     /// <summary>Not in a battle (the hub, the travel, the pickup, a run that ended, or no war at all).</summary>
     NotInBattle = 2,
-    /// <summary>A Chaos stage before X4b (its alias slots would play Ork rows on another rig; the plan's cross-cutting decision).</summary>
+    /// <summary>No longer given (X4b, owner 2026-11-26: a Chaos stage executes its own kinds); kept for its number in old logs. Before X4b: a Chaos stage (its alias slots would play Ork rows on another rig).</summary>
     ChaosStage = 3,
+    /// <summary>X4b: the Chaos finale's duel holds the battle (from the snapshot to the end of the relay) and the press is not the duelist's on the Lord under the duel's gate (owner 2026-11-26).</summary>
+    Duel = 4,
 }
 
 /// <summary>A Warfront execution's reward (X4): player <see cref="Player"/> set to <see cref="Health"/> and <see cref="Shield"/> at <see cref="Tick"/>, ready again at <see cref="ReadyAt"/>.</summary>
@@ -52,7 +54,7 @@ public sealed partial class World
     /// <summary>Test aid: treat the stage as a Chaos one without a Chaos config. Never set outside tests.</summary>
     internal bool ExecutionsChaosStageForTests { get; set; }
 
-    /// <summary>Whether the stage's enemies are Chaos (no executions until X4b): the stage's army (Chaos C2's <c>SimConfig.WarfrontFaction</c>, read by Warfront's <see cref="WarfrontChaosArmy"/>; X4 phase 2, wired at the series-37 integration).</summary>
+    /// <summary>Whether the stage's enemies are Chaos (X4b: their kinds by <see cref="ExecutionKindMap.Chaos"/>, <c>World.ExecutionsChaos.cs</c>): the stage's army (Chaos C2's <c>SimConfig.WarfrontFaction</c>, read by Warfront's <see cref="WarfrontChaosArmy"/>; X4 phase 2, wired at the series-37 integration).</summary>
     bool ExecutionsChaosStage
     {
         get
@@ -95,7 +97,7 @@ public sealed partial class World
         if (!Config.Extras.HasFlag(ContentExtras.Warfront)) return;
         ExecutionWarfrontRefusal? why = null;
         if (!ExecutionsInBattle) why = ExecutionWarfrontRefusal.NotInBattle;
-        else if (ExecutionsChaosStage) why = ExecutionWarfrontRefusal.ChaosStage;
+        else if (ExecutionsDuelGate(id) is { Duel: true, Lord: 0 }) why = ExecutionWarfrontRefusal.Duel;   // X4b: in the finale's relay only the duelist, on the Lord under the gate
         else if (_executionReadyAt.TryGetValue(id, out var r))
         {
             if (ExecutionsDiedSince(id, r.Deaths)) _executionReadyAt.Remove(id);   // death clears the cooldown (owner: lost on death)
@@ -122,11 +124,11 @@ public sealed partial class World
     partial void ExecutionsWarfrontPick(int id, in PlayerState executor, uint pressTick, ref ExecutionPick? pick, ref bool handled)
     {
         handled = true;
-        if (!ExecutionsInBattle || ExecutionsChaosStage) return;
+        if (!ExecutionsInBattle) return;
         var (target, result, _) = ExecutionsWarfrontChoose(id, executor, prompt: false);
         if (target == 0)
         {
-            // An eligible Ork was ranked but none of its moves fitted (moves were tried): X3 records NoFit (a failed result); no eligible Ork at all: NoTarget (pick null).
+            // An eligible enemy was ranked but none of its moves fitted (moves were tried): X3 records NoFit (a failed result); no eligible enemy at all: NoTarget (pick null).
             if (result.Tried.Count > 0) pick = new ExecutionPick(ExecutionTargetKind.Enemy, 0, result, executor.Position, executor.Yaw, -1, Team.None);
             return;
         }
@@ -177,24 +179,27 @@ public sealed partial class World
     // ---- the choice ----
 
     /// <summary>
-    /// The Ork player <paramref name="id"/> would execute now and the move (<see cref="ExecutionChoice.ChooseAlignedOrk"/>): (0, a failed result) when none fits; <c>Candidates</c>, how many Orks
-    /// the gather found. <paramref name="prompt"/>: the HUD prompt's mode (the first move that fits, no seeded pick); the Ork is the same as the press's. Nothing is changed.
+    /// The enemy player <paramref name="id"/> would execute now and the move (<see cref="ExecutionChoice.ChooseAlignedOrk"/>, the battle's kinds by <see cref="ExecutionsKinds"/>): (0, a failed result)
+    /// when none fits; <c>Candidates</c>, how many enemies the gather found. <paramref name="prompt"/>: the HUD prompt's mode (the first move that fits, no seeded pick); the enemy is the same as the
+    /// press's. In the Chaos finale's relay (X4b) the only candidate is the Lord, and only for the duelist under the duel's gate. Nothing is changed.
     /// </summary>
     public (ushort Id, ExecutionAlignResult Result, int Candidates) ExecutionsWarfrontChoose(int id, in PlayerState executor, bool prompt)
     {
         if (_musou is not { } musou) return (0, ExecutionAlign.Align(executor, executor, [], Config, Collision), 0);
+        var (duel, lord) = ExecutionsDuelGate(id);
+        if (duel && lord == 0) return (0, ExecutionAlign.Align(executor, executor, [], Config, Collision), 0);   // the relay: nobody else, nothing else
         var query = _executionQuery ??= new ushort[ExecutionsCandidateMost];
         int n = musou.Query(executor.Position, ExecutionsGatherRadius, query, Config.MeleeLock.Vertical);
         ExecutionsGathers++;
         var enemies = new List<MusouEnemy>(n);
-        for (int k = 0; k < n; k++) if (musou.TryGet(query[k], out var e)) enemies.Add(e);
+        for (int k = 0; k < n; k++) if (musou.TryGet(query[k], out var e) && (!duel || e.Id == lord)) enemies.Add(e);
         HashSet<ushort>? reserved = null;
         foreach (var run in _executionRuns.Values)
             if (run.TargetKind == ExecutionTargetKind.Enemy && run.Executor != id) (reserved ??= []).Add((ushort)run.Target);
         var bystanders = ExecutionsWarfrontBystanders(id, executor.Position, musou);
         uint tick = Tick;
         var (target, result) = ExecutionChoice.ChooseAlignedOrk(executor, executor.Yaw, ExecutionsClassName(executor), ExecutionsMeleeWargear(executor) ?? "", enemies, Config.ExecutionRows,
-            Config, Collision, reserved, prompt ? null : ork => ExecutionChoice.Seed(tick, id, ork), bystanders);
+            Config, Collision, reserved, prompt ? null : ork => ExecutionChoice.Seed(tick, id, ork), bystanders, ExecutionsKinds(lord: duel));
         return (target, result, enemies.Count);
     }
 
