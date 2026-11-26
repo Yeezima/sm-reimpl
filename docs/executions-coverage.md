@@ -368,7 +368,8 @@ scale about his feet (`ExecutionProxy`, `p.Scale`), while the attacker plays at 
 (C1 1.32 m, C2 1.46 m, C3 1.11 m: bodies 0.45 + 0.675 m apart do not overlap). The horizontal error of the scaled half is small (its in-place offsets grow
 by 35 %, a few centimetres); the vertical is not: every contact on the victim's upper body (the decap's neck, the axe's shoulder, the hammer's head) sits
 about a third of the way lower on him than his drawn body. Not fixable without retargeting or IK; listed for the owner's playtest. The alternative, drawing
-him at x1.0 for the move, would shrink him visibly at the start (not done). Not checked with a windowed capture.
+him at x1.0 for the move, would shrink him visibly at the start (not done). Windowed capture (X4b live shots, 2026-11-26, the C1 chainsword finisher on the
+duel's Lord): early in C1 the attacker's contacts land at the Lord's chest height instead of his neck, as predicted; the limit stands as documented, for the owner's playtest.
 
 Known gaps the owner did not take:
 - **'Ard Boy Tombstone** (`SM_SYN_Ardboy_TombStone_1m/3.5m/7m` / `BOY_SYN_Ardboy_TombStone_3.5m` on `havok_ard_boy`, campaign `ebp_sets__s008-001`,

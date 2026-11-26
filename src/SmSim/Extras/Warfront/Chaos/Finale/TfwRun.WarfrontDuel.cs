@@ -34,6 +34,12 @@ public sealed partial class TfwRun
 
     uint _winHoldUntil;
 
+    /// <summary>The win hold's bound (server tick; 0: no hold). For the tests.</summary>
+    internal uint WinHoldUntilForTests => _winHoldUntil;
+
+    /// <summary>X4b review: the win hold belongs to one battle; a battle that begins or is left (any way: the hold's own exit, a pickup, the test aid) drops it, so no stale bound reaches the next fortress.</summary>
+    void WarfrontDuelHoldReset() => _winHoldUntil = 0;
+
     /// <summary>
     /// Executions X4b (lead 41, 2026-11-26: the Lord's finisher must play out): the fortress win's exit (<see cref="WarfrontBattleWon"/>: everyone back in the hub the same tick) waits while a finisher on the
     /// Lord plays, at most its move's length + <see cref="WarfrontDuelRules.WinHoldSlackSeconds"/> from its start; a run that ended for any reason (Done, a disconnect, an abort) lets the exit go at once.
@@ -46,7 +52,7 @@ public sealed partial class TfwRun
         uint? until = null;
         int rate = Math.Max(1, w.Config.TickRate);
         foreach (var r in w.ExecutionsLive)
-            if (lord != 0 && r.Target == lord && w.Config.Executions.AtWire(r.Wire) is { } row)
+            if (lord != 0 && r.OnEnemy && r.Target == lord && w.Config.Executions.AtWire(r.Wire) is { } row)   // an enemy id: a player with the same number is not the Lord
                 until = r.StartTick + (uint)MathF.Ceiling((row.Seconds + WarfrontDuelRules.WinHoldSlackSeconds) * rate);
         if (_winHoldUntil == 0)
         {

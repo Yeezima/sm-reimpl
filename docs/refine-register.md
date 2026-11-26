@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4501 spec table rows: **3347 tagged**, 756 not tagged (read from data with high confidence), 398 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 857 rows of the changes document.
+Scanned 4502 spec table rows: **3348 tagged**, 756 not tagged (read from data with high confidence), 398 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 857 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,15 +51,15 @@ Scanned 4501 spec table rows: **3347 tagged**, 756 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 52 | 41 | 23 | 12 | 7 |
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
-| General game design | 346 | 344 | 115 | 143 | 0 |
+| General game design | 347 | 345 | 115 | 143 | 0 |
 | Ork faction | 303 | 282 | 182 | 74 | 0 |
-| **All areas** | **3347** | 3030 | 2363 | 1010 | 37 |
+| **All areas** | **3348** | 3031 | 2363 | 1010 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2121 |
+| kind: ours | 2122 |
 | confidence: medium | 1152 |
 | confidence: low | 1100 |
 | notes: ours | 490 |
@@ -4583,7 +4583,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after **40 s** (the server takes card 1; owner 2026-11-23, card 2: "double the time limit to select a card", was 20 s) or when the player… (s) | notes: ours | owner (protection; 2026-11-23 the doubling); the former 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (346)
+### General game design (347)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4915,6 +4915,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3B79071E` | Clip clock | the server's tick clock: clip time 0 at start + slide ticks (the clip holds its first pose through the slide); remote executors at the interpolated render tick, the own player at the drawn predicted tick (tick - 1 + the draw fraction) (s) | kind: ours; confidence: medium | ours | Clip clock: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server's tick clock: clip time 0 at start + slide ticks (the clip… | ☐ |
 | `R-289150DD` | Executor placement | feet and yaw from X3's `ExecutionTrack` (the server pin's function) at the ticks either side of the drawn tick, interpolated; a clip with extracted motion plays in place and the node follows the track; a clip whose root bone travels is placed at the aligned… (m, rad) | kind: ours | design (one shared pose function) | Executor placement: compare with SM1 by feel or video. Ours: feet and yaw from X3's ExecutionTrack (the server pin's function) at… | ☐ |
 | `R-BD9FA3FF` | Executor's weapon | a live executor's melee weapon is in hand for the whole move (`ExtrasExecutionMeleeShown` in `SyncWeapons`), whatever its swing state | kind: ours | lead 39 | Executor's weapon: compare with SM1 by feel or video. Ours: a live executor's melee weapon is in hand for the whole move… | ☐ |
+| `R-35A2106E` | Executor's pistol | a live executor's pistol is holstered for the whole move (`ExtrasExecutionPistolStowed` in `SyncWeapons`, `WeaponRig.StowPistol`), whatever the slot shown and the hammer's stance (the hammer or maul is on its wield mount as in a strike); back in hand after… | kind: ours | X4b review (2026-11-26): the campaign sync-kill clips grab the victim with the left hand | Executor's pistol: compare with SM1 by feel or video. Ours: a live executor's pistol is holstered for the whole move… | ☐ |
 | `R-4D0E7E8F` | Clip source | the attacker clips from the campaign player rig, the victim clips from the victim kind's rig, decoded once on a worker thread at the first executions frame, added to a character's rig under `exec:<clip>` names (O8's knife clip name also exists on the MP rig)… | kind: ours | X7 loader; lead 39 (AtWire, O8) | Clip source: compare with SM1 by feel or video. Ours: the attacker clips from the campaign player rig, the victim clips… | ☐ |
 | `R-FD1530D8` | Victim proxy | a separate character (pooled per look, at most live runs + 2 kept) at the victim's place: the aligned origin plus the row's offset (lateral X, the run's distance) turned by the yaw, at the victim's own feet height when known, facing the pair's yaw; plays the… | kind: ours; confidence: medium | design; X2 alignment (the victim never moves) | Victim proxy: compare with SM1 by feel or video. Ours: a separate character (pooled per look, at most live runs + 2 kept) at… | ☐ |
 | `R-C0DB71A0` | Classic proxy look | the victim player's own character look; while it has none, the default marine (the co-op Ork Boy for the Ork Boy rows); a race-swapped row plays the Chaos Marine victim half on that body (same skeleton) | kind: ours; confidence: medium | owner 2026-11-25 (swap races) | Classic proxy look: compare with SM1 by feel or video. Ours: the victim player's own character look; while it has none, the… | ☐ |

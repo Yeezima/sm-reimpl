@@ -71,7 +71,13 @@ public partial class NetworkView
 
     partial void ExtrasExecutionMeleeShown(PlayerState state, ref bool shown)
     {
-        if (ExecutionsOn && state.Alive && ExecutionsState.TryLive(state.PlayerId, out _)) shown = true;   // X5: the executor's melee weapon in hand through the move
+        if (ExecutionsOn && ExecutionsState.LiveExecutor(state.PlayerId, state.Alive)) shown = true;   // X5: the executor's melee weapon in hand through the move
+    }
+
+    partial void ExtrasExecutionPistolStowed(PlayerState state, ref bool stowed)
+    {
+        // X4b review: the pistol leaves the off hand for the move (the paired clip's left hand grabs the victim), whatever the slot shown or the hammer's stance; back after it.
+        if (ExecutionsOn && ExecutionsState.LiveExecutor(state.PlayerId, state.Alive)) stowed = true;
     }
 
     partial void ExtrasDeathHold(int id, CharacterViewer character, PlayerState state, bool own, ref bool hold)

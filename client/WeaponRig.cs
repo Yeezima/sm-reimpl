@@ -639,6 +639,17 @@ public sealed partial class WeaponRig
     /// <summary>anim/melee-flow: the pistol goes to its holster (the marine holds the thunder hammer or the daemon maul in both hands); set by the networked view before <see cref="Update"/>.</summary>
     public bool StowPistol { get; set; }
 
+    /// <summary>Whether the pistol / the melee weapon was put in hand by the last <see cref="Update"/> (logs and capture aids: the executor's hands, X4b review).</summary>
+    public bool PistolInHand => RoleInHand(Role.Pistol);
+    /// <inheritdoc cref="PistolInHand"/>
+    public bool MeleeHeld => RoleInHand(Role.Melee);
+
+    bool RoleInHand(Role role)
+    {
+        foreach (var i in _items) if (i.Role == role && i.InHand) return true;
+        return false;
+    }
+
     /// <summary>fix/stow-right: between the old weapon's release and the new one's take both ranged weapons are on their stow markers.</summary>
     bool _empty;
 

@@ -173,6 +173,24 @@ public class DuelExecutionTests(ITestOutputHelper output)
         Assert.Equal([SmSim.Extras.Musou.Campaign.TfwMapResult.Won], ends);   // the exit at once, still Won
     }
 
+    /// <summary>X4b review (stale win hold): a battle left while the Lord's finisher holds its exit (here the test aid's pickup) drops the hold's bound, so the next fortress starts without one.</summary>
+    [Fact]
+    public void Leaving_the_battle_during_the_win_hold_drops_its_bound()
+    {
+        var (w, b, d) = DuelBeside();
+        LordTo(w, b, 0.05f);
+        ChaosExecutionKit.Tap(w);
+        Assert.Equal("C1.chainsword", ChaosExecutionKit.StartedRow(w));
+        for (int t = 0; t < 120 && !ChaosExecutionKit.KillDone(w); t++) ChaosExecutionKit.Idle(w);
+        ChaosExecutionKit.Idle(w);
+        Assert.Equal(WarfrontDuelPhase.Won, d.Phase);
+        Assert.NotEqual(0u, w.Tfw!.WinHoldUntilForTests);   // held: the finisher plays out
+        Assert.NotNull(w.Tfw.Battle);
+        w.Tfw.PickupForTests(w);   // the battle is left another way
+        Assert.Null(w.Tfw.Battle);
+        Assert.Equal(0u, w.Tfw.WinHoldUntilForTests);
+    }
+
     // ---- the client: the dot's gate and heights ----
 
     static byte[] State(WarfrontDuelPhase phase, int champion, float health, float max = 10000f) =>

@@ -77,6 +77,7 @@ public sealed partial class TfwRun
         rules.Node = node;
         rules.InNode = true;
         _spectating.Clear();
+        WarfrontDuelHoldReset();   // executions X4b review: no win hold carries into a new battle (Chaos/Finale/TfwRun.WarfrontDuel.cs)
         rules.BattleBegan?.Invoke(lane, node);
     }
 
@@ -98,6 +99,7 @@ public sealed partial class TfwRun
         if (Warfront is not { } rules) return;
         bool was = rules.InNode;
         _spectating.Clear();
+        WarfrontDuelHoldReset();   // executions X4b review: the battle is left, its win hold with it
         rules.EndBattle();
         if (!was) return;
         rules.BattleEnded?.Invoke(result);

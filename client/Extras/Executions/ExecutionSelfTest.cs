@@ -80,16 +80,17 @@ public partial class NetworkView
     void ExecutionLiveShotsFrame()
     {
         if (ExecLiveShots is not { } dir || _client is not { } client || _config is not { } config) return;
-        if (!ExecutionsState.TryLive(client.PlayerId, out var run) || run.TargetKind != ExecutionTargetKind.Enemy || ExecutionRowsOf(config).AtWire(run.Wire) is not { } row) { _execShotRun = null; return; }
+        // X4b review: a Classic Extended finisher on a player too (the executor's hands: pistol holstered), named <row>_player_<id>.
+        if (!ExecutionsState.TryLive(client.PlayerId, out var run) || ExecutionRowsOf(config).AtWire(run.Wire) is not { } row) { _execShotRun = null; return; }
         if (_execShotRun is not { } s || s.Start != run.StartTick)
         {
             if (_execShotMoves >= ExecLiveShotsMost) return;
-            int type = -1;
-            foreach (var e in _tfwShown) if (e.Id == run.Target) { type = (int)e.Type; break; }
+            int type = run.TargetKind == ExecutionTargetKind.Player ? -2 : -1;
+            if (run.TargetKind == ExecutionTargetKind.Enemy) foreach (var e in _tfwShown) if (e.Id == run.Target) { type = (int)e.Type; break; }
             if (_execShotTypes.GetValueOrDefault(type) >= 2) { _execShotRun = (run.StartTick, 3, ""); return; }
             _execShotTypes[type] = _execShotTypes.GetValueOrDefault(type) + 1;
             _execShotMoves++;
-            string name = $"{row.Id}_{(type < 0 ? "unknown" : ((SmSim.Extras.Musou.MusouEnemyType)type).ToString())}_{run.Target}";
+            string name = $"{row.Id}_{(type == -2 ? "player" : type < 0 ? "unknown" : ((SmSim.Extras.Musou.MusouEnemyType)type).ToString())}_{run.Target}";
             _execShotRun = s = (run.StartTick, 0, name);
             GD.Print($"EXECSHOT start {name} at frame {Engine.GetFramesDrawn()} (t {_connectedFor:F2} s, tick {run.StartTick}), {row.Seconds:F3} s");
         }
@@ -106,7 +107,8 @@ public partial class NetworkView
         if (clip < at) return;
         string shot = $"{s.Name}_{s.Taken + 1}";
         ExecutionX6Shot(dir, shot, log: false);
-        GD.Print($"EXECSHOT {shot} at frame {Engine.GetFramesDrawn()}: clip {clip:F2} of {row.Seconds:F2} s");
+        string hands = _local?.Weapons is { } rig ? $"; hands: pistol {(rig.PistolInHand ? "IN HAND" : "holstered")}, melee {(rig.MeleeHeld ? "in hand" : "away")}" : "";
+        GD.Print($"EXECSHOT {shot} at frame {Engine.GetFramesDrawn()}: clip {clip:F2} of {row.Seconds:F2} s{hands}");
         _execShotRun = s with { Taken = s.Taken + 1 };
     }
 

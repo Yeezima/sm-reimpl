@@ -174,7 +174,9 @@ public static class TfwHudModel
     public static string OrderText(MarineOrder order) => order switch { MarineOrder.Hold => "HOLD", MarineOrder.Attack => "ATTACK", _ => "FOLLOW" };
 
     /// <summary>The big line in the middle of the screen, for what the run asks of the player now; empty when nothing does.</summary>
-    public static string Prompt(in TfwWarView war, bool alive)
+    /// <param name="freePickup">The won battle's "HOLD P FOR A FREE PICKUP" line (Musou's flow). False in Warfront (X4b review, 2026-11-26): its win hold leaves on its own and has no
+    /// P pickup, so the line is left out; <see cref="TfwOwnView.BattleWon"/> still stands for everything else.</param>
+    public static string Prompt(in TfwWarView war, bool alive, bool freePickup = true)
     {
         var own = war.Own;
         switch (war.Phase)
@@ -199,7 +201,7 @@ public static class TfwHudModel
             return "";
         }
         if (war.Phase == TfwRunPhase.Pickup) return $"PICKUP IN {own.PickupSeconds} S: STAY ALIVE";
-        return own.BattleWon ? "BATTLE WON: HOLD P FOR A FREE PICKUP" : "";
+        return own.BattleWon && freePickup ? "BATTLE WON: HOLD P FOR A FREE PICKUP" : "";
     }
 
     /// <summary>Whether P held means a pickup now (a request, or calling a running one off), and what it says beside the bar.</summary>
