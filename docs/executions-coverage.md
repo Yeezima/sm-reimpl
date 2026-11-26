@@ -351,7 +351,7 @@ the priority does not matter.
 | Warfront | Scrap Mek, Bomb Squig, elites, bosses | - | none | none | none | none | not eligible |
 | Chaos run | Chaos Tactical, Havoc, Champion; grounded Raptor (owner 2026-11-25, never airborne) | chaos_marine | C1 | C2 | C3 | C1 (ours) | original pairs; struggle skipped (ours); X4b |
 | Chaos run | Chosen bodyguard (owner 2026-11-26) | chaos_marine | C1 | C2 | C3 | C1 (ours) | original pairs on the x1.2 marine body; X4b |
-| Chaos run | Chaos Lord, in his duel only, by the duelist only, under 10 % health (owner 2026-11-26) | chaos_marine | C1 | C2 | C3 | C1 (ours) | original pairs on the x1.35 marine body: the contact sits low on him (below the table); the kill wins the duel |
+| Chaos run | Chaos Lord, in his duel only, by the duelist only, under 10 % health (owner 2026-11-26) | chaos_marine | C1 | C2 | C3 | C1 (ours) | original pairs on the x1.35 marine body: the contact sits low on him (below the table); the kill wins the duel; the win's exit waits for the move to play out |
 | Chaos run | Chaos Lord otherwise | - | none | none | none | none | never (owner) |
 | Chaos run | Bloodletter | bloodletter | B1 | B2 | B3 | B1 (ours) | original; X4b |
 | Chaos run | Traitor Guard, Cultist | renegade | R1 | R1 | R1 | R1 (ours) | original guardsman clip on our rosters (ours: the mapping); X4b |

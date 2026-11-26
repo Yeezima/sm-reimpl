@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using SmNet.Extras.Executions;
 using SmSim;
@@ -63,8 +64,55 @@ public partial class NetworkView
         GD.Print($"EXECPRESS t {_connectedFor:F2} s: Execute tapped at tick {input.Tick} for the offer on P{offer.Victim} (kill tick {offer.KillTick}, window {offer.WindowTicks})");
     }
 
+    /// <summary>
+    /// <c>--execution-live-shots &lt;dir&gt;</c> (windowed capture aid, X4b): during each own live execution on an enemy, stills at 35, 60 and 85 % of the move (<c>&lt;row&gt;_&lt;type&gt;_&lt;enemy&gt;_&lt;n&gt;.png</c>),
+    /// at most <c>--execution-live-shots-most</c> moves (default 6) and two of one enemy type; an <c>EXECSHOT</c> line per still and per start with the engine frame (to cut a <c>--write-movie</c> recording).
+    /// </summary>
+    static readonly string? ExecLiveShots = CmdArg("execution-live-shots");
+    static readonly int ExecLiveShotsMost = int.TryParse(CmdArg("execution-live-shots-most"), out int most) ? most : 6;
+    readonly System.Collections.Generic.Dictionary<int, int> _execShotTypes = new();
+    (uint Start, int Taken, string Name)? _execShotRun;
+    int _execShotMoves, _execFrameIndex;
+    double _execFrameAt = -100;
+    static readonly double ExecLiveFrames = double.TryParse(CmdArg("execution-live-frames"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double fps) ? fps : 0;
+    static readonly string? ExecLiveFramesType = CmdArg("execution-live-frames-type");
+
+    void ExecutionLiveShotsFrame()
+    {
+        if (ExecLiveShots is not { } dir || _client is not { } client || _config is not { } config) return;
+        if (!ExecutionsState.TryLive(client.PlayerId, out var run) || run.TargetKind != ExecutionTargetKind.Enemy || ExecutionRowsOf(config).AtWire(run.Wire) is not { } row) { _execShotRun = null; return; }
+        if (_execShotRun is not { } s || s.Start != run.StartTick)
+        {
+            if (_execShotMoves >= ExecLiveShotsMost) return;
+            int type = -1;
+            foreach (var e in _tfwShown) if (e.Id == run.Target) { type = (int)e.Type; break; }
+            if (_execShotTypes.GetValueOrDefault(type) >= 2) { _execShotRun = (run.StartTick, 3, ""); return; }
+            _execShotTypes[type] = _execShotTypes.GetValueOrDefault(type) + 1;
+            _execShotMoves++;
+            string name = $"{row.Id}_{(type < 0 ? "unknown" : ((SmSim.Extras.Musou.MusouEnemyType)type).ToString())}_{run.Target}";
+            _execShotRun = s = (run.StartTick, 0, name);
+            GD.Print($"EXECSHOT start {name} at frame {Engine.GetFramesDrawn()} (t {_connectedFor:F2} s, tick {run.StartTick}), {row.Seconds:F3} s");
+        }
+        float clip = ExecutionPresentMath.ClipSeconds(run, OwnDrawTick(), ExecTickRate);
+        // --execution-live-frames <fps> [--execution-live-frames-type <MusouEnemyType>]: a frame sequence of the move as well (for an MP4), at most 12 s of it.
+        if (ExecLiveFrames > 0 && s.Name.Length > 0 && (ExecLiveFramesType is null || s.Name.Contains("_" + ExecLiveFramesType + "_", StringComparison.Ordinal))
+            && clip <= row.Seconds + 0.5f && clip < 12f && _connectedFor - _execFrameAt >= 1.0 / ExecLiveFrames)
+        {
+            _execFrameAt = _connectedFor;
+            ExecutionX6Shot(System.IO.Path.Combine(dir, "frames_" + s.Name), $"f{_execFrameIndex++:D4}", log: false);
+        }
+        if (s.Taken >= 3) return;
+        float at = row.Seconds * (s.Taken switch { 0 => 0.35f, 1 => 0.6f, _ => 0.85f });
+        if (clip < at) return;
+        string shot = $"{s.Name}_{s.Taken + 1}";
+        ExecutionX6Shot(dir, shot, log: false);
+        GD.Print($"EXECSHOT {shot} at frame {Engine.GetFramesDrawn()}: clip {clip:F2} of {row.Seconds:F2} s");
+        _execShotRun = s with { Taken = s.Taken + 1 };
+    }
+
     void ExecutionSelfTestFrame(PlayerState me, System.Collections.Generic.IReadOnlyList<PlayerState> others)
     {
+        ExecutionLiveShotsFrame();
         if (!ExecSelfTest && ExecDemoRows.Length == 0) return;
         if (_execTestDone || _client is null || _execLib.Catalogue is not { } catalogue || !me.Alive || _connectedFor < _execTestNext) return;
         if (_execTestRun is null)

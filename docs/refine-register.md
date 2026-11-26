@@ -51,16 +51,16 @@ Scanned 4501 spec table rows: **3347 tagged**, 756 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 52 | 41 | 23 | 12 | 7 |
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
-| General game design | 346 | 344 | 116 | 143 | 0 |
+| General game design | 346 | 344 | 115 | 143 | 0 |
 | Ork faction | 303 | 282 | 182 | 74 | 0 |
-| **All areas** | **3347** | 3030 | 2364 | 1010 | 37 |
+| **All areas** | **3347** | 3030 | 2363 | 1010 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 2121 |
-| confidence: medium | 1153 |
+| confidence: medium | 1152 |
 | confidence: low | 1100 |
 | notes: ours | 490 |
 | kind: interpretation | 474 |
@@ -4947,7 +4947,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-558C6E5D` | Own bystander | a candidate's own feet (within 0.05 m flat and 0.5 m up or down) are never its bystander: the Chosen and the Lord are player-solid, so they are in the bystander list as bodies (m) | kind: ours | ours (a guard: every row's gap is over the 0.9 m clearance) | Own bystander: compare with SM1 by measuring on a flat spot of the same map. Ours: a candidate's own feet (within 0.05 m flat and 0.5 m up or down) are… | ☐ |
 | `R-C0A3EAD7` | Combat knife | the chainsword's rows on every victim that is not an Ork (a Classic Extended marine of either race, the race swap included: C1; the Chaos kinds: C1, R1, B1); its own rows (O3, O8, O9) on the Ork Boy and the Gretchin only | kind: ours | owner 2026-11-26, card "Knife": "Use chainsword moves" | Combat knife: compare with SM1 by feel or video. Ours: the chainsword's rows on every victim that is not an Ork (a Classic… | ☐ |
-| `R-5AF32345` | Lord's finisher | its kill frame kills him through the normal damage path (the duel's gate admits the duelist's hit) and the duel's own win path ends the relay (`WarfrontDuel.Win`, kind 16, the results); the fortress win leaves the battle at once, so the move's last part after… | kind: ours; confidence: medium | owner 2026-11-26 | Lord's finisher: compare with SM1 by feel or video. Ours: its kill frame kills him through the normal damage path (the duel's… | ☐ |
+| `R-5AF32345` | Lord's finisher | its kill frame kills him through the normal damage path (the duel's gate admits the duelist's hit) and the duel's own win path ends the relay (`WarfrontDuel.Win`, kind 16, the results); the fortress win's exit (everyone back in the hub, the results) waits… (s) | kind: ours | owner 2026-11-26; the play-out lead 41 (2026-11-26) | Lord's finisher: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: its kill frame kills him through the normal damage path (the duel's… | ☐ |
 | `R-118DA762` | Held Lord | his boss code does nothing while held (no slam, charge, leap, bolt or telegraph; one under way is dropped) | kind: ours | ours | Held Lord: compare with SM1 by feel or video. Ours: his boss code does nothing while held (no slam, charge, leap, bolt or… | ☐ |
 | `R-582752A8` | Lord's scale (known limit) | the Lord's victim half is drawn at his x1.35 about his feet while the attacker plays at a marine's size: the upper-body contacts sit about a third lower on him than his drawn body; horizontal error a few centimetres (docs/executions-coverage.md 6.1) | kind: provisional; kind: approximation; confidence: low; notes: ours | ours | Lord's scale (known limit): compare with SM1 by feel or video. Ours: the Lord's victim half is drawn at his x1.35 about his feet while the… | ☐ |
 | `R-82A97715` | Chaos dot height | over each Chaos body's top: `MusouSim.ShotBodyOf` height on the client's latched Chaos rules + 0.3 m (Cultist and Traitor Guardsman 2.3, the marines 2.6, the Aspiring Champion 2.83, the Daemon 2.9, the Chosen 3.06, the Lord 3.41 m); the Orks keep 2.45 m (m) | kind: ours; confidence: medium | ours (C3's heights; the Ork dot's clearance) | Chaos dot height: compare with SM1 by measuring on a flat spot of the same map. Ours: over each Chaos body's top: MusouSim.ShotBodyOf height on the… | ☐ |

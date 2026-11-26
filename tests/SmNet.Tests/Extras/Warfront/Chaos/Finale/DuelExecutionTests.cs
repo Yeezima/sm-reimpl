@@ -117,6 +117,9 @@ public class DuelExecutionTests(ITestOutputHelper output)
         var (w, b, d) = DuelBeside();
         var log = new List<string>();
         w.WarfrontChaosLog = log.Add;
+        var ends = new List<SmSim.Extras.Musou.Campaign.TfwMapResult>();
+        w.Tfw!.Warfront!.NodeEnded += (_, _, r) => ends.Add(r);
+        bool endedBeforeDone = false;
         LordTo(w, b, 0.05f);
         ChaosExecutionKit.Tap(w);
         Assert.Equal("C1.chainsword", ChaosExecutionKit.StartedRow(w));   // the Chaos Marine's rows (the Lord is the elite Chaos Marine)
@@ -135,6 +138,7 @@ public class DuelExecutionTests(ITestOutputHelper output)
             }
             else killFrame = true;
             why = ChaosExecutionKit.EndedWhy(w);
+            if (why is null && ends.Count > 0) endedBeforeDone = true;
         }
         foreach (var line in log) output.WriteLine(line);
         Assert.True(killFrame);
@@ -142,8 +146,31 @@ public class DuelExecutionTests(ITestOutputHelper output)
         Assert.Equal(WarfrontDuelPhase.Won, w.WarfrontChaosDuel!.Phase);
         Assert.True(b.Battle.Won);
         Assert.Contains(log, l => l.Contains("WON", StringComparison.Ordinal));
-        Assert.NotNull(why);
-        output.WriteLine($"the finisher ended {why}");
+        Assert.Equal("Done", why);   // lead 41: the finisher plays out (the win's exit waited)
+        Assert.False(endedBeforeDone);
+        Assert.Contains(log, l => l.Contains("plays out before the win's exit", StringComparison.Ordinal));
+        for (int t = 0; t < 5 && ends.Count == 0; t++) ChaosExecutionKit.Idle(w);
+        Assert.Equal([SmSim.Extras.Musou.Campaign.TfwMapResult.Won], ends);   // the run still records Won
+        Assert.Null(w.Tfw.Battle);
+    }
+
+    [Fact]
+    public void The_wins_exit_waits_no_longer_than_the_finishers_bound_and_goes_at_once_after_an_abort()
+    {
+        var (w, b, d) = DuelBeside();
+        var ends = new List<SmSim.Extras.Musou.Campaign.TfwMapResult>();
+        w.Tfw!.Warfront!.NodeEnded += (_, _, r) => ends.Add(r);
+        LordTo(w, b, 0.05f);
+        ChaosExecutionKit.Tap(w);
+        Assert.Equal("C1.chainsword", ChaosExecutionKit.StartedRow(w));
+        for (int t = 0; t < 120 && !ChaosExecutionKit.KillDone(w); t++) ChaosExecutionKit.Idle(w);
+        Assert.True(ChaosExecutionKit.KillDone(w));
+        for (int t = 0; t < 3; t++) ChaosExecutionKit.Idle(w);
+        output.WriteLine($"tick {w.Tick}, live {w.ExecutionsLive.Count}, ends {ends.Count}, duel {d.Phase}, battle {(w.Tfw.Battle is null ? "gone" : "here")}");
+        Assert.Empty(ends);   // held
+        w.ExecutionsPlaceForTests(1, w.Players[1].Position + new Vector3(5f, 0f, 0f), 0f);   // a teleport: the run ends Invalid next step
+        for (int t = 0; t < 4 && ends.Count == 0; t++) ChaosExecutionKit.Idle(w);
+        Assert.Equal([SmSim.Extras.Musou.Campaign.TfwMapResult.Won], ends);   // the exit at once, still Won
     }
 
     // ---- the client: the dot's gate and heights ----

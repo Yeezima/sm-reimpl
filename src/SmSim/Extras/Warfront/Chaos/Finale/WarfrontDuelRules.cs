@@ -16,6 +16,9 @@ public static class WarfrontDuelRules
     /// </summary>
     public const float LordExecutableBelow = 0.10f;
 
+    /// <summary>The fortress win's exit waits for the Lord's finisher at most its move's length plus this from its start (seconds; lead 41, 2026-11-26: "its clip length + 1 s").</summary>
+    public const float WinHoldSlackSeconds = 1f;
+
     /// <summary>The pause between one challenger's end and the next one's entry (design: 3 s).</summary>
     public const float HandoffSeconds = 3f;
 

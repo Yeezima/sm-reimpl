@@ -89,6 +89,7 @@ public sealed partial class TfwRun
     {
         if (Warfront is null) return;
         handled = true;
+        if (DuelWinHeld(w)) return;   // executions X4b: a finisher on the Chaos Lord plays out first (Chaos/Finale/TfwRun.WarfrontDuel.cs)
         Leave(w, left: false, TfwMapResult.Won);   // no victory wave, no pickup: everyone back in the hub the same tick
     }
 
