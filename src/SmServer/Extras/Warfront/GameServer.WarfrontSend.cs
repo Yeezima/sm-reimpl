@@ -53,6 +53,7 @@ public sealed partial class GameServer
         WarfrontSendSquad();
         WarfrontSendCoop();
         WarfrontSendBattle();   // W13b (routed: the lead's fan-out line)
+        WarfrontVoxSend();   // Guardsmen G2: tag 52, the Guardsmen's vox lines (GameServer.WarfrontVoxSend.cs; nothing unless a lane battle's line made one)
         WarfrontChaosSend();   // Chaos Warfront C4: tag 51, the breaches (Chaos/GameServer.WarfrontChaos.cs; nothing unless the stage's army is Chaos)
     }
 

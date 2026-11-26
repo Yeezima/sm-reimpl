@@ -152,6 +152,12 @@ public class WarfrontBoundaryTests
         ("src/SmNet/Extras/Musou/MusouSend.cs", "WarfrontHitRank"),
         ("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontPuppetWearer"),
         ("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontColoursOnly"),
+        // Guardsmen G1 (2026-11-26): the line step, the retreat's fall-back place, the lane battle's rally, the reinforcement weight and the arrival note (no-ops outside a Warfront lane battle; WfLine)
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontLine"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.Retreats.cs", "WarfrontGuardFallBack"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.Retreats.cs", "WarfrontRallies"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.Garrisons.cs", "WarfrontReinforceNeed"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.Garrisons.cs", "WarfrontReinforced"),
     ];
 
     /// <summary>
@@ -175,6 +181,11 @@ public class WarfrontBoundaryTests
     [InlineData("src/SmNet/Extras/Musou/MusouSend.cs", "if (e.Kind == MusouEventKind.Hit && rank == 4) WarfrontHitRank(e.Player, ref rank);   // WARFRONT-HOOK")]
     [InlineData("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontPuppetWearer(playerId, ref wearer, ref ownPieces);   // WARFRONT-HOOK")]
     [InlineData("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "if (!ownPieces) WarfrontColoursOnly(ref code);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontLine();   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.Retreats.cs", "WarfrontGuardFallBack(a, ref place);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.Retreats.cs", "WarfrontRallies(ref skip);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.Garrisons.cs", "WarfrontReinforceNeed(k, need[k], ref weight[k]);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.Garrisons.cs", "WarfrontReinforced(a, k);   // WARFRONT-HOOK")]
     public void The_retainer_spines_Musou_lines_are_marked_Warfront_hooks(string file, string line)
     {
         var lines = Sources().First(s => s.Path == file).Lines;

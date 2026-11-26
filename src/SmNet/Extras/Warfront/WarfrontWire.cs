@@ -46,11 +46,13 @@ public sealed record WarfrontClientCommand(WarfrontClientCommandKind Kind, ulong
 public static class WarfrontWire
 {
     /// <summary>The Warfront wire's own number; raised with <see cref="SmSim.Extras.Warfront.WarfrontRules.Version"/>.</summary>
-    public const int Format = 4;   // 4: Phase B T2 (roster tag 33 carries each Marine's World id; state tag 32 is no longer sent); 3: the Hub's trailing faction byte (Chaos Warfront C1); 2: the Progress command and the ProgressSave section (tag 49); 1: the first wire
+    public const int Format = 5;   // 5: Guardsmen G2 (the vox section, tag 52, WarfrontVoxWire); 4: Phase B T2 (roster tag 33 carries each Marine's World id; state tag 32 is no longer sent); 3: the Hub's trailing faction byte (Chaos Warfront C1); 2: the Progress command and the ProgressSave section (tag 49); 1: the first wire
     /// <summary>
     /// Envelope tags (gore 1, barks 2, Musou 3 to 18). Reserved for later slices: 32 to 34 the squad wire (W10), 44 and 45 progression (W8), 46 coop (W12); 35 to 39 stay free; 47 is the Battle section, 48 the weather state and 49 ProgressSave (<see cref="WarfrontProgressSaveWire"/>).
     /// </summary>
     public const byte HubTag = 40, StageTag = 41, DownTag = 42, ResultsTag = 43;
+    /// <summary>Guardsmen G2: the vox section (<see cref="WarfrontVoxWire"/>; 50 is executions X1's, 51 the Chaos section).</summary>
+    public const byte VoxTag = 52;
     /// <summary>The command tag (its own namespace, client to server: Musou's is 7, the Librarian's 16). 41 is the squad's (Rename, W10), 42 the coop's (ConfirmClass, Watch; W12): both admitted by the server and passed to those slices.</summary>
     public const byte CommandTag = 40, SquadCommandTag = 41, CoopCommandTag = 42;
     public const int MaxName = 24, MaxMap = 32, MaxStatus = 48, MaxPlayers = 16, MaxTargets = 8, Lanes = 3;
