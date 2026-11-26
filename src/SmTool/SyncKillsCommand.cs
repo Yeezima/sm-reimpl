@@ -65,7 +65,7 @@ static class SyncKillsCommand
     {
         if (args.Contains("--help") || args.Contains("-h"))
         {
-            Console.Error.WriteLine("usage: smtool sync-kills [--game <dir>] [--attacker <archive>:<entry>]... [--victim <archive>:<entry>]... [--graph <pattern>] [--no-victims] [--no-geometry]");
+            Console.Error.WriteLine("usage: smtool sync-kills [--game <dir>] [--attacker <archive>:<entry>]... [--victim <archive>:<entry>]... [--graph <pattern>] [--no-victims] [--no-geometry] [--all-tags]");
             return 2;
         }
         string gameDir = GameInstall.Locate(Opt(args, "--game"));
@@ -73,6 +73,7 @@ static class SyncKillsCommand
         var victims = Many(args, "--victim") is { Count: > 0 } v ? v : [.. DefaultVictims];
         string? graphPattern = Opt(args, "--graph");
         bool geometry = !args.Contains("--no-geometry");
+        AllTags = args.Contains("--all-tags");
         var inv = CultureInfo.InvariantCulture;
 
         var sent = new HashSet<string>(StringComparer.Ordinal);
@@ -187,9 +188,12 @@ static class SyncKillsCommand
         catch (Exception ex) when (ex is KeyNotFoundException or NotSupportedException or InvalidDataException) { return null; }
     }
 
+    /// <summary><c>--all-tags</c>: list the footstep and sound tags too (executions cues, 2026-11-27).</summary>
+    static bool AllTags;
+
     /// <summary>Tags worth a line: everything except footsteps, sounds and attachments (counted instead).</summary>
     static bool Noise(SyncKillInventory.SyncTag t) =>
-        t.Name is { } n && (n.StartsWith("EVT_Left_Foot", StringComparison.Ordinal) || n.StartsWith("EVT_Right_Foot", StringComparison.Ordinal)
+        !AllTags && t.Name is { } n && (n.StartsWith("EVT_Left_Foot", StringComparison.Ordinal) || n.StartsWith("EVT_Right_Foot", StringComparison.Ordinal)
             || n.StartsWith("SFX_", StringComparison.OrdinalIgnoreCase) || n.StartsWith("Start_Action_FootStep", StringComparison.Ordinal));
 
     static void PrintMove(TextWriter o, HavokCharacterFile character, SyncKillInventory.SyncMove m, bool geometry, CultureInfo inv, string indent = "  ")

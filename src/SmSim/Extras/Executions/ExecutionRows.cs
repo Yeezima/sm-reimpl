@@ -27,7 +27,7 @@ namespace SmSim.Extras.Executions;
 public static class ExecutionRows
 {
     /// <summary>Raised when the rows change (hashed by <c>ExecutionCatalogue.Write</c>, X1's Executions block, with <see cref="ExecutionChoice.RulesVersion"/>).</summary>
-    public const int DataVersion = 2;
+    public const int DataVersion = 3;   // 3: the knife's arm break crossover O4.combat_knife appended (executions cues, 2026-11-27)
 
     /// <summary>Where the victims' halves are (docs/executions-coverage.md 4.9): kind to (archive, rig entry). The attacker clips are all on <see cref="AttackerRig"/>.</summary>
     public static readonly IReadOnlyDictionary<string, (string Archive, string Entry)> VictimRigs = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
@@ -167,5 +167,10 @@ public static class ExecutionRows
             "the victim is thrown to 8.7 m"),
         Row("R1", TH, Ig, "SM_SYN_IG_BackHand_Punch_3.5m", 2.867f, "IG_SYN_IG_BackHand_Punch_3.5m", 2.867f, R1T, 0.00f, 3.91f, ThGraph, "Struggle SM Wins Sequence06", 0, R1V,
             "the victim is thrown to 8.7 m"),
+        // Crossovers (owner brief 2026-11-27, ours: an original move on another equipped weapon; each passes the playback checks and the lead's footage review, docs/executions-cues.md 3).
+        // The knife's arm break: the chainsword's O4 sequencer and clips played with the combat knife in hand (source: the brief's first trial; the shipped coverage matrix; the Support worksheet,
+        // medium). Priority 0: below the knife's own O3 (2) and O8 (1), so the prompt's first fit is unchanged; the press's seeded pick takes it among the moves that align.
+        Row("O4", CK, Boy, "SM_SYN_ARMBREAK_01_4m", 3.0f, "BOY_SYN_ARMBREAK_01_4m", 3.0f, O4T, 0.07f, 4.00f, CsGraph, "Ork Raised Grind Sequence02", 0, O4V,
+            "crossover (ours): the chainsword's arm break with the combat knife"),
     ];
 }
