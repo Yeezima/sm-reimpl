@@ -69,10 +69,18 @@ public sealed class AppearanceAssets : IDisposable
     /// <summary>Starts reading, on worker threads, the files of the look's pieces and its badges, so <see cref="TryBuild"/> / <see cref="Build"/> do not wait for the disk.</summary>
     public void Prefetch(ResolvedAppearance look)
     {
+        RequireMasks(look);
         foreach (var piece in look.Pieces)
             foreach (var package in piece.Packages) Pieces.Prefetch(package);
         foreach (var decal in new[] { look.LeftDecal, look.RightDecal })
             if (decal.Kind != DecalKind.None && decal.Badge is { IsBlank: false } badge) PrefetchBadge(badge);
+    }
+
+    /// <summary>armour-pieces-1125: the look's pieces that are drawn with built paint masks ask the piece cache for them before their files are read.</summary>
+    void RequireMasks(ResolvedAppearance look)
+    {
+        foreach (var piece in look.Pieces)
+            if (piece.BuiltMasks) foreach (var package in piece.Packages) Pieces.RequireBuiltMasks(package);
     }
 
     void PrefetchBadge(PaintDecal badge)
@@ -152,6 +160,7 @@ public sealed class AppearanceAssets : IDisposable
     public MarineAssets Build(ResolvedAppearance look)
     {
         var watch = Stopwatch.StartNew();
+        RequireMasks(look);
         int notesBefore = Pieces.Notes.Count;
         var pieces = new List<AssetPiece>();
         int textured = 0, surfaces = 0;
@@ -171,6 +180,7 @@ public sealed class AppearanceAssets : IDisposable
                     surfaces++;
                     if (surface.HasDiffuse) textured++;
                     if (surface.Painted is not { } painted) continue;
+                    if (surface.BuiltMask && look.PredefinedSet is not null) continue;   // armour-pieces-1125: a full predefined set keeps its baked look (original)
                     if (paint is null)
                     {
                         if (!unpaintedNoted) { Pieces.AddNote($"{package}: no paint for slot '{piece.Slot}'; the grey diffuse is drawn"); unpaintedNoted = true; }

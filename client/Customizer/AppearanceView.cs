@@ -520,7 +520,7 @@ public sealed partial class AppearanceView : Control
         var parts = new List<string>();
         if (resolved?.ForcedSlots.Contains(slot) == true) parts.Add($"Set by class: {LoadoutRows.ClassName(_catalog, Role, _race)}.");
         if (resolved?.HiddenSlots.Contains(slot) == true) parts.Add("Not shown on this class (the jump pack takes the back; the Backpack colours paint the pack).");
-        var offered = Race?.PiecesFor(slot).Count ?? 0;
+        var offered = Race?.OfferedPiecesFor(slot).Count() ?? 0;
         ShowTextCard(AppearanceEdits.SlotTitle(slot), $"Worn: {PieceTitle(look, resolved, slot)}\n{offered} to choose from.", string.Join("\n", parts));
     }
 
@@ -929,7 +929,7 @@ public sealed partial class AppearanceView : Control
         Rebuild(true);
     }
 
-    /// <summary>Whether a shoulder pad's piece can show a badge: its mesh's second UV set must carry a decal layout (<see cref="PaintSchemes.HasDecalUv"/>). Read once per piece; unreadable means yes.</summary>
+    /// <summary>Whether a shoulder pad's piece can show a badge: a surface with the game's own paint mask and a decal layout (<see cref="SmContent.Customization.BakedArmourPaint.SurfaceTakesDecal"/>). Read once per piece; unreadable means yes.</summary>
     sealed class PadProbe
     {
         readonly CustomizerServices _services;
@@ -948,7 +948,9 @@ public sealed partial class AppearanceView : Control
                     string path = System.IO.Path.Combine(_services.GameDir, "data", "packages", package + ".oppc");
                     if (!System.IO.File.Exists(path)) continue;
                     var model = StaticModel.Load(path, package);
-                    result = model.Mesh.Blocks.Any(b => PaintSchemes.HasDecalUv(b.Uv1));
+                    // armour-pieces-1125 round 3 (gate finding): the same rule as the piece cache's (BakedArmourPaint.SurfaceTakesDecal): a surface with the game's
+                    // own paint mask and a decal layout; a baked or built-mask pad (DLC, campaign) never takes the badge.
+                    result = model.Surfaces.Any(s => SmContent.Customization.BakedArmourPaint.SurfaceTakesDecal(s.Material, model.Mesh.Blocks[s.BlockIndex].Uv1));
                     break;
                 }
             }

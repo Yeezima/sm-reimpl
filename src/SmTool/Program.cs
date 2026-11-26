@@ -62,6 +62,7 @@ return args switch
     ["hitbox-probe", var gameDir, .. var rest] => SmTool.HitboxCommands.Probe(gameDir, rest),
     ["race-parity", var gameDir, .. var rest] => SmTool.ParityCommands.Run(gameDir, rest),
     ["armour-audit", var gameDir, .. var rest] => SmTool.ArmourAuditCommand.Run(gameDir, rest),
+    ["built-mask-bench", var gameDir, .. var rest] => SmTool.BuiltMaskCommand.Run(gameDir, rest),
     ["fx-smoke", var gameDir, .. var rest] => SmTool.FxSmokeCommands.Run(gameDir, rest),
     ["fx-dump", var gameDir, .. var rest] => SmTool.FxDumpCommands.Run(gameDir, rest),
     ["map-emissive", var gameDir, .. var rest] => SmTool.MapEmissiveCommand.Run(gameDir, rest),

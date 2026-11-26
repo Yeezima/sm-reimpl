@@ -14,7 +14,7 @@ public static class CustomizationDump
         {
             var r = c.Race(race)!;
             sb.AppendLine($"{race}: sets {r.CustomizableSets.Count()} customizable + {r.PredefinedSets.Count()} predefined; decals {r.Decals.Count}; presets {r.Presets.Count}; default set {r.DefaultSet?.Name ?? "-"}; default scheme {r.DefaultScheme}");
-            sb.AppendLine("  pieces: " + string.Join(", ", CustomizationCatalog.ArmourSlots.Select(s => $"{s} {r.PiecesFor(s).Count}")));
+            sb.AppendLine("  pieces: " + string.Join(", ", CustomizationCatalog.ArmourSlots.Select(s => $"{s} {r.OfferedPiecesFor(s).Count()}" + (r.PiecesFor(s).Count(p => p.Reserved) is > 0 and var rs ? $" (+{rs} reserved)" : ""))));
         }
         sb.AppendLine($"palette: {c.Palette.Count} in {c.PaletteGroups.Count} groups ({string.Join(", ", c.PaletteGroups.Select(g => $"{g.Name} {g.Colours.Count}"))})");
         var u = c.Unlocks;
@@ -43,7 +43,7 @@ public static class CustomizationDump
             sb.AppendLine($"== {race} pieces");
             foreach (var slot in CustomizationCatalog.ArmourSlots)
                 foreach (var p in r.PiecesFor(slot))
-                    sb.AppendLine($"{slot} | {p.Name} | {p.DisplayName} | {string.Join("+", p.Packages)} | helmet {p.HelmetOverride} | sets {string.Join(",", p.SetNames)} | {p.ChallengeText ?? "-"}");
+                    sb.AppendLine($"{slot} | {p.Name}{(p.Reserved ? " [reserved: not in this install]" : "")} | {p.DisplayName} | {string.Join("+", p.Packages)} | helmet {p.HelmetOverride} | sets {string.Join(",", p.SetNames)} | {p.ChallengeText ?? "-"}");
             sb.AppendLine($"== {race} presets");
             foreach (var p in r.Presets) sb.AppendLine($"{p.Name} | {p.DisplayName}");
             sb.AppendLine($"== {race} decals");
