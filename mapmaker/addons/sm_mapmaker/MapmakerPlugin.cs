@@ -94,6 +94,7 @@ public partial class MapmakerPlugin : EditorPlugin
         FreeViewportTools();
         EditorGrid.RestoreBuiltIn();   // Godot's own grid comes back with the user's setting
         SceneSaved -= OnSceneSaved;
+        ClearObjectGizmos();   // before any node is freed and before the gizmo plugin is released (see ClearObjectGizmos)
         FreeDetachedNodes(); _nodes.Clear(); _stash.Clear();
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
         // the gizmo plugin's handle is released here, on the main thread: left to the finalizer thread (any later GC, e.g. the material test's) its release removes the
@@ -101,7 +102,12 @@ public partial class MapmakerPlugin : EditorPlugin
         if (_gizmo is not null)
         {
             RemoveNode3DGizmoPlugin(_gizmo);
-            _gizmo.Dispose();   // released here, on the main thread (M5 review); keeping it for Godot's shutdown tracker crashed every exit with a big imported map open (review of 919e4b4b)
+            // The engine object is never destroyed while the editor closes (2026-11-27): its destructor detaches the gizmos it still knows and refreshes every gizmo of the edited scene, and
+            // at exit that scene is being torn down (0xC0000005 inside the release, 7 of 10 headless self-test exits already on base 40d64bfa). One extra engine reference keeps the small
+            // object alive until the process ends; the managed handle is still released here, on the main thread (M5 review), and nothing is left to Godot's shutdown tracker (which crashed
+            // every exit with a big imported map open, review of 919e4b4b).
+            _gizmo.Reference();
+            _gizmo.Dispose();
             _gizmo = null;
         }
         Thumbs?.QueueFree(); Thumbs = null;
@@ -109,6 +115,19 @@ public partial class MapmakerPlugin : EditorPlugin
         if (MapHost.Plugin == this) MapHost.Plugin = null;
         // No forced GC here (M5 review): it handed the gizmo plugin's teardown to the finalizer thread (16 thread-guard errors at exit). The material handles are released
         // explicitly instead (MapmakerDock._ExitTree -> ReleaseMaterialViews); MaterialTest keeps its own collection.
+    }
+
+    /// <summary>
+    /// Removes every map object's gizmo while the nodes still exist. Releasing the gizmo plugin makes the engine walk the gizmos it still has registered and detach each from its node; a
+    /// gizmo whose node was freed before that walk is a dangling pointer (an intermittent 0xC0000005 inside the plugin's release at exit). Clearing them first leaves it nothing to walk.
+    /// </summary>
+    void ClearObjectGizmos()
+    {
+        var seen = new HashSet<ulong>();
+        void Clear(Node3D n) { if (GodotObject.IsInstanceValid(n) && seen.Add(n.GetInstanceId())) n.ClearGizmos(); }
+        foreach (var n in _nodes.Values) Clear(n);
+        if (MapHost.Root is { } root && GodotObject.IsInstanceValid(root))
+            foreach (var n in root.FindChildren("*", "Node3D", true, false)) if (n is MapmakerObject o) Clear(o);
     }
 
     static ISm1Source? SafeInstalled()
