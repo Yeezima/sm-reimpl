@@ -66,7 +66,7 @@ public class WarfrontDedicatedWarmupTests : IDisposable
         var log = new List<string>();
         using var stop = new ManualResetEventSlim();
         var task = Task.Run(() => WarfrontSupervisor.Loop(_dir, stages, true, Fast(), stop, log.Add, pre));
-        Assert.True(SpinWait.SpinUntil(() => pre.Children.Count == 1, 5000));
+        Assert.True(SpinWait.SpinUntil(() => pre.Children.Count == 1, 60000));   // 60 s: in a full run the loaded thread pool started the loop's Task.Run more than 5 s late (series-37 integration)
         Thread.Sleep(100);
         Assert.Single(pre.Children);
         Assert.False(pre.Children[0].Killed);
