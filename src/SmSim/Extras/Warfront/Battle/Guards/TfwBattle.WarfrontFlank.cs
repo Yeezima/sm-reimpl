@@ -100,7 +100,7 @@ public sealed partial class TfwBattle
     {
         for (int k = 0; k < Positions; k++)
         {
-            if (!Imperial(k) || _wfLine[k] != WarfrontLineState.Holding || _wfApproach[k] == Vector2.Zero) { WfFlankOff(k); continue; }
+            if (!Imperial(k) || _wfLine[k] != WarfrontLineState.Holding || _wfApproach[k] == Vector2.Zero || _wfMen[k] == 0) { WfFlankOff(k); continue; }   // G3 finding 4: no flank where no squad stands
             var (first, weight) = WfHeaviestBlock(k, _wfApproach[k], WarfrontLineRules.FlankDegrees);
             float raise = MathF.Max(WarfrontLineRules.FlankWeight, WarfrontLineRules.FlankMainShare * WfHeaviestBlock(k, Vector2.Zero, 0f).Weight);   // relative to the main push (lead 42)
             if (!_wfFlankOn[k])

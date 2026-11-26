@@ -21,7 +21,7 @@ public sealed partial class TfwBattle
 
     sealed class WfRecord
     {
-        public int Origin, Dest, Tick, RallyTick = -1;   // Dest: a point 0..2 or BasePlace
+        public int Origin, Dest, Tick, RallyTick = -1, LastResend = -1;   // Dest: a point 0..2 or BasePlace
         public float PushAtBreak;
         public readonly List<int> Squads = new();
         public readonly List<bool> FromGarrison = new();
@@ -138,7 +138,7 @@ public sealed partial class TfwBattle
         if (owner < 0) return _squadGoal[s] == k;
         if (owner == WithheldSquad)
         {
-            foreach (var r in _wfRecords) if (r.Dest == k && r.RallyTick < 0 && r.Squads.Contains(s)) return true;
+            foreach (var r in _wfRecords) if (((r.Dest == k && r.RallyTick < 0) || (r.Origin == k && r.RallyTick >= 0)) && r.Squads.Contains(s)) return true;
             return false;
         }
         foreach (var a in _armies) if (a.Id == owner) return a.Side == TfwArmySide.Guard && a.Order == TfwArmyOrder.Hold && a.Goal == k;
@@ -360,21 +360,29 @@ public sealed partial class TfwBattle
         WfVox(WarfrontVoxKind.Rallying, rec.Origin);
     }
 
-    /// <summary>Rallying squads that reached their point rejoin it (field squads posted there, garrison squads its garrison); one that stopped short is sent once more, then released where it stands.</summary>
+    /// <summary>
+    /// Rallying (G3 finding 2, 2026-11-27): a squad that reached its point stands in its rows, still withheld, until every living squad of the record is back; one that stopped short is sent again (at most every
+    /// <see cref="WarfrontLineRules.RallyResendSeconds"/>). When all are back, or after <see cref="WarfrontLineRules.RallyGiveUpSeconds"/>, they rejoin together: field squads posted at the point, garrison squads its
+    /// garrison (a squad still away at the give-up goes to the field, posted at the point).
+    /// </summary>
     void WfStepRally(WfRecord rec)
     {
         int k = rec.Origin;
         float reach = RadiusOf(k) + WarfrontLineRules.MenSlack;
-        bool giveUp = _now - rec.RallyTick >= Ticks(WarfrontLineRules.RallyGiveUpSeconds);
+        bool giveUp = _now - rec.RallyTick >= Ticks(WarfrontLineRules.RallyGiveUpSeconds), allBack = true, resend = rec.LastResend < 0 || _now - rec.LastResend >= Ticks(WarfrontLineRules.RallyResendSeconds), resent = false;
+        for (int j = 0; j < rec.Squads.Count; j++)
+        {
+            int s = rec.Squads[j];
+            if (FlatDistance(_guards.Centre(s), _layout.Positions[k]) <= reach) continue;
+            allBack = false;
+            if (!giveUp && resend && _guards.Arrived(s)) { rec.Resent[j] = true; WfSendTo(s, k, j); resent = true; }
+        }
+        if (resent) rec.LastResend = _now;
+        if (!allBack && !giveUp) return;
         for (int j = rec.Squads.Count - 1; j >= 0; j--)
         {
             int s = rec.Squads[j];
             bool there = FlatDistance(_guards.Centre(s), _layout.Positions[k]) <= reach;
-            if (!there && !giveUp)
-            {
-                if (!_guards.Arrived(s)) continue;
-                if (!rec.Resent[j]) { rec.Resent[j] = true; WfSendTo(s, k, j); continue; }
-            }
             WfRelease(s, rec.FromGarrison[j] && there ? k : -1, k);
             WfRemoveAt(rec, j);
         }
@@ -412,9 +420,14 @@ public sealed partial class TfwBattle
     /// <summary>The withheld squads standing in point <paramref name="k"/>'s rows (a record's, after its fall back; not while they walk back).</summary>
     void WfRegrouped(int k, List<int> into)
     {
+        float reach = RadiusOf(k) + WarfrontLineRules.MenSlack;
         foreach (var r in _wfRecords)
+        {
             if (r.Dest == k && r.RallyTick < 0)
                 foreach (int s in r.Squads) if (_guards.AliveIn(s) > 0 && !into.Contains(s)) into.Add(s);
+            if (r.Origin == k && r.RallyTick >= 0)   // a rallying squad that is back stands in its own point's rows while the others come
+                foreach (int s in r.Squads) if (_guards.AliveIn(s) > 0 && !into.Contains(s) && FlatDistance(_guards.Centre(s), _layout.Positions[k]) <= reach) into.Add(s);
+        }
     }
 
     // ---- Hooks in the Musou files (each a no-op outside WfLine) ----

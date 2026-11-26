@@ -53,6 +53,8 @@ public static class WarfrontLineRules
     public const int RallyLockoutSeconds = 45;
     /// <summary>A rallying squad that has not reached its point after this long is released where it stands (as a field squad posted there).</summary>
     public const int RallyGiveUpSeconds = 90;
+    /// <summary>A rallying squad that stopped short of its point is sent again at most this often (G3 finding 2).</summary>
+    public const int RallyResendSeconds = 5;
 
     // Approach and flank
     /// <summary>Sectors of the approach (12 of 30 degrees) of the enemies within <see cref="WarfrontGuardRules.ApproachRadius"/>.</summary>
