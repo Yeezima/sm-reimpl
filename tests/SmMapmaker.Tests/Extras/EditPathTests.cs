@@ -68,6 +68,19 @@ public class EditPathTests
     }
 
     [Fact]
+    public void SavingIsANewVersionButNotADirtyOne()
+    {
+        // Save embeds the used prefabs into the document's text; caches keyed on (session, version) must see that (review of the 2026-11-27 batch)
+        using var lab = new Lab();
+        var s = lab.Session(withSm1: false);
+        Assert.True(s.Apply(Box(0)).Ok);
+        int v = s.Version;
+        s.Save(Path.Combine(lab.Dir, "saved.smmap"));
+        Assert.True(s.Version > v);
+        Assert.False(s.Dirty);
+    }
+
+    [Fact]
     public void SnapStartsOffForEveryKind()
     {
         // owner 2026-11-27: "by default snap mode should be off"; every session and every opened map, grid and angle alike (Godot's own Use Snap is switched off by the editor too)

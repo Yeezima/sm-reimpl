@@ -242,6 +242,18 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
         Check(shapeA?.MaterialOverride is StandardMaterial3D { NormalTexture: not null, AlbedoTexture: not null } && shapeA.Mesh is ArrayMesh am && am.SurfaceGetFormat(0).HasFlag(Mesh.ArrayFormat.FormatTangent),
             "the editor draws Wall A with the material (the game's builder: textures, tangents)");
         Check(shapeB?.MaterialOverride is StandardMaterial3D { AlbedoTexture: null }, "Wall B keeps the default look");
+        // the scene root leaving and re-entering the tree (a scene-tab switch): the nodes are made again and Wall A is drawn with its material again (review of 919e4b4b)
+        if (MapHost.Root is { } mapRoot)
+        {
+            var oldNode = plugin.NodeOf(a);
+            MapHost.DetachRoot(mapRoot);
+            await Frames(2);
+            MapHost.AttachRoot(mapRoot);
+            await Frames(4);
+            var again = plugin.NodeOf(a)?.GetNodeOrNull<MeshInstance3D>("Content/Shape");
+            Check(plugin.NodeOf(a) != oldNode && again?.MaterialOverride is StandardMaterial3D { AlbedoTexture: not null },
+                "after the scene root leaves and re-enters, the new Wall A node is drawn with its material again");
+        }
         // Edit mode: while a face drag previews, the piece is drawn with its material on the preview shape; cancel keeps it textured
         plugin.Select([a]);
         await Frames(2);

@@ -68,25 +68,25 @@ public partial class MapmakerPlugin
         // the same session at the same version is the same document: no need to serialise the whole map to find that out (the placement preview asks on every mouse move)
         if (_compiled is not null && _compiledJson.Length > 0 && ReferenceEquals(_compiledSession, Session) && _compiledVersion == Session.Version && _compiledState == state && !(wait && _compiledPiecesOnly))
             return _compiled;
-        _compiledSession = Session; _compiledVersion = Session.Version; _compiledState = state;
         string json = Session.Document.ToJson();
         string key = json + "\n" + state;
-        if (_compiled is not null && key == _compiledJson && !(wait && _compiledPiecesOnly)) return _compiled;
+        if (_compiled is not null && key == _compiledJson && !(wait && _compiledPiecesOnly)) { _compiledSession = Session; _compiledVersion = Session.Version; _compiledState = state; return _compiled; }
         var doc = Session.Document.Clone();
         var options = EditorScenes.Options();
         if (wait || !CustomMaps.NeedsContent(doc) || EditorScenes.Cache.TryGet(DecorCache.KeyOf(doc, options.CacheTag), out _))
         {
-            long tc = EditCost.Start(); _compiled = CustomMap.Compile(doc, options); EditCost.End("Compiled:full", tc);
+            long tc = EditCost.Start(); _compiled = CustomMap.Compile(doc, options); EditCost.End("Compiled:full", tc); EditCost.MainCompiles++;
             _compiledPiecesOnly = false;
         }
         else
         {
-            long tp = EditCost.Start(); _compiled = CustomMap.Compile(doc); EditCost.End("Compiled:pieces", tp);   // pieces only: fast
+            long tp = EditCost.Start(); _compiled = CustomMap.Compile(doc); EditCost.End("Compiled:pieces", tp); EditCost.MainCompiles++;   // pieces only: fast
             _compiledPiecesOnly = true;
             _decorWorker ??= new DecorWorker(EditorScenes.Cache, TimeSpan.FromMilliseconds(400), a => Callable.From(a).CallDeferred(), OnDecorReady);
             _decorWorker.Request(doc.Clone(), options, DecorCache.KeyOf(doc, options.CacheTag));
         }
         _compiledJson = key;
+        _compiledSession = Session; _compiledVersion = Session.Version; _compiledState = state;   // recorded only once the compile succeeded (review of 919e4b4b)
         return _compiled;
     }
 
@@ -98,12 +98,14 @@ public partial class MapmakerPlugin
         RunCheckInBackground(route);   // with the route when Check route was pressed while the decoration compiled
     }
 
+    static SmSim.CollisionWorld OldWorld(CustomMap map) { EditCost.MainWorldBuilds++; return map.ToCollisionWorld(); }
+
     /// <summary>Where a ray first meets a solid piece (document frame), or null.</summary>
     Vector3? SolidHit(Vector3 origin, Vector3 direction)
     {
         if (Session is null) return null;
         long t = EditCost.Start();
-        SmSim.CollisionWorld? world = PerfTest.OldPaths ? (Compiled() is { SolidCount: > 0 } m ? m.ToCollisionWorld() : null) : AimWorld();   // OldPaths: the perf test measuring the old way
+        SmSim.CollisionWorld? world = PerfTest.OldPaths ? (Compiled() is { SolidCount: > 0 } m ? OldWorld(m) : null) : AimWorld();   // OldPaths: the perf test measuring the old way
         EditCost.End("SolidHit:world", t);
         if (world is null) return null;   // no solid piece, or a decorated map's first world is still being built: the ground plane meanwhile
         var hit = world.Character.Raycast(ToNum(origin), ToNum(direction), 2000f);
@@ -138,6 +140,7 @@ public partial class MapmakerPlugin
         {
             var map = Compiled();
             _world = map is { SolidCount: > 0 } ? map.ToCollisionWorld() : null;
+            EditCost.MainWorldBuilds++;
             _worldSession = s; _worldVersion = s.Version; _worldState = state; _worldKnown = true;
             return _world;
         }
@@ -145,9 +148,15 @@ public partial class MapmakerPlugin
         return _world;
     }
 
+    // A build that failed for this document version is not started again for it (every mouse move would retry it); the next edit or a newly loaded SM1 map tries again.
+    MapSession? _worldFailedSession;
+    int _worldFailedVersion = -1;
+    string _worldFailedState = "";
+
     void BuildWorldInBackground(MapSession s, string state)
     {
-        if (_worldBuilding) return;   // one at a time; the next aim after it lands asks again if the map moved on meanwhile
+        if (_worldBuilding || _closing) return;   // one at a time; the next aim after it lands asks again if the map moved on meanwhile
+        if (ReferenceEquals(_worldFailedSession, s) && _worldFailedVersion == s.Version && _worldFailedState == state) return;
         int generation = _worldGeneration, version = s.Version;
         var doc = s.Document.Clone();          // taken here, on the main thread: the records are immutable, so the copy is a snapshot
         var options = EditorScenes.Options();  // the loaded SM1 maps and the decoration cache, as the check uses them
@@ -158,16 +167,24 @@ public partial class MapmakerPlugin
             long t = EditCost.Start();
             try { var map = CustomMap.Compile(doc, options); built = map.SolidCount > 0 ? map.ToCollisionWorld() : null; ok = true; }
             catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { GD.PushWarning("Mapmaker: placement collision: " + e.Message); }
-            EditCost.End("SolidHit:world (background)", t);
-            Callable.From(() =>
+            finally
             {
-                if (_closing || !GodotObject.IsInstanceValid(this)) return;
-                _worldBuilding = false;
-                if (!ok || generation != _worldGeneration) return;   // failed, or the map was closed meanwhile
-                _world = built; _worldSession = s; _worldVersion = version; _worldState = state; _worldKnown = true;
-            }).CallDeferred();
+                EditCost.End("SolidHit:world (background)", t);
+                if (!_closing)   // nothing is queued for a plugin on its way out
+                    Callable.From(() =>
+                    {
+                        if (_closing || !GodotObject.IsInstanceValid(this)) return;
+                        _worldBuilding = false;
+                        if (generation != _worldGeneration) return;   // the map was closed meanwhile
+                        if (!ok) { _worldFailedSession = s; _worldFailedVersion = version; _worldFailedState = state; return; }
+                        _world = built; _worldSession = s; _worldVersion = version; _worldState = state; _worldKnown = true;
+                    }).CallDeferred();
+            }
         }));
     }
+
+    /// <summary>Test aid: drops the aim's collision world, as opening another map does (the perf test checks that the world built afterwards is the one the aim hits).</summary>
+    public void TestForgetAimWorld() => ForgetSolidWorld();
 
 
     // ---- placing pieces ----------------------------------------------------------------------------------------------------------------------------------
@@ -228,7 +245,7 @@ public partial class MapmakerPlugin
 
     // ---- background work (the check, the route, the placement world): tracked so the plugin's exit can let a running one finish first ----
 
-    bool _closing;
+    volatile bool _closing;   // read by the worker threads before they queue a result
     readonly List<Task> _background = new();
 
     Task Track(Task task)
@@ -289,13 +306,19 @@ public partial class MapmakerPlugin
         EditCost.Checks++;
         _ = Track(Task.Run(() =>
         {
-            CheckReport? report = null; string? error = null;
+            CheckReport? report = null; string? error = "the check stopped";
             long t = EditCost.Start();
-            try { report = MapCheck.Run(map); }
+            try { report = MapCheck.Run(map); error = null; }
             catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { error = e.Message; }
-            EditCost.End("RunCheck:MapCheck (background)", t);
-            Callable.From(() =>
+            finally
             {
+                EditCost.End("RunCheck:MapCheck (background)", t);
+                if (!_closing) Callable.From(() => LandCheck(report, error)).CallDeferred();   // always handed back (a stuck "checking" never stays), never to a plugin on its way out
+            }
+        }));
+
+        void LandCheck(CheckReport? report, string? error)
+        {
                 if (_closing || !GodotObject.IsInstanceValid(this)) return;
                 _bgCheckRunning = false;
                 bool current = ReferenceEquals(Session, session) && Session!.Version == version;
@@ -325,8 +348,7 @@ public partial class MapmakerPlugin
                 bool route = _bgRouteWanted || (withRoute && !current); _bgRouteWanted = false;
                 if (route) { _bgCheckAgain = false; RunCheckInBackground(true); }   // Check route pressed meanwhile, or the map changed under it: check the map as it is now
                 else if (_bgCheckAgain || !current) { _bgCheckAgain = false; RecheckSoon(); }
-            }).CallDeferred();
-        }));
+        }
     }
 
     /// <summary>
@@ -404,7 +426,7 @@ public partial class MapmakerPlugin
             finally
             {
                 // always hand the result back, so a failed run never leaves Check route stuck
-                Callable.From(() =>
+                if (!_closing) Callable.From(() =>
                 {
                     if (_closing || !GodotObject.IsInstanceValid(this)) return;
                     _routeInFlight = false;

@@ -160,7 +160,6 @@ public sealed class MapSession
     void Commit(Batch batch, string after)
     {
         string before = Document.ToJson();
-        LastBeforeJson = before; LastAfterJson = after;
         var prefabChanges = new List<(string, string?, string?)>();
         foreach (var (id, p) in batch.Prefabs)
         {
@@ -174,7 +173,7 @@ public sealed class MapSession
         // before the no-change return: re-adding an image the map already lists (its library copy lost) repairs the library without changing the document.
         foreach (var (imgId, data) in batch.StagedImages)
             if (batch.Doc.Images.FirstOrDefault(i => i.Id == imgId) is { } img) MapImages.Store(MapImages.LibraryDir(Library), img, data);
-        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) { LastTrashed = []; LastReplaced = []; return; }   // a batch that changes nothing trashes nothing: the editor must not reuse the last batch's slots for this step
+        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) { LastTrashed = []; LastReplaced = []; LastBeforeJson = before; LastAfterJson = after; return; }   // a batch that changes nothing trashes nothing: the editor must not reuse the last batch's slots for this step
 
         // Storage steps run as a transaction: each records its inverse as it succeeds; on any failure the inverses run in reverse order (best effort) and the
         // document, LastTrashed and the undo/redo stacks stay as they were. (A journal that survives a process crash is not part of this.)
@@ -251,6 +250,7 @@ public sealed class MapSession
         LastReplaced = replaced;
 
         CopyDocument(batch.Doc);
+        LastBeforeJson = before; LastAfterJson = after;   // only once the batch is committed (a failed storage step leaves the last pair as it was)
         if (before != after || prefabChanges.Count > 0 || trashed.Count > 0)
         {
             _undo.Add(new Entry(before, after, prefabChanges, trashed, replaced));
@@ -408,6 +408,8 @@ public sealed class MapSession
     {
         path ??= Path ?? throw new MapException("bad-args", "This map has no file yet; pass a path.");
         EmbedUsedPrefabs();
+        // The embedded prefabs are part of the document's text: a new version, so callers that key caches on (session, version) see the change (review of the 2026-11-27 batch). Not Dirty.
+        Version++;
         // The map's images go beside it first (images/<sha256>.<format>), so the file and that folder are the whole map for another PC and the map never names a picture not yet written.
         var copyFailures = new List<string>();
         var missing = Document.Images.Count == 0 ? [] : MapImages.CarryBeside(Document, path, Library, Path, copyFailures);

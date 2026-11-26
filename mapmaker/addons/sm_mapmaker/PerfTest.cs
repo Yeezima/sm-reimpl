@@ -21,7 +21,8 @@ public sealed class PerfTest(MapmakerPlugin plugin)
 {
     public static bool Wanted => OS.GetCmdlineUserArgs().Contains("--mm-perf");
     /// <summary>--mm-perf-old: placing aims and the Check route button take their pre-2026-11-27 paths (a fresh collision world per aim, the check at once), for the before numbers.</summary>
-    public static bool OldPaths => Wanted && OS.GetCmdlineUserArgs().Contains("--mm-perf-old");
+    public static bool OldPaths => _oldPaths ??= Wanted && OS.GetCmdlineUserArgs().Contains("--mm-perf-old");   // read once (it is asked on every aim)
+    static bool? _oldPaths;
     static string Arg(string name, string fallback) { var a = OS.GetCmdlineUserArgs(); int i = Array.IndexOf(a, name); return i >= 0 && i + 1 < a.Length ? a[i + 1] : fallback; }
     SceneTree Tree => (SceneTree)Engine.GetMainLoop();
     async Task Frames(int n) { for (int i = 0; i < n; i++) await plugin.ToSignal(Tree, SceneTree.SignalName.ProcessFrame); }
@@ -138,14 +139,48 @@ public sealed class PerfTest(MapmakerPlugin plugin)
         while (!OldPaths && !plugin.SolidWorldCurrent && built.Elapsed.TotalSeconds < 180) { plugin.GamePointOnRay(origin, down); await Frames(5); }
         Log($"{label}: the aim's collision world was ready after {built.Elapsed.TotalSeconds:0.0} s more (in the background)");
         var again = await Time($"{label} aim (again)", n, () => aim = plugin.GamePointOnRay(origin, down), 0.5);
+        bool againBudget = EditCost.MainWorldBuilds == 0 && EditCost.MainCompiles == 0;
         Log($"{label}: the aim point {aim} (ray from z {mid.Z:0})");
         var item = new LibraryItem(LibraryKind.Piece, "cover", "Cover block");
         var click = await Time($"{label} click place", n, () => plugin.PlaceAt(item, plugin.GamePointOnRay(origin, down)), 1.0);
+        bool clickBudget = EditCost.MainWorldBuilds == 0 && EditCost.FullSyncs == 0 && EditCost.NodesWritten <= 3 && EditCost.ContentRebuilt <= 1;
+        string clickWork = EditCost.Counters();
         var after = await Time($"{label} aim after edit", n, () => aim = plugin.GamePointOnRay(origin, down), 0.5);
+        bool afterBudget = EditCost.MainWorldBuilds == 0;
         _place.Add((label, n, first.Call, again.Call, click.Call, after.Call));
-        if (budget) Check(Math.Max(Math.Max(first.Call, again.Call), Math.Max(click.Call, after.Call)) < 100, $"{label}: aiming and a placement click take under 100 ms each");
+        // budgeted on work, not wall time (review of 919e4b4b: the click's own batch varies with the machine); the times are printed above
+        if (budget)
+        {
+            Check(againBudget && afterBudget, $"{label}: aiming builds no collision world and compiles nothing on the main thread (world builds {EditCost.MainWorldBuilds})");
+            Check(clickBudget, $"{label}: a placement click builds no collision world on the main thread and touches only the placed node ({clickWork})");
+        }
         plugin.UndoLast();
         await Frames(3);
+
+        // the world built in the background is the one the aim hits: find a spot where it stands above the ground, forget the world, aim (ground), let it be built, aim again
+        if (!OldPaths)
+        {
+            while (!plugin.SolidWorldCurrent && built.Elapsed.TotalSeconds < 400) { plugin.GamePointOnRay(origin, down); await Frames(5); }
+            Vector3? spotFrom = null; float high = 0;
+            foreach (var o in plugin.Session!.Document.Objects.Where(o => o.Piece is not null && o.Visible).Take(400))
+            {
+                var p = o.Transform.Position;
+                var from = Frame.ToGodot(new Vector3(p.X, p.Y, b.Max.Z + 50f));
+                var hit = plugin.GamePointOnRay(from, down);
+                if (hit.Z > 0.5f) { spotFrom = from; high = hit.Z; break; }
+            }
+            if (spotFrom is { } at)
+            {
+                plugin.TestForgetAimWorld();
+                var ground = plugin.GamePointOnRay(at, down);
+                var wait = System.Diagnostics.Stopwatch.StartNew();
+                while (!plugin.SolidWorldCurrent && wait.Elapsed.TotalSeconds < 300) { plugin.GamePointOnRay(at, down); await Frames(5); }
+                var landed = plugin.GamePointOnRay(at, down);
+                Check(MathF.Abs(landed.Z - high) < 0.01f && MathF.Abs(ground.Z - landed.Z) > 0.4f,
+                    $"{label}: the aim hits the background-built world once it lands (z {ground.Z:0.00} before, {landed.Z:0.00} after {wait.Elapsed.TotalSeconds:0.0} s; expected {high:0.00})");
+            }
+            else Check(false, $"{label}: found no spot where the map's collision stands above the ground");
+        }
     }
 
     /// <summary>The Check route button: the quick check and the route run off the main thread (the button's call returns at once and the result lands later).</summary>
@@ -159,6 +194,33 @@ public sealed class PerfTest(MapmakerPlugin plugin)
         Check(plugin.LastCheck is not null && !plugin.Checking, $"{label}: the Check button's result landed");
         _press = (label, n, press.Call, press.MaxFrame, waited.Elapsed.TotalSeconds);
         if (budget) Check(press.Call < 100 && press.MaxFrame < 500, $"{label}: the Check button returns at once ({press.Call:0} ms, longest frame {press.MaxFrame:0} ms)");
+    }
+
+    /// <summary>
+    /// Gizmo releases whose record does not change (review of 919e4b4b): a move that snaps back to the stored value and a move the core refuses must still put the nodes back on
+    /// their stored transform (the view skips unchanged records).
+    /// </summary>
+    async Task Reconcile()
+    {
+        plugin.NewMap("perf-reconcile");
+        JsonObject At(float x) => MapmakerPlugin.Op("place", ("piece", new JsonObject { ["kind"] = PieceKind.Box }), ("name", "Box"),
+            ("transform", new JsonObject { ["position"] = MapmakerPlugin.Vec(new Num.Vector3(x, 0, 0)), ["scale"] = MapmakerPlugin.Vec(new Num.Vector3(1, 1, 1)) }));
+        var r = plugin.Do("Two boxes", At(0f), At(0.1f));
+        string a = r.Created[0], b = r.Created[1];
+        bool OnStored(string id) => plugin.NodeOf(id)!.Transform.IsEqualApprox(plugin.ExpectedTransform(plugin.Session!.Document.Get(id)));
+        MapHost.SnapGrid = true; MapHost.GridStep = 0.25f;
+        plugin.Select([a, b]);
+        await Frames(2);
+        GizmoRelease([a, b], t => t.Translated(Frame.ToGodot(new Vector3(0.1f, 0, 0))));
+        await Frames(4);
+        var doc = plugin.Session!.Document;
+        Check(MathF.Abs(doc.Get(a).Transform.Position.X) < 1e-4f && MathF.Abs(doc.Get(b).Transform.Position.X - 0.25f) < 1e-4f, $"snapped gizmo move: {a} snaps back to 0, {b} to 0.25 ({doc.Get(a).Transform.Position.X}, {doc.Get(b).Transform.Position.X})");
+        Check(OnStored(a) && OnStored(b), $"snapped gizmo move: both nodes stand on their stored transforms ({plugin.NodeOf(a)!.Position}, {plugin.NodeOf(b)!.Position})");
+        MapHost.SnapGrid = false;
+        GizmoRelease([a], t => new Transform3D(t.Basis.Scaled(new Vector3(0f, 1f, 1f)), t.Origin), "Scale");   // a scale with a zero component: the core refuses it (bad-transform)
+        await Frames(4);
+        Check(plugin.Status.StartsWith("Move rejected", StringComparison.Ordinal), $"a scale to zero is refused (status: {plugin.Status})");
+        Check(OnStored(a), $"after a refused move the node is back on its stored transform ({plugin.NodeOf(a)!.Position})");
     }
 
     bool budget = true;
@@ -195,6 +257,19 @@ public sealed class PerfTest(MapmakerPlugin plugin)
             // Snap starts off (owner 2026-11-27): every snap kind, every session.
             Check(!MapHost.SnapGrid && !MapHost.SnapAngle, $"snap starts off (grid {MapHost.SnapGrid}, angle {MapHost.SnapAngle})");
             Check(plugin.Dock!.TestSnapBoxes() is (false, false), "the Snap check boxes start unticked");
+            // Godot's own Use Snap (review of 919e4b4b: the button was not found, so a pressed Use Snap stayed pressed): found, switched on, reset by opening a map, off
+            Check(EditorSnap.BuiltInOn is not null, $"Godot's Use Snap button is found (state: {EditorSnap.BuiltInOn?.ToString() ?? "not found"})");
+            EditorSnap.TestSwitchOnBuiltIn();
+            Check(EditorSnap.BuiltInOn == true, "Godot's Use Snap can be switched on");
+            plugin.NewMap("perf-snap");
+            Check(EditorSnap.BuiltInOn == false, $"opening a map switches Godot's Use Snap off ({EditorSnap.BuiltInOn?.ToString() ?? "not found"})");
+            plugin.Dock.TestSetSnap(true, false);
+            await Frames(2);
+            Check(MapHost.SnapGrid, "ticking Grid turns grid snap on");
+            await plugin.TestPlaceInEmptyTabKeepsSnap();
+            Check(MapHost.SnapGrid && plugin.Dock.TestSnapBoxes().Grid, "the untitled map a first placement starts keeps a Grid box the user just ticked");
+            plugin.Dock.TestSetSnap(false, false);
+            await Reconcile();
 
             foreach (var n in Arg("--mm-perf-n", "100,500,2000").Split(',').Select(int.Parse))
             {

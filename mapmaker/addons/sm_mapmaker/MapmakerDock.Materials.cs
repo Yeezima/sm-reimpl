@@ -257,7 +257,8 @@ public partial class MapmakerDock
 
     // ---- the 3D view: pieces drawn with their map material ----
 
-    readonly Dictionary<string, (MapObject Obj, int Cache, int Content)> _matSeen = new();
+    // keyed by the node too (review of 919e4b4b): a scene-tab switch makes new nodes whose drawing count starts again at 1, which must not look like the one already drawn
+    readonly Dictionary<string, (MapObject Obj, int Cache, int Content, ulong Node)> _matSeen = new();
     MaterialBuild.Cache? _viewCache;
     string _viewCacheKey = "";
     int _viewCacheVersion;
@@ -297,10 +298,10 @@ public partial class MapmakerDock
             bool previewed = preview is not null && preview.ContainsKey(o.Id);
             if (_plugin.NodeOf(o.Id) is not { } node) continue;
             // unchanged since it was last drawn (same record, same material cache, same drawing, no Edit-mode preview): nothing to look at (the edit-hang fix, 2026-11-27)
-            if (!previewed && _matSeen.TryGetValue(o.Id, out var seen) && ReferenceEquals(seen.Obj, o) && seen.Cache == _viewCacheVersion && seen.Content == node.ContentVersion) continue;
+            if (!previewed && _matSeen.TryGetValue(o.Id, out var seen) && ReferenceEquals(seen.Obj, o) && seen.Cache == _viewCacheVersion && seen.Content == node.ContentVersion && seen.Node == node.GetInstanceId()) continue;
             var mesh = previewed ? preview![o.Id] : o.Mesh;
             if (node.GetNodeOrNull<MeshInstance3D>("Content/Shape") is not { } shape) continue;
-            if (!previewed) _matSeen[o.Id] = (o, _viewCacheVersion, node.ContentVersion);
+            if (!previewed) _matSeen[o.Id] = (o, _viewCacheVersion, node.ContentVersion, node.GetInstanceId());
             else _matSeen.Remove(o.Id);
             string sig = o.Material is null ? "" : $"{o.Material}|{_viewCacheVersion}|{mesh?.ToNode().ToJsonString()}|{o.Transform.Scale}";
             string have = shape.HasMeta("mm_surface") ? shape.GetMeta("mm_surface").AsString() : "";

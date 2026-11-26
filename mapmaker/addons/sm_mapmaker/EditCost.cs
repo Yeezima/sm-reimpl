@@ -26,12 +26,16 @@ public static class EditCost
     public static int SceneRows;
     /// <summary>Times the quick map check ran.</summary>
     public static int Checks;
+    /// <summary>Collision worlds built on the main thread (the placement aim; a map of plain pieces builds its own at once, a decorated map never should).</summary>
+    public static int MainWorldBuilds;
+    /// <summary>Map compiles on the main thread.</summary>
+    public static int MainCompiles;
 
     static readonly Dictionary<string, (double Ms, int Count)> Phases = new();
 
     public static void Reset()
     {
-        NodesWritten = ContentRebuilt = NodesVisited = FullSyncs = SceneRows = Checks = 0;
+        NodesWritten = ContentRebuilt = NodesVisited = FullSyncs = SceneRows = Checks = MainWorldBuilds = MainCompiles = 0;
         lock (Phases) Phases.Clear();
     }
 
@@ -44,7 +48,7 @@ public static class EditCost
         lock (Phases) Phases[phase] = Phases.TryGetValue(phase, out var p) ? (p.Ms + ms, p.Count + 1) : (ms, 1);   // the background check reports from its own thread
     }
 
-    public static string Counters() => $"visited {NodesVisited}, written {NodesWritten}, rebuilt {ContentRebuilt}, full syncs {FullSyncs}, scene rows {SceneRows}, checks {Checks}";
+    public static string Counters() => $"visited {NodesVisited}, written {NodesWritten}, rebuilt {ContentRebuilt}, full syncs {FullSyncs}, scene rows {SceneRows}, checks {Checks}, main-thread world builds {MainWorldBuilds}, main-thread compiles {MainCompiles}";
 
     /// <summary>The phases that took the longest, "name ms (count)", most expensive first.</summary>
     public static string Top(int n = 8) { lock (Phases) return TopCore(n); }

@@ -32,7 +32,6 @@ public partial class MapmakerPlugin : EditorPlugin
 
     MapmakerDock? _dock;
     ObjectGizmoPlugin? _gizmo;
-    static readonly List<ObjectGizmoPlugin> RetiredGizmos = new();   // removed gizmo plugins, kept alive until the editor shuts down (see _ExitTree)
     readonly Dictionary<int, Step> _steps = new();
     int _stepId;
     (Step Step, string Label, int Hold)? _holdStep;   // the undo step a held spin arrow keeps folding its repeats into
@@ -102,9 +101,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (_gizmo is not null)
         {
             RemoveNode3DGizmoPlugin(_gizmo);
-            // Not disposed here any more (2026-11-27): the explicit release crashed some editor exits on this branch (0xC0000005 inside Dispose, also with no background work running).
-            // The handle is kept alive instead, so the finalizer thread never releases it either (the M5 thread-guard errors); Godot's own shutdown releases what is left, on the main thread.
-            RetiredGizmos.Add(_gizmo);
+            _gizmo.Dispose();   // released here, on the main thread (M5 review); keeping it for Godot's shutdown tracker crashed every exit with a big imported map open (review of 919e4b4b)
             _gizmo = null;
         }
         Thumbs?.QueueFree(); Thumbs = null;
@@ -137,6 +134,7 @@ public partial class MapmakerPlugin : EditorPlugin
         else if (ClassicTest.Wanted) _ = new ClassicTest(this).Run();
         else if (EditModeTest.Wanted) _ = new EditModeTest(this).Run();
         else if (PerfTest.Wanted) _ = new PerfTest(this).Run();
+        else if (ExitTest.Wanted) _ = new ExitTest(this).Run();
         else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
     }
 
@@ -185,6 +183,7 @@ public partial class MapmakerPlugin : EditorPlugin
             else if (_stash.Remove(id, out var back)) { Session = back.Session; Dirty = back.Dirty; }
             else if (_activeRoot != 0 || Session is null) { Session = null; Dirty = false; }   // a scene of its own: no map yet
             _activeRoot = id;
+            ForgetSolidWorld();   // another tab aims at its own pieces, never at the previous tab's world (review of 919e4b4b)
         }
         if (now is not null && GodotObject.IsInstanceValid(now) && SceneFileOf(now).Length > 0) _rootScene.TryAdd(id, SceneFileOf(now));
         HookHistory();
@@ -371,6 +370,14 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public void NotifyDoc() => RaiseDocChanged();
 
+    /// <summary>Test aid: a placement click in a Mapmaker tab that has no map yet (it starts an untitled one there).</summary>
+    public async Task TestPlaceInEmptyTabKeepsSnap()
+    {
+        Session = null;
+        ReadyToPlace();
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+    }
+
     /// <summary>Tells the panels the document (or the selection) changed; with <see cref="EditCost.Enabled"/> each listener's time is recorded.</summary>
     void RaiseDocChanged()
     {
@@ -386,10 +393,11 @@ public partial class MapmakerPlugin : EditorPlugin
 
     // ---- documents ------------------------------------------------------------------------------------------------------------------------------------
 
-    public MapSession NewMap(string name)
+    /// <param name="resetSnap">false for the untitled map a first placement starts in an empty tab: a snap box the user just ticked for that placement stays ticked (review of 2026-11-27).</param>
+    public MapSession NewMap(string name, bool resetSnap = true)
     {
         var s = MapSession.New(name, MapHost.Library, _sm1Adapter);
-        Adopt(s);
+        Adopt(s, resetSnap);
         return s;
     }
 
@@ -412,11 +420,16 @@ public partial class MapmakerPlugin : EditorPlugin
         catch (Exception e) when (e is MapException or System.IO.IOException or UnauthorizedAccessException) { SetStatus("Save failed: " + e.Message); return false; }
     }
 
-    void Adopt(MapSession s)
+    void Adopt(MapSession s, bool resetSnap = true)
     {
         HookHistory();
         Session = s; Dirty = false;
-        MapHost.ResetSnap();   // every map opened or started begins with snap off (owner 2026-11-27)
+        if (resetSnap)
+        {
+            MapHost.ResetSnap();   // every map opened or started begins with snap off (owner 2026-11-27)
+            // A scene opened from its file has Godot re-apply its saved Use Snap a moment later (the scene's editor state): switch it off once more then.
+            if (IsInsideTree()) GetTree().CreateTimer(0.5).Timeout += EditorSnap.SwitchOffBuiltIn;
+        }
         ForgetSolidWorld();
         foreach (var k in _steps.Where(x => x.Value.RootId == _activeRoot).Select(x => x.Key).ToList()) _steps.Remove(k);   // this scene's history is cleared below; other tabs keep theirs
         foreach (var n in _nodes.Values) if (GodotObject.IsInstanceValid(n)) { n.GetParent()?.RemoveChild(n); n.QueueFree(); }
@@ -780,10 +793,16 @@ public partial class MapmakerPlugin : EditorPlugin
         if (ReconcileParents()) return;   // a drag in the Scene dock: becomes set-parent (then the view is synced to the document)
         var doc = Session.Document;
         var ops = new List<JsonObject>();
+        int displaced = 0;
         foreach (var o in doc.Objects)
         {
             if (!_nodes.TryGetValue(o.Id, out var node) || !GodotObject.IsInstanceValid(node)) continue;
             var expected = ExpectedTransform(o);
+            if (node.Transform == expected) continue;
+            // A node off its stored transform must be written back by the sync below even when its record does not change: a gizmo move that snaps back to the stored value, or a move
+            // the core refuses, leaves the record as it was, and the view skips unchanged records (review of 919e4b4b).
+            _viewed.Remove(o.Id);
+            displaced++;
             if (node.Transform.IsEqualApprox(expected)) continue;
             var (pos, rot, scale) = Frame.Components(node.Transform);
             var op = Op("transform", ("id", o.Id));
@@ -799,10 +818,14 @@ public partial class MapmakerPlugin : EditorPlugin
             }
             if (op.Count > 2) ops.Add(op);
         }
-        if (ops.Count == 0) return;
+        if (ops.Count == 0)
+        {
+            if (displaced > 0) { var held = SelectedNodes(); SyncView(false); KeepSelected(held); }   // snapped back to the stored values: the nodes follow
+            return;
+        }
         var r = Session.Apply(ops);
         if (!r.Ok) SetStatus("Move rejected: " + string.Join("; ", r.Errors.Select(e => e.Message)));
-        Dirty = true;
+        else Dirty = true;
         var keep = SelectedNodes();
         SyncView(false);   // snaps the nodes to the stored values
         KeepSelected(keep);
@@ -858,7 +881,7 @@ public partial class MapmakerPlugin : EditorPlugin
             else SetStatus("This scene tab has no Mapmaker map. Add one from the Mapmaker dock first.");
             return false;
         }
-        if (Session is null) { NewMap("Untitled"); SetStatus("This scene had no map, so a new untitled map was started here (Save As to keep it)."); }
+        if (Session is null) { NewMap("Untitled", resetSnap: false); SetStatus("This scene had no map, so a new untitled map was started here (Save As to keep it)."); }
         return true;
     }
 
@@ -875,7 +898,7 @@ public partial class MapmakerPlugin : EditorPlugin
             for (int i = 0; i < 30 && MapHost.Root != root; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (MapHost.Root != root) return false;
         }
-        if (Session is null) NewMap("Untitled");
+        if (Session is null) NewMap("Untitled", resetSnap: false);
         SetStatus("Added a Mapmaker map to this scene tab (untitled; Save As to keep it). Click again to place.");
         return true;
     }

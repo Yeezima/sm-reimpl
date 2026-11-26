@@ -138,6 +138,7 @@ public partial class MapmakerDock : VBoxContainer
         MapHost.Sm1Changed += () => { RebuildLibrary(); Refresh(); };
         MapHost.PickedChanged += Refresh;
         MapHost.LibraryChanged += () => { RebuildLibrary(); RefreshPrefabs(); };
+        MapHost.RootChanged += () => _matSeen.Clear();   // another scene tab: its nodes are new, every piece is drawn again
         Refresh();
     }
 
