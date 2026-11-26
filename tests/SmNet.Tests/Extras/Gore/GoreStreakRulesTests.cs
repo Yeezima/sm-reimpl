@@ -305,6 +305,7 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
 
     [Theory]
     [InlineData(Source.Gunfire, "sm_mp_ranged_lascannon", false, 0, Weight.Heavy)]
+    [InlineData(Source.Gunfire, "sm_mp_exotic_las_cannon", false, 0, Weight.Heavy)]   // the live data name (repair round 3: it was drawn Normal)
     [InlineData(Source.Gunfire, "sm_mp_ranged_heavy_bolter", false, 0, Weight.Heavy)]
     [InlineData(Source.Gunfire, "autocannon", false, 0, Weight.Heavy)]
     [InlineData(Source.Gunfire, "sm_mp_pistol_bolt_pistol", false, 0, Weight.Light)]

@@ -155,7 +155,7 @@ public static class GoreStreakRules
         bool Has(string s) => w.Contains(s, StringComparison.OrdinalIgnoreCase);
         if (source == Source.Gunfire)
         {
-            if (Has("lascannon") || Has("heavy_bolter") || Has("heavybolter") || Has("autocannon") || Has("missile") || Has("rocket") || Has("sniper")) return Weight.Heavy;   // sniper rifles heavy: lead 41 decision (ours, provisional)
+            if (Has("lascannon") || Has("las_cannon") || Has("heavy_bolter") || Has("heavybolter") || Has("autocannon") || Has("missile") || Has("rocket") || Has("sniper")) return Weight.Heavy;   // sniper rifles heavy: lead 41 decision (ours, provisional)
             if (Has("pistol")) return Weight.Light;
             return Weight.Normal;
         }
