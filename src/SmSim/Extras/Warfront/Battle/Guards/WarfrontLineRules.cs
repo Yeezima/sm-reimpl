@@ -29,6 +29,11 @@ public static class WarfrontLineRules
     // The line machine
     /// <summary>Collapse: pressure at least this many times the men (with no healthy squad, no relief, no lockout).</summary>
     public const float CollapseRatio = 2f;
+    /// <summary>
+    /// Round 5 (2026-11-27; ours, low): a line falls back only with at least this many men (a battered squad's worth plus one). On wf_a1 the break and collapse scenarios withdrew B with 1 man left under pressure
+    /// 800 or more: the point fell 36 s before the old line's last man would have let it go, and nobody was saved.
+    /// </summary>
+    public const int WithdrawMenLeast = 4;
     /// <summary>Overwhelmed: pressure at least this many times the men collapses the line even while a squad is still healthy (an elite-led push; fodder at equal numbers does not reach it). Ours, set by the G1 trial: with the
     /// design's rule alone (every squad battered) a 0.6-elite push killed the squads in the 4 s confirmation and no line ever withdrew.</summary>
     public const float OverwhelmRatio = 6f;

@@ -311,7 +311,8 @@ internal static class WarfrontLineTrial
     public static readonly string[] Scenarios = ["routine", "elite", "flank", "collapse", "break"];
     public const int Human = 1, Points = 3;   // the lane battle's three capture points (a fourth objective, where a test arena has one, is the commander's)
     /// <summary>The Marines break the push when the target's line first reaches Breaking (Guardsmen G1 round 2, lead 42), at the latest <see cref="BreakAtSeconds"/> after the wave left (the restore switch never breaks).</summary>
-    public const float BreakAtSeconds = 90f, BreakRadius = 40f, FlankDistance = 80f;
+    /// <summary>Round 5 (lead 42, 2026-11-27): the break clears the approach ring (70 m, the line's quiet-ring rule) of the first point whose line has fallen back, so it can rally; the target at 90 s when none breaks first.</summary>
+    public const float BreakAtSeconds = 90f, BreakRadius = 70f, FlankDistance = 80f;
 
     /// <summary>Secures every position of the battle (the test aid), kills the Orks that are left and lets the line stand 20 s. The human stands at the landing zone.</summary>
     public static void Prepare(World w, int settleSeconds = 20)
@@ -359,6 +360,7 @@ internal static class WarfrontLineTrial
         if (wave is null) throw new InvalidOperationException("the wave was refused (no secured target or no muster)");
         wave.FarElites = size * share;
         var point = battle.Layout.Positions[target];
+        int breakPoint = target;
         if (flank)
         {
             var back = new Vector2(battle.Layout.Hq.X - point.X, battle.Layout.Hq.Y - point.Y);
@@ -376,7 +378,9 @@ internal static class WarfrontLineTrial
         int breakAt = (int)(BreakAtSeconds * 30f);
         for (int t = 1; t <= ticks && !battle.Won; t++, ranTicks++)
         {
-            if (brk && t < breakAt && battle.WarfrontLineOf(target) == WarfrontLineState.Breaking) breakAt = t;   // the break comes at the line's crisis
+            if (brk && t < breakAt)
+                for (int p = 0; p < Points; p++)
+                    if (battle.WarfrontLineOf(p) == WarfrontLineState.Withdrawn) { breakAt = t; breakPoint = p; point = battle.Layout.Positions[p]; break; }   // round 5: the break comes once a line has fallen back (wherever the wave hit it), so the journey shows the rally
             if (brk && t >= breakAt && t <= breakAt + 60 * 30 && (t == breakAt || t % 30 == 0))
             {
                 if (t == breakAt) w.TfwRespawnAt(Human, point, 0f);

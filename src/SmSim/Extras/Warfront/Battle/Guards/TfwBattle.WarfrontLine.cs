@@ -221,7 +221,7 @@ public sealed partial class TfwBattle
     /// <summary>The collapse rule: men at least one, pressure at least twice the men with no healthy squad (or six times with one: overwhelmed), no relief, not in the lockout.</summary>
     bool WfCollapse(int k)
     {
-        if (_now < _wfLockoutUntil[k] || _wfMen[k] < 1) return false;
+        if (_now < _wfLockoutUntil[k] || _wfMen[k] < WarfrontLineRules.WithdrawMenLeast) return false;   // round 5: a line of a last few men holds to the end, as before (falling back would only hand the point over early)
         if (_wfHealthy[k] > WarfrontLineRules.OverwhelmHealthyMost) return false;   // two healthy squads or more fight on, whatever the pressure (the G1 round 2 trials: a line of several healthy squads that fell back handed its point to the Orks and the next points were overrun from it)
         float ratio = _wfHealthy[k] > 0 ? WarfrontLineRules.OverwhelmRatio : WarfrontLineRules.CollapseRatio;
         if (_wfPressure[k] < ratio * _wfMen[k]) return false;
