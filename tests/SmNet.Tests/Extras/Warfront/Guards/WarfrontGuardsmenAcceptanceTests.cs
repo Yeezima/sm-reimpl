@@ -133,7 +133,8 @@ public class WarfrontGuardsmenAcceptanceTests
     [Fact]
     public void Without_the_environment_switch_the_default_battle_runs_the_line_and_with_it_the_old_one()
     {
-        var (_, b) = GuardsmenRig.Lane(settle: 1);
+        var w = TfwRig.War(config: WarfrontBattleTests.WarfrontConfig);
+        var b = TfwRig.Deploy(w);   // no code switch: the default is the environment's
         // the same test is run with SM_WF_GUARD_AI_OLD=1 (QA step): the static reads it once at the type's load
         Assert.Equal(WarfrontLineRules.Old, b.WarfrontLineOff);
         Assert.Equal(!WarfrontLineRules.Old, b.WarfrontLineOn);
