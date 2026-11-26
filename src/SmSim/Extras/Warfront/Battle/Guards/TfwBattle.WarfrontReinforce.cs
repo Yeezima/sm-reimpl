@@ -13,6 +13,7 @@ public sealed partial class TfwBattle
     partial void WarfrontReinforceNeed(int k, int need, ref float weight)
     {
         if (!WfLine || need <= 0) return;
+        if (_wfPressure[k] > 0f && _wfPressure[k] >= WarfrontLineRules.CollapseRatio * _wfMen[k]) return;   // G5 F3: an overrun point keeps its plain share, no threat bonus (it may fall before the men arrive)
         float threat = _wfLine[k] is WarfrontLineState.Breaking or WarfrontLineState.Withdrawn ? 1f : Math.Min(1f, _wfPressure[k] / WarfrontLineRules.ReinforceThreatFull);
         weight = need * (1f + WarfrontLineRules.ReinforceThreatWeight * threat);
     }

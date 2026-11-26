@@ -52,6 +52,12 @@ public sealed class WarfrontVox
         Step(tick);
     }
 
+    /// <summary>Drops the waiting lines about point <paramref name="point"/> (its line's record ended: the origin fell).</summary>
+    public void DropAbout(int point)
+    {
+        for (int i = _pending.Count - 1; i >= 0; i--) if (_pending[i].From == point) { _pending.RemoveAt(i); Dropped++; }
+    }
+
     /// <summary>Makes at most one line at <paramref name="tick"/>: the waiting line of the highest priority (then the oldest) that the limits allow; the line made, or null.</summary>
     public WarfrontVoxLine? Step(uint tick)
     {

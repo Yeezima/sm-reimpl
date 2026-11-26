@@ -36,7 +36,7 @@ public sealed partial class TfwBattle
     readonly Vector2[,] _wfSectorSum = new Vector2[Positions, WarfrontLineRules.Sectors];
     readonly List<WfRecord> _wfRecords = new();
     readonly int[] _wfArmyRetreatAt = new int[256];
-    readonly ushort[] _wfQuery = new ushort[512];
+    readonly ushort[] _wfQuery = new ushort[MusouSim.Capacity];   // G5 F8: every enemy within 70 m counts in the ring and the sectors (was the nearest 512)
     WarfrontVox? _wfVox;
 
     /// <summary>Test aid and the tools' paired runs: true turns the line off for this battle (as <c>SM_WF_GUARD_AI_OLD=1</c> does for every battle).</summary>
@@ -73,6 +73,12 @@ public sealed partial class TfwBattle
         _wfVox.Offer(kind, from, to, (uint)_now);
     }
 
+    /// <summary>G5 F5: with every field squad withheld StepSquads stops early; the line's rows (the regrouped squads, the garrison) still form.</summary>
+    partial void WarfrontLineRows()
+    {
+        if (WfLine) WarfrontFormation();
+    }
+
     /// <summary>The once-a-second line step (top of StepSquads, before the field's posts are shared out).</summary>
     partial void WarfrontLine()
     {
@@ -81,6 +87,7 @@ public sealed partial class TfwBattle
         _wfVox?.Step((uint)_now);
         for (int k = 0; k < Positions; k++) WfSnapshot(k);
         WfTidyRecords();
+        WfRetargetRetreats();
         for (int k = 0; k < Positions; k++)
         {
             float floor = MathF.Max(WarfrontLineRules.BrokenFloor, WarfrontLineRules.BrokenShare * _wfPushRef[k]);
@@ -91,6 +98,20 @@ public sealed partial class TfwBattle
         for (int k = 0; k < Positions; k++) WfStepPoint(k);
         WfFlankStep();   // TfwBattle.WarfrontFlank.cs
         SimProfile.End("guards: warfront line", section);
+    }
+
+    /// <summary>G5 F2: a retreating Guard army whose fall-back point fell on its way is sent to the next fall-back place (as a record is), else the base.</summary>
+    void WfRetargetRetreats()
+    {
+        foreach (var a in _armies)
+        {
+            if (a.Side != TfwArmySide.Guard || a.Order != TfwArmyOrder.Retreat || a.Goal is < 0 or >= Positions || Imperial(a.Goal)) continue;
+            int place = a.Post is >= 0 and < Positions ? WfFallBackPlace(a.Post) : BasePlace;
+            if (place == a.Goal) place = BasePlace;
+            Redirect(a, place);
+            a.Goal = place == BasePlace ? LandingGoal : place;
+            OrderSquads(a);
+        }
     }
 
     /// <summary>Point <paramref name="k"/>'s pressure, sectors, men and healthy squads now.</summary>
@@ -396,6 +417,7 @@ public sealed partial class TfwBattle
         for (int j = rec.Squads.Count - 1; j >= 0; j--)
             WfRelease(rec.Squads[j], rec.FromGarrison[j] && held ? rec.Dest : -1, held || rec.Dest == BasePlace ? goal : -1);
         rec.Squads.Clear(); rec.FromGarrison.Clear(); rec.Resent.Clear();
+        _wfVox?.DropAbout(rec.Origin);   // G5 F6: no Falling back line is said late about a point that fell
         WfDrop(rec);
     }
 
@@ -437,11 +459,17 @@ public sealed partial class TfwBattle
     {
         if (!WfLine) return;
         _wfArmyRetreatAt[a.Id] = _now;
+        _wfGarrisonRetreat[a.Id] = false;
+        if (a.Order != TfwArmyOrder.Hold) return;   // G5 F1: a column broken on the march goes to the base as before (Retreat sets the order after this hook) and is never rallied
         int k = a.Post;
         if (k is < 0 or >= Positions) return;
+        _wfGarrisonRetreat[a.Id] = true;
         place = WfFallBackPlace(k);
-        if (Imperial(k)) _wfPushRef[k] = MathF.Max(_wfPressure[k], WarfrontLineRules.BrokenFloor);
+        if (Imperial(k) && _wfLine[k] == WarfrontLineState.Holding) _wfPushRef[k] = MathF.Max(_wfPressure[k], WarfrontLineRules.BrokenFloor);
     }
+
+    readonly bool[] _wfGarrisonRetreat = new bool[256];   // by army id: a garrison that retreated from its point (only these rally, G5 F1)
+    static readonly Func<MusouEnemyType, bool> AnyEnemy = _ => true;
 
     /// <summary>H3: in a lane battle the proximity rally is off (owner 2026-11-25); a retreating Guard army rallies to its own point when the push there is broken and the point stands.</summary>
     partial void WarfrontRallies(ref bool skip)
@@ -450,10 +478,12 @@ public sealed partial class TfwBattle
         skip = true;
         foreach (var a in _armies)
         {
-            if (a.Side != TfwArmySide.Guard || a.Order != TfwArmyOrder.Retreat || _now < a.RallyReady) continue;
+            if (a.Side != TfwArmySide.Guard || a.Order != TfwArmyOrder.Retreat || _now < a.RallyReady || !_wfGarrisonRetreat[a.Id]) continue;
             int k = a.Post;
             if (k is < 0 or >= Positions || !Imperial(k)) continue;
             if (_now - _wfArmyRetreatAt[a.Id] < Ticks(WarfrontLineRules.MinWithdrawnSeconds) || _wfBrokenSteps[k] < WarfrontLineRules.BrokenSeconds) continue;
+            if (_enemies.AnyWithin(a.Middle, WarfrontLineRules.PushRadius + a.Radius, AnyEnemy)) continue;   // G5 F1: never rally an army that is still in contact
+            _wfGarrisonRetreat[a.Id] = false;
             Rally(a, k);
             WarfrontLineRallies++;
             WfVox(WarfrontVoxKind.Rallying, k);

@@ -847,7 +847,7 @@ public sealed partial class TfwBattle
         for (int s = 0; s < GuardSim.MaxSquads; s++)
             if (_guards.AliveIn(s) > 0 && !ArmySquad(s) && !VantageSquad(s)) alive++;   // an army's squads take its orders (expansion S6), a vantage team its own (TfwBattle.Vantage.cs)
             else _squadGoal[s] = -1;
-        if (alive == 0) return;
+        if (alive == 0) { WarfrontLineRows(); return; }   // WARFRONT-HOOK: Guardsmen G5 F5, a fallen-back line still forms rows when every field squad is withheld (no-op outside a Warfront lane battle's line)
         Span<float> threat = stackalloc float[Positions];
         Span<ushort> near = stackalloc ushort[TfwBattleRules.ThreatMost];
         for (int k = 0; k < Positions; k++)
@@ -907,6 +907,9 @@ public sealed partial class TfwBattle
 
     /// <summary>Warfront (Guardsmen G1): once a second before the posts are shared out, each held point's line (hold, fall back, rally).</summary>
     partial void WarfrontLine();
+
+    /// <summary>Warfront (Guardsmen G5 F5): the rows when no field squad is free (every one withheld by a fall back).</summary>
+    partial void WarfrontLineRows();
 
     /// <summary>Warfront: whether a squad in its rows counts as on its goal (they reach past the point's radius).</summary>
     partial void WarfrontOnGoal(int squad, int goal, ref bool on);
