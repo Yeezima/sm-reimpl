@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4503 spec table rows: **3349 tagged**, 756 not tagged (read from data with high confidence), 398 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 857 rows of the changes document.
+Scanned 4518 spec table rows: **3362 tagged**, 757 not tagged (read from data with high confidence), 399 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 857 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 4503 spec table rows: **3349 tagged**, 756 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 110 | 104 | 76 | 17 | 0 |
-| Sound mix (critical) | 256 | 238 | 200 | 40 | 0 |
+| Sound mix (critical) | 269 | 251 | 210 | 43 | 0 |
 | Effects (critical) | 122 | 110 | 96 | 50 | 0 |
 | Game modes | 48 | 44 | 46 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,21 +53,21 @@ Scanned 4503 spec table rows: **3349 tagged**, 756 not tagged (read from data wi
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
 | General game design | 347 | 345 | 115 | 143 | 0 |
 | Ork faction | 303 | 282 | 182 | 74 | 0 |
-| **All areas** | **3349** | 3032 | 2364 | 1010 | 37 |
+| **All areas** | **3362** | 3045 | 2374 | 1013 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2123 |
-| confidence: medium | 1153 |
-| confidence: low | 1100 |
-| notes: ours | 490 |
-| kind: interpretation | 474 |
+| kind: ours | 2132 |
+| confidence: medium | 1161 |
+| confidence: low | 1102 |
+| notes: ours | 493 |
+| kind: interpretation | 477 |
 | notes: estimate | 346 |
 | kind: estimate | 274 |
 | confidence: none (low) | 111 |
-| kind: provisional | 109 |
+| kind: provisional | 110 |
 | notes: provisional | 83 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
@@ -75,7 +75,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: placeholder | 34 |
 | notes: interpretation | 32 |
 | notes: user's knowledge | 31 |
-| kind: approximation | 29 |
+| kind: approximation | 30 |
 | kind: placeholder | 24 |
 | notes: open question | 22 |
 | kind: gap (not reproduced) | 20 |
@@ -2124,7 +2124,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-E18568FD` | Duel HUD (C5c) | for everyone while the relay runs: the dark steel strip across the top of the 1920 x 1080 space (y 70, or 190 under the Battle HUD's line; 152 tall), `CHAMPION: NAME` (heading level, gold), `NEXT: NAME` or `LAST CHALLENGER` with `CHALLENGERS WAITING: n` (none… (px) | kind: ours; notes: provisional | plan (C5c); layout and wording ours; owner 2026-11-15 (one style per level) | Duel HUD (C5c): compare with SM1 with side-by-side screenshots in the same spot. Ours: for everyone while the relay runs: the dark steel strip across the… | ☐ |
 
-### Sound mix (gameplay-critical) (256)
+### Sound mix (gameplay-critical) (269)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2536,6 +2536,24 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E5FAF371` | Walkable ground | a slot is pulled toward the point (whole, three quarters, half, a quarter of its offset) until it is on the walking graph, reachable in a straight line from the point and **2.5 m** off walls and ledges where the ground allows it, else the best clearance; each… (m) | kind: ours; notes: estimate | owner 2026-11-20 (spacing fits each map's walkable ground); number ours | Walkable ground: compare with SM1 by listening A/B at the same distance and state. Ours: a slot is pulled toward the point (whole, three quarters, half, a… | ☐ |
 | `R-B769F750` | On the point | a squad within the point's radius **plus 14 m** counts as on its point (the rows reach past the ring), so it is not sent again (m) | kind: ours; notes: estimate | ours | On the point: compare with SM1 by listening A/B at the same distance and state. Ours: a squad within the point's radius plus 14 m counts as on its point… | ☐ |
 | `R-0EC1CBD6` | Cost of the doubled Guardsmen | `smtool warfront-guards --slot wf_a1 --seconds 60` (Release, real map and graph, the first 60 s after A, B, C are secured, 30 ticks a second, an idle machine): before (`SM_WF_GUARD_OLD=1`) mean **3.05 ms** a tick, p95 3.72, 107 Guardsmen and 960 Orks on… (ms) | kind: ours | measured 2026-11-20 | Cost of the doubled Guardsmen: compare with SM1 by listening A/B at the same distance and state. Ours: smtool warfront-guards --slot wf_a1 --seconds 60 (Release, real map… | ☐ |
+
+*Spec section: Added content: execution cues (sound, contact effects, gore) and crossovers*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3F52874F` | Cue clock | the shared execution clock (`ExecutionPresentMath.Pose`: the executor's draw tick); the victim's tags on the same clock (s) | kind: interpretation | X5's clock | Cue clock: compare with SM1 by listening A/B at the same distance and state. Ours: the shared execution clock (ExecutionPresentMath.Pose: the executor's… | ☐ |
+| `R-7ABB544A` | Stop of a windowed tag | its `stop_event_name` at the window's end; an instant tag's at the move's end (the run's loops ended) (s) | kind: interpretation; confidence: medium; notes: ours | ours: the action ends with the state | Stop of a windowed tag: compare with SM1 by listening A/B at the same distance and state. Ours: its stop_event_name at the window's end; an instant tag's at the… | ☐ |
+| `R-9E8DA11C` | Late join skip | a run first seen late skips cues more than 0.25 s behind its clock (s) | kind: ours; confidence: medium | ours | Late join skip: compare with SM1 by listening A/B at the same distance and state. Ours: a run first seen late skips cues more than 0.25 s behind its clock. | ☐ |
+| `R-824B7DB3` | Finish grace | a Done run ends 0.5 s after its last cue (its later cues, the victim's half, play out) (s) | kind: ours; confidence: medium | ours | Finish grace: compare with SM1 by listening A/B at the same distance and state. Ours: a Done run ends 0.5 s after its last cue (its later cues, the… | ☐ |
+| `R-FF279109` | Interruption | an end other than Done (Killed, Invalid, Disconnect, MatchEnd) or a run that vanishes stops the attacker, victim and wound emitters at once and drops pending cues; its effects end within 0.05 s (s) | kind: ours | owner's brief | Interruption: compare with SM1 by listening A/B at the same distance and state. Ours: an end other than Done (Killed, Invalid, Disconnect, MatchEnd) or a… | ☐ |
+| `R-7A58A877` | Wound place | the victim proxy's chest bone (head bone for a head, neck, throat, face or decap cue), 0.3 m toward the attacker; impacts, hits, slams, stomps, smashes, kicks, grinds, cuts, gore, stabs, the arm break and flesh releases play there (m) | kind: ours; confidence: medium | ours (the brief: "impacts at the wound") | Wound place: compare with SM1 by listening A/B at the same distance and state. Ours: the victim proxy's chest bone (head bone for a head, neck, throat… | ☐ |
+| `R-0BD04FB5` | Speakers | attacker and victim emitters at the chest (1.3 m, the proxy's chest bone when it has one); an attacker file's named-character or characterless `damage_*` line on the victim, in the victim's voice (m) | kind: ours; confidence: medium | ours | Speakers: compare with SM1 by listening A/B at the same distance and state. Ours: attacker and victim emitters at the chest (1.3 m, the proxy's chest… | ☐ |
+| `R-92A41F78` | Speech fallback | `roar` to `effort_big_pull`, `damage_big` and `damage_long` to `damage_small`, when the character has no line | kind: ours; confidence: medium | ours (the MP marines have no roar) | Speech fallback: compare with SM1 by listening A/B at the same distance and state. Ours: roar to effort_big_pull, damage_big and damage_long to damage_small… | ☐ |
+| `R-857A6858` | Borrowed blade | power sword or knife on a chainsword move, or a crossover: the graph weapon's motor sounds (names with its weapon token) become the wielder's swing (`swing_x1`, else `actn_snd_ck_swing`) or light-strike hit (repeated every 0.4 s along a grind); revs dropped… (s) | kind: ours; confidence: medium | ours (the brief: a power sword still sounds like a power sword) | Borrowed blade: compare with SM1 by listening A/B at the same distance and state. Ours: power sword or knife on a chainsword move, or a crossover: the graph… | ☐ |
+| `R-DA842545` | Disabled effects | effect names ending in `xx` are not drawn | kind: interpretation; confidence: medium; notes: ours | ours (read as switched off by the data's authors) | Disabled effects: compare with SM1 by listening A/B at the same distance and state. Ours: effect names ending in xx are not drawn. | ☐ |
+| `R-E8313EC5` | Blood gate | blood effects and the kill streak only in Warfront or Classic with the Extended gore; `--no-execution-gore` off; the streak's own switches apply | kind: ours | owner's brief ("respect the gore settings") | Blood gate: compare with SM1 by listening A/B at the same distance and state. Ours: blood effects and the kill streak only in Warfront or Classic with… | ☐ |
+| `R-0E6F5717` | Kill streak | one gore streak at the wound when the clock passes the row's kill frame: source sweep, lethal, heavy for the hammer, axis from the attacker 0.6 down | kind: provisional; kind: approximation; confidence: low; notes: ours | ours (the brief: reuse the current gore streak) | Kill streak: compare with SM1 by listening A/B at the same distance and state. Ours: one gore streak at the wound when the clock passes the row's kill… | ☐ |
+| `R-CEA65C8D` | Crossover rows | `O4.combat_knife` (the chainsword's arm break with the knife), `O8.chainsword` (the knife's stab with the chainsword and power sword), `O6.chainsword` (the axe's hack with the chainsword and power sword), priority 0, wire 25 to 27; candidates until the lead's… | kind: ours; confidence: low | owner brief; Support worksheet | Crossover rows: compare with SM1 by listening A/B at the same distance and state. Ours: O4.combat_knife (the chainsword's arm break with the knife)… | ☐ |
 
 ### Effects (gameplay-critical) (122)
 
@@ -7196,6 +7214,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-43364C35` | Test aids | Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change) |
 | `R-DCF1B7E7` | Versions | Added content: Executions: Warfront on Chaos, the knife, the finale duel (X4b) |
 | `R-7941EE8C` | Test aids | Added content: Executions: Warfront on Chaos, the knife, the finale duel (X4b) |
+| `R-A9861122` | Versions | Added content: execution cues (sound, contact effects, gore) and crossovers |
 | `R-F62A3D5F` | Wire | Warfront faction (Chaos Warfront C1; added content; owner brief 2026-11-24 rev 1, decision 2026-11-25) |
 | `R-1B6BA160` | Wire | Added content: Warfront Chaos: warp breaches (C4) (branch `claude/chaos-breach-1125`, 2026-11-25; `WarfrontRules.Version` 26, shared with C3's body rule; added content, Warfront only; the Chaos section, envelope tag 51) |
 | `R-86C8D220` | Wire | Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 28; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17) |
