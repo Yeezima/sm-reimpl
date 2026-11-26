@@ -842,6 +842,7 @@ public sealed partial class TfwBattle
     {
         if (--_squadTicks > 0) return;
         _squadTicks = Ticks(TfwBattleRules.SquadOrderSeconds);
+        WarfrontLine();   // WARFRONT-HOOK: Guardsmen G1, the line holds, falls back and rallies (Warfront lane battles only; Warfront/Battle/Guards/TfwBattle.WarfrontLine.cs)
         int alive = 0, owned = 0;
         for (int s = 0; s < GuardSim.MaxSquads; s++)
             if (_guards.AliveIn(s) > 0 && !ArmySquad(s) && !VantageSquad(s)) alive++;   // an army's squads take its orders (expansion S6), a vantage team its own (TfwBattle.Vantage.cs)
@@ -903,6 +904,9 @@ public sealed partial class TfwBattle
 
     /// <summary>Warfront: the squads of each held point stand in rows facing the Orks' approach (TfwBattle.WarfrontGuards.cs).</summary>
     partial void WarfrontFormation();
+
+    /// <summary>Warfront (Guardsmen G1): once a second before the posts are shared out, each held point's line (hold, fall back, rally).</summary>
+    partial void WarfrontLine();
 
     /// <summary>Warfront: whether a squad in its rows counts as on its goal (they reach past the point's radius).</summary>
     partial void WarfrontOnGoal(int squad, int goal, ref bool on);

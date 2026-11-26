@@ -77,6 +77,10 @@ public partial class NetworkView
             case SmNet.Extras.Warfront.WarfrontBattleWire.EnvelopeTag:   // W13b (routed: the lead's fan-out line)
                 handled = WarfrontBattleReceive(tag, payload);
                 return;
+            case WarfrontWire.VoxTag:   // Guardsmen G2: the Guardsmen's vox line (Battle/NetworkView.WarfrontVox.cs)
+                WarfrontVoxReceive(payload);
+                handled = true;
+                return;
             case SmNet.Extras.Warfront.WarfrontChaosWire.Tag:   // Chaos Warfront C4c (routed: the breaches, and C5's finale kinds)
                 WarfrontChaosSection(tag, payload, ref handled);
                 return;
