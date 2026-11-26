@@ -72,6 +72,9 @@ public partial class MaterialEditor : Window
         foreach (var (type, i) in NodeTypes.All.Select((t, i) => (t, i))) popup.AddItem(Titles[type], i);
         popup.IdPressed += id => AddNode(NodeTypes.All[(int)id]);
         top.AddChild(_add);
+        // Import images (owner 2026-11-27: here, in the material window, not in the Mapmaker panel): the pictures are added to the map and wired into this material by name.
+        _import.Pressed += PickImages;
+        top.AddChild(_import);
         top.AddChild(new Label { Text = "  Drag from an output to an input to link; drag a linked input away to unlink; Delete removes the selected nodes.", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true });
         v.AddChild(top);
         var h = new HBoxContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
@@ -95,6 +98,43 @@ public partial class MaterialEditor : Window
         _graph.EndNodeMove += MovedNodes;
         BuildPreviewScene();
         _plugin.DocChanged += () => { if (Visible && MaterialId is not null) Rebuild(); };
+    }
+
+    public const string ImportButtonName = "MapmakerImportImages";
+    readonly Button _import = new()
+    {
+        Name = ImportButtonName, Text = "Import images...",
+        TooltipText = "PNG or JPEG pictures. Each is added to the map and wired into this material by its name (BaseColor, Normal (DX or GL), Roughness, Metallic, AO, ORM); others are only added to the map. One undo step.",
+    };
+    FileDialog? _imageFiles;
+
+    /// <summary>Test aid: the window's Import images button.</summary>
+    public Button ImportButton => _import;
+
+    void PickImages()
+    {
+        if (_plugin.Session is null || MaterialId is null) { _error.Text = "Open or create a map and choose a material first."; return; }
+        if (_imageFiles is null)
+        {
+            _imageFiles = new FileDialog
+            {
+                Title = "Import images", Access = FileDialog.AccessEnum.Filesystem, FileMode = FileDialog.FileModeEnum.OpenFiles, Filters = ["*.png,*.jpg,*.jpeg ; PNG or JPEG picture"],
+                Exclusive = true, Size = new Vector2I(700, 460),
+            };
+            _imageFiles.FilesSelected += paths => { if (paths.Length > 0) ImportImages(paths); };
+            _imageFiles.FileSelected += path => ImportImages([path]);
+            AddChild(_imageFiles);
+        }
+        _imageFiles.PopupCentered(_imageFiles.Size);
+    }
+
+    /// <summary>What the button does with the picked files: the dock's import (one undo step), wired into the material shown here.</summary>
+    public OpResult? ImportImages(IReadOnlyList<string> paths)
+    {
+        if (MaterialId is null || _plugin.Dock is not { } dock) return null;
+        var r = dock.ImportImages(paths, MaterialId);
+        _error.Text = r.Ok ? "" : string.Join("\n", r.Errors.Select(e => e.Message));
+        return r;
     }
 
     /// <summary>Shows the editor for <paramref name="materialId"/>.</summary>

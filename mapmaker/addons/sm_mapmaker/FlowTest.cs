@@ -227,6 +227,11 @@ public sealed class FlowTest(MapmakerPlugin plugin)
             Button(up, MouseButton.Left, true); await Frames(3); Button(up, MouseButton.Left, false); await Frames(4);
             Check(Math.Abs(spin.Value - (v0 + spin.CustomArrowStep)) < 1e-6, $"a left click on the up arrow adds one step ({spin.Value})");
             spin.Value = v0;
+            await Frames(4);
+            // the arrow edits moved the whole Alt-box selection, which stays selected (owner 2026-11-27; it used to drop to one object)
+            Check(plugin.SelectedIds().Count() > 1 && plugin.SelectedIds().Contains(a.ObjectId), $"a group moved by the spin arrows stays selected ({plugin.SelectedIds().Count()} objects)");
+            plugin.Select([a.ObjectId]);
+            await Frames(4);
             // Axis drift (owner 2026-11-19): a typed X leaves Y, Z, rotation and scale exactly as stored, even values finer than the old display step.
             var only = plugin.SelectedIds().ToList();
             if (only.Count == 1)

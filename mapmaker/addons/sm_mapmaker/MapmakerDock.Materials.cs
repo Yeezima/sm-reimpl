@@ -52,7 +52,7 @@ public partial class MapmakerDock
         if (_libInfo.GetParent() is not VBoxContainer v) return;
         int at = _libInfo.GetIndex() + 1;
         var box = new VBoxContainer();
-        Section(box, "Materials", "Pictures and node materials for blocks, ramps and columns. Import pictures, make a material, then assign it to the selected pieces.");
+        Section(box, "Materials", "Pictures and node materials for blocks, ramps and columns. Make a material, import its pictures in its node editor (Edit...), then assign it to the selected pieces.");
         _matList.ItemActivated += i => EditMaterial();
         _matList.ItemSelected += _ => RefreshMaterialInfo();
         box.AddChild(_matList);
@@ -60,9 +60,6 @@ public partial class MapmakerDock
         var edit = Btn("Edit...", EditMaterial, "Opens the chosen material in the node editor.");
         newMat.SizeFlagsHorizontal = SizeFlags.ExpandFill; edit.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         box.AddChild(Row(newMat, edit));
-        var import = Btn("Import images...", () => PickImages(), "PNG or JPEG pictures. With a material chosen in the list, each picture is wired into it by its name (BaseColor, Normal (DX or GL), Roughness, Metallic, AO, ORM); others are only added to the map.");
-        import.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        box.AddChild(Row(import));
         var assign = Btn("Assign to selection", () => AssignSelected(SelectedMaterial), "Draws the selected blocks, ramps and columns with the chosen material (replacing the one they had). One undo step.");
         var clear = Btn("Clear", () => AssignSelected(null), "The selected pieces go back to the default look.");
         assign.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -163,20 +160,6 @@ public partial class MapmakerDock
         MaterialEditorWindow.Open(id);
     }
 
-    void PickImages()
-    {
-        if (_plugin.Session is null) { _status.Text = "Open or create a map first."; return; }
-        Pick("Import images", FileDialog.FileModeEnum.OpenFiles, "", ["*.png,*.jpg,*.jpeg ; PNG or JPEG picture"], p => OnImagesPicked([p]));
-        _files!.FilesSelected -= OnImagesPicked;   // several files at once
-        _files.FilesSelected += OnImagesPicked;
-    }
-
-    void OnImagesPicked(string[] paths)
-    {
-        _files!.FilesSelected -= OnImagesPicked;
-        if (paths.Length > 0) ImportImages(paths, SelectedMaterial);
-    }
-
     /// <summary>
     /// Adds the pictures to the map (<c>image-add</c>) and, when <paramref name="wireInto"/> names a material, wires each into it by its file name (<see cref="MaterialPlan.WireByName"/>):
     /// all in one batch, so one undo step. The result's status line says what was linked.
@@ -274,6 +257,7 @@ public partial class MapmakerDock
 
     // ---- the 3D view: pieces drawn with their map material ----
 
+    readonly Dictionary<string, (MapObject Obj, int Cache, int Content)> _matSeen = new();
     MaterialBuild.Cache? _viewCache;
     string _viewCacheKey = "";
     int _viewCacheVersion;
@@ -310,8 +294,14 @@ public partial class MapmakerDock
         foreach (var o in doc.Objects)
         {
             if (o.Piece is not { } piece || !PieceKind.IsDrawn(piece.Kind)) continue;
-            var mesh = preview is not null && preview.TryGetValue(o.Id, out var p) ? p : o.Mesh;
-            if (_plugin.NodeOf(o.Id)?.GetNodeOrNull<MeshInstance3D>("Content/Shape") is not { } shape) continue;
+            bool previewed = preview is not null && preview.ContainsKey(o.Id);
+            if (_plugin.NodeOf(o.Id) is not { } node) continue;
+            // unchanged since it was last drawn (same record, same material cache, same drawing, no Edit-mode preview): nothing to look at (the edit-hang fix, 2026-11-27)
+            if (!previewed && _matSeen.TryGetValue(o.Id, out var seen) && ReferenceEquals(seen.Obj, o) && seen.Cache == _viewCacheVersion && seen.Content == node.ContentVersion) continue;
+            var mesh = previewed ? preview![o.Id] : o.Mesh;
+            if (node.GetNodeOrNull<MeshInstance3D>("Content/Shape") is not { } shape) continue;
+            if (!previewed) _matSeen[o.Id] = (o, _viewCacheVersion, node.ContentVersion);
+            else _matSeen.Remove(o.Id);
             string sig = o.Material is null ? "" : $"{o.Material}|{_viewCacheVersion}|{mesh?.ToNode().ToJsonString()}|{o.Transform.Scale}";
             string have = shape.HasMeta("mm_surface") ? shape.GetMeta("mm_surface").AsString() : "";
             if (sig == have) continue;

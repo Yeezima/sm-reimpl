@@ -68,12 +68,12 @@ public partial class MapmakerPlugin
         var options = EditorScenes.Options();
         if (wait || !CustomMaps.NeedsContent(doc) || EditorScenes.Cache.TryGet(DecorCache.KeyOf(doc, options.CacheTag), out _))
         {
-            _compiled = CustomMap.Compile(doc, options);
+            long tc = EditCost.Start(); _compiled = CustomMap.Compile(doc, options); EditCost.End("Compiled:full", tc);
             _compiledPiecesOnly = false;
         }
         else
         {
-            _compiled = CustomMap.Compile(doc);   // pieces only: fast
+            long tp = EditCost.Start(); _compiled = CustomMap.Compile(doc); EditCost.End("Compiled:pieces", tp);   // pieces only: fast
             _compiledPiecesOnly = true;
             _decorWorker ??= new DecorWorker(EditorScenes.Cache, TimeSpan.FromMilliseconds(400), a => Callable.From(a).CallDeferred(), OnDecorReady);
             _decorWorker.Request(doc.Clone(), options, DecorCache.KeyOf(doc, options.CacheTag));
@@ -87,7 +87,8 @@ public partial class MapmakerPlugin
         if (!GodotObject.IsInstanceValid(this) || Session is null) return;   // the plugin was closed or the map was closed while the build ran
         _compiledJson = "";   // the next Compiled() finds the decoration in the cache
         bool route = _routeWanted; _routeWanted = false;
-        RunCheck(route);
+        if (route) RunCheck(true);   // Check route was pressed: at once, as the button does
+        else RunCheckInBackground();
     }
 
     /// <summary>Where a ray first meets a solid piece (document frame), or null.</summary>
@@ -140,13 +141,80 @@ public partial class MapmakerPlugin
     static SmSim.SimConfig? _config;
     static bool _configTried;
 
-    /// <summary>Re-runs the check shortly after the last edit (it is skipped while the document is unchanged).</summary>
+    // The document the last check was started for, by session and version (DocChanged also fires on every selection change; serialising the whole map to compare cost tens of ms each time).
+    MapSession? _checkedSession;
+    int _checkedVersion = -1;
+    bool _bgCheckRunning, _bgCheckAgain;
+
+    /// <summary>Re-runs the check shortly after the last edit (it is skipped while the document is unchanged). The check itself runs in the background (<see cref="RunCheckInBackground"/>).</summary>
     public void RecheckSoon()
     {
         if (_checkQueued || Session is null) return;
-        if (Session.Document.ToJson() == _checkedJson && LastCheck is not null) return;
+        if (ReferenceEquals(Session, _checkedSession) && Session.Version == _checkedVersion && LastCheck is not null) return;
         _checkQueued = true;
-        GetTree().CreateTimer(0.5).Timeout += () => { _checkQueued = false; RunCheck(); };
+        GetTree().CreateTimer(0.5).Timeout += () => { _checkQueued = false; RunCheckInBackground(); };
+    }
+
+    /// <summary>Test aid: a background check is running.</summary>
+    public bool CheckRunning => _bgCheckRunning;
+
+    /// <summary>Test aid: <see cref="LastCheck"/> is the check of the open document as it is now (no check or decoration build is still on its way).</summary>
+    public bool CheckIsCurrent => LastCheck is not null && Session is not null && ReferenceEquals(_checkedSession, Session) && _checkedVersion == Session.Version && !_bgCheckRunning && !DecorPending && !_checkQueued;
+
+    /// <summary>
+    /// The quick check after an edit, off the main thread (the edit-hang fix, 2026-11-27): on an SM1 map imported for editing the check builds the collision of every decoration piece, which
+    /// took about half a minute on the editor's main thread after every edit. The map is compiled on the main thread as before (the decoration comes from the cache or the
+    /// <see cref="DecorWorker"/>); only <see cref="MapCheck.Run"/> runs in the background. One runs at a time; an edit made meanwhile checks again when it is done; a result for a document
+    /// that has changed since is dropped. The Check route button and the tests still check at once (<see cref="RunCheck"/>).
+    /// </summary>
+    public void RunCheckInBackground()
+    {
+        if (Session is null) { RunCheck(); return; }
+        if (_bgCheckRunning) { _bgCheckAgain = true; return; }
+        var session = Session;
+        int version = session.Version;
+        string json = session.Document.ToJson();
+        _checkedSession = session; _checkedVersion = version;
+        if (json == _routeJson && LastCheck is not null && !_routeInFlight) { _checkedJson = json; CheckChanged?.Invoke(); return; }   // a route verified for exactly this document stays
+        _checkedJson = json;
+        var map = Compiled()!;
+        if (_compiledPiecesOnly) { RouteChecking = true; CheckChanged?.Invoke(); return; }   // the decoration is still compiling: OnDecorReady checks again when it lands
+        _bgCheckRunning = true;
+        EditCost.Checks++;
+        _ = Task.Run(() =>
+        {
+            CheckReport? report = null; string? error = null;
+            long t = EditCost.Start();
+            try { report = MapCheck.Run(map); }
+            catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { error = e.Message; }
+            EditCost.End("RunCheck:MapCheck (background)", t);
+            Callable.From(() =>
+            {
+                if (!GodotObject.IsInstanceValid(this)) return;
+                _bgCheckRunning = false;
+                bool current = ReferenceEquals(Session, session) && Session!.Version == version;
+                if (current)
+                {
+                    RouteChecking = _routeInFlight;
+                    if (report is null)
+                    {
+                        GD.PushWarning("Mapmaker: check: " + error);
+                        LastCheck = null;
+                        SetStatus($"The map could not be checked: {error}");
+                    }
+                    else
+                    {
+                        LastCheck = report;
+                        bool ready = report.Ready(CheckMode.Annihilation) || report.Ready(CheckMode.Seize);
+                        report.Facts.RemoveAll(f => f.StartsWith("Bot route:", StringComparison.Ordinal));
+                        report.Facts.Add(ready ? "Bot route: not checked since the last edit. Press Check route to see whether bots can walk between the spawns and to every point."
+                                               : "Bot route: can be checked once the map has a spawn area with floor for each side.");
+                    }
+                    CheckChanged?.Invoke();
+                }
+                if (_bgCheckAgain || !current) { _bgCheckAgain = false; RecheckSoon(); }
+            }).CallDeferred();
+        });
     }
 
     /// <summary>
@@ -156,12 +224,19 @@ public partial class MapmakerPlugin
     /// </summary>
     public void RunCheck(bool withRoute = false)
     {
+        long t0 = EditCost.Start();
+        try { RunCheckCore(withRoute); } finally { EditCost.End("RunCheck", t0); }
+    }
+
+    void RunCheckCore(bool withRoute)
+    {
         if (Session is null) { LastCheck = null; CheckChanged?.Invoke(); return; }
         if (withRoute && _routeInFlight) { SetStatus("The bots' route is already being checked."); return; }   // one route check at a time
         string json = Session.Document.ToJson();
         // a route verified for exactly this document stays shown (a quick re-check of an unchanged map does not throw it away)
         if (!withRoute && json == _routeJson && LastCheck is not null && !_routeInFlight) { _checkedJson = json; CheckChanged?.Invoke(); return; }
         _checkedJson = json;
+        _checkedSession = Session; _checkedVersion = Session.Version;
         var map = Compiled()!;
         if (_compiledPiecesOnly)
         {
@@ -172,7 +247,9 @@ public partial class MapmakerPlugin
             return;
         }
         RouteChecking = _routeInFlight;
-        try { LastCheck = MapCheck.Run(map); }
+        EditCost.Checks++;
+        long tc = EditCost.Start();
+        try { LastCheck = MapCheck.Run(map); EditCost.End("RunCheck:MapCheck", tc); }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
         {
             // a damaged or hostile map the simulation refuses (the compiler leaves out markers with no inside, so this is a last guard): a status line, never an editor crash

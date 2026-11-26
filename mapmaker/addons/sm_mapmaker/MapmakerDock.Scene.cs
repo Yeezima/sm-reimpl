@@ -129,16 +129,36 @@ public partial class MapmakerDock
         if (SelectedRow(tree) is { } first && MapGroup.IsGroupId(first)) _groupName.Text = _plugin.Session.Document.FindGroup(first)?.Name ?? "";
     }
 
-    /// <summary>Rebuilds both lists when the map changed (not on every selection change).</summary>
+    string _sceneShape = "\0";
+
+    /// <summary>What the two lists show: every object's id, name, parent, switch and Classic flag, in order, and the groups. A move, turn or resize changes none of it.</summary>
+    static string SceneShape(MapDocument? doc)
+    {
+        if (doc is null) return "";
+        var sb = new System.Text.StringBuilder(doc.Objects.Count * 24);
+        foreach (var o in doc.Objects) sb.Append(o.Id).Append('\u0001').Append(o.Name).Append('\u0001').Append(o.Parent).Append(o.Visible ? '+' : '-').Append(o.Src is { ClassicHidden: true } ? 'h' : '.').Append('\u0002');
+        foreach (var g in doc.Groups) { sb.Append('\u0003').Append(g.Id).Append('\u0001').Append(g.Name); foreach (var m in g.Members) sb.Append('\u0001').Append(m); }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Rebuilds both lists when what they show changed (not on every selection change, and not on a move: the edit-hang fix, 2026-11-27, a 2000-row list was rebuilt after every
+    /// transform edit).
+    /// </summary>
     void RefreshScene()
     {
         var s = _plugin.Session;
         if (!ReferenceEquals(s, _sceneKey) || (s?.Version ?? -1) != _sceneVersion)
         {
             _sceneKey = s; _sceneVersion = s?.Version ?? -1;
-            _sceneSyncing = true;
-            try { BuildObjectTree(s?.Document); BuildGroupTree(s?.Document); }
-            finally { _sceneSyncing = false; }
+            string shape = SceneShape(s?.Document);
+            if (shape != _sceneShape)
+            {
+                _sceneShape = shape;
+                _sceneSyncing = true;
+                try { BuildObjectTree(s?.Document); BuildGroupTree(s?.Document); }
+                finally { _sceneSyncing = false; }
+            }
         }
         var doc = s?.Document;
         _sceneInfo.Text = doc is null ? "No map open." : $"{doc.Objects.Count} objects, {doc.Objects.Count(o => o.Parent is not null)} nested, {doc.Groups.Count} groups.";
@@ -149,6 +169,7 @@ public partial class MapmakerDock
     /// <summary>One Objects row; an object that is switched off (Classic hides it, or you did) is greyed.</summary>
     TreeItem AddRow(TreeItem parent, MapObject o)
     {
+        EditCost.SceneRows++;
         var item = _objectTree.CreateItem(parent);
         item.SetText(0, TreeText(o)); item.SetMetadata(0, o.Id); item.SetTooltipText(0, o.Src is { ClassicHidden: true } ? $"{o.Id}: Classic hides this object in play" : o.Id);
         if (!o.Visible) item.SetCustomColor(0, OffColour);

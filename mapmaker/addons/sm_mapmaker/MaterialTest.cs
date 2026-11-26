@@ -129,7 +129,12 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
         Check(id is not null && doc().FindMaterial(id) is not null, $"material created ({id})");
         var ed = dock.MaterialEditorWindow;
         Check(ed.MaterialId == id, "the node editor shows it");
-        var imported = dock.ImportImages(pics, id);
+        // Import images lives in the node editor window, not in the Mapmaker panel (owner 2026-11-27)
+        Check(ed.FindChildren("*", "Button", true, false).OfType<Button>().Any(x => x.Name == MaterialEditor.ImportButtonName && x.Text == "Import images...") && ed.ImportButton.IsInsideTree(),
+            "the node editor window has the Import images button");
+        Check(!dock.FindChildren("*", "Button", true, false).OfType<Button>().Any(x => x.Text.StartsWith("Import images", StringComparison.Ordinal) && !ed.IsAncestorOf(x)),
+            "the Mapmaker panel has no Import images button");
+        var imported = ed.ImportImages(pics) ?? OpResult.Fail("no-editor", "the window imported nothing");
         Check(imported.Ok && doc().Images.Count == 5, $"5 pictures in the map ({string.Join("; ", imported.Errors.Select(e => e.Message))})");
         var g = doc().FindMaterial(id!)!;
         var m = g.Resolve();
@@ -270,6 +275,17 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
             ed.GetTexture().GetImage().SavePng(Path.Combine(_out, "node-editor.png"));
             ed.PreviewViewport.GetTexture().GetImage().SavePng(Path.Combine(_out, "node-editor-preview.png"));
             ed.Hide();
+            // the Mapmaker panel's Library tab with its Materials section (no Import images button there any more)
+            dock.ShowTab(DockTab.Library);
+            await Frames(20);
+            if (dock.GetParent() is Control && dock.IsVisibleInTree())
+            {
+                var r = dock.GetGlobalRect();
+                var whole = ((SceneTree)Engine.GetMainLoop()).Root.GetTexture().GetImage();
+                var clip = new Rect2I((Vector2I)r.Position, (Vector2I)r.Size).Intersection(new Rect2I(0, 0, whole.GetWidth(), whole.GetHeight()));
+                if (clip.Size.X > 0 && clip.Size.Y > 0) whole.GetRegion(clip).SavePng(Path.Combine(_out, "panel-materials.png"));
+                whole.SavePng(Path.Combine(_out, "editor-window.png"));
+            }
             plugin.Select([]);
             await plugin.Frame3D(new SysNum.Vector3(-2.2f, -0.5f, 0f), new SysNum.Vector3(8.2f, 0.5f, 3.1f));
             await Frames(60);

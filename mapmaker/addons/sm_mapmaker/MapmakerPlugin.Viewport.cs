@@ -284,7 +284,7 @@ public partial class MapmakerPlugin
         }
         if (MapHost.Root is { } r0 && sel.GetSelectedNodes().Contains(r0)) sel.RemoveNode(r0);
         RefreshPicked();
-        DocChanged?.Invoke();
+        RaiseDocChanged();
         SetStatus($"Box select: {hits.Count} object(s) and {pieces} SM1 piece(s) {(ctrl ? "removed from" : "added to")} the selection.");
     }
 

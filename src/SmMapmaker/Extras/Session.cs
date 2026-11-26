@@ -11,6 +11,10 @@ public sealed class MapSession
 {
     sealed record Entry(string DocBefore, string DocAfter, IReadOnlyList<(string Id, string? Before, string? After)> Prefabs, IReadOnlyList<(string Id, string Slot)>? DeletedAssets = null, IReadOnlyList<(string Id, string Slot)>? Replaced = null);
 
+    /// <summary>The document text just before and just after the last committed batch (set by every successful <see cref="Apply(IEnumerable{JsonObject}, bool)"/> that is not a dry run): the same strings the
+    /// session serialised for its own undo, so a caller that keeps snapshots needs no second serialisation of the whole map (the editor's edit-hang fix, 2026-11-27). Null before the first.</summary>
+    public string? LastBeforeJson { get; private set; }
+    public string? LastAfterJson { get; private set; }
     /// <summary>Assets (id, trash slot) the last committed batch moved to the library trash (the editor keeps them for its own undo step).</summary>
     public IReadOnlyList<(string Id, string Slot)> LastTrashed { get; private set; } = [];
     /// <summary>Per id deleted and re-imported by the last batch: the trash slot that parks the new copy while the batch is undone (empty for most batches).</summary>
@@ -156,6 +160,7 @@ public sealed class MapSession
     void Commit(Batch batch, string after)
     {
         string before = Document.ToJson();
+        LastBeforeJson = before; LastAfterJson = after;
         var prefabChanges = new List<(string, string?, string?)>();
         foreach (var (id, p) in batch.Prefabs)
         {

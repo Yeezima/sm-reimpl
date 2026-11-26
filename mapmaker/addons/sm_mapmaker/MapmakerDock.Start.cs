@@ -284,7 +284,7 @@ public partial class MapmakerDock
             }
             v.AddChild(grid);
         }
-        var intro = Hint("Click a piece, then click in the 3D view to place it (right click or Esc stops). Click a block to stack on it. Pieces snap to the grid (Map tab). Type exact values on the Object tab.");
+        var intro = Hint("Click a piece, then click in the 3D view to place it (right click or Esc stops). Click a block to stack on it. Pieces snap to the grid when Snap is on (Map tab; off for every new map). Type exact values on the Object tab.");
         v.AddChild(intro);
         v.AddChild(_buildHint);
         Group("Ground and cover", null, "floor", "wall", "cover", "ramp", "column", "invisible");

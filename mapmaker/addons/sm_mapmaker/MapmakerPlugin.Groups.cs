@@ -43,20 +43,21 @@ public partial class MapmakerPlugin
     {
         if (Session is null || MapHost.Root is not { } root) return false;
         var doc = Session.Document;
+        var ids = doc.Objects.Select(o => o.Id).ToHashSet();   // a lookup per object, not a scan (an imported SM1 map has thousands under one group)
         var ops = new List<System.Text.Json.Nodes.JsonObject>();
         foreach (var o in doc.Objects)
         {
             if (!_nodes.TryGetValue(o.Id, out var node) || !IsInstanceValid(node) || node.GetParent() is not { } actual) continue;
             if (actual != root && actual is not MapmakerObject) continue;
             string? now = actual is MapmakerObject po ? po.ObjectId : null;
-            if (now is not null && doc.Find(now) is null) continue;
+            if (now is not null && !ids.Contains(now)) continue;
             if (now == o.Parent) continue;
             ops.Add(Op("set-parent", ("id", o.Id), ("parent", now)));
         }
         if (ops.Count == 0) return false;
         var r = Do("Reparent", ops.ToArray());
         if (!r.Ok) SyncView(false);   // refused (a cycle, say): the nodes snap back to the document
-        DocChanged?.Invoke();
+        RaiseDocChanged();
         return true;
     }
 

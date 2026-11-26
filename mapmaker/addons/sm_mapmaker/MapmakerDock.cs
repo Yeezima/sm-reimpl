@@ -185,11 +185,21 @@ public partial class MapmakerDock : VBoxContainer
         return Row(_toolSelect, _toolPick, _toolPlace, undo);
     }
 
+    // Snap starts off in every session and for every map opened or started (owner 2026-11-27); ticking a box lasts until the editor closes or another map opens.
+    readonly CheckBox _snapGridOn = new() { Text = "Grid (m)", ButtonPressed = false, CustomMinimumSize = new Vector2(110, 0) };
+    readonly CheckBox _snapAngleOn = new() { Text = "Angle (deg)", ButtonPressed = false, CustomMinimumSize = new Vector2(110, 0) };
+
+    /// <summary>Test aid: the Snap section's Grid and Angle boxes.</summary>
+    public (bool Grid, bool Angle) TestSnapBoxes() => (_snapGridOn.ButtonPressed, _snapAngleOn.ButtonPressed);
+    public void TestSetSnap(bool grid, bool angle) { _snapGridOn.ButtonPressed = grid; _snapAngleOn.ButtonPressed = angle; }
+
     void SnapSection(VBoxContainer v)
     {
-        Section(v, "Snap", "Applies to placing and gizmo moves; typed values are never snapped.");
-        var gridOn = new CheckBox { Text = "Grid (m)", ButtonPressed = true, CustomMinimumSize = new Vector2(110, 0) }; gridOn.Toggled += on => MapHost.SnapGrid = on;
-        var angOn = new CheckBox { Text = "Angle (deg)", ButtonPressed = true, CustomMinimumSize = new Vector2(110, 0) }; angOn.Toggled += on => MapHost.SnapAngle = on;
+        Section(v, "Snap", "Applies to placing and gizmo moves; typed values are never snapped. Starts off for every map.");
+        var gridOn = _snapGridOn; gridOn.Toggled += on => MapHost.SnapGrid = on;
+        var angOn = _snapAngleOn; angOn.Toggled += on => MapHost.SnapAngle = on;
+        gridOn.SetPressedNoSignal(MapHost.SnapGrid); angOn.SetPressedNoSignal(MapHost.SnapAngle);
+        MapHost.SnapReset += () => { _snapGridOn.SetPressedNoSignal(false); _snapAngleOn.SetPressedNoSignal(false); };
         _grid.ValueChanged += x => MapHost.GridStep = (float)x; _angle.ValueChanged += x => MapHost.AngleStep = (float)x;
         _grid.SizeFlagsHorizontal = SizeFlags.ExpandFill; _angle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         v.AddChild(Row(gridOn, _grid)); v.AddChild(Row(angOn, _angle));
@@ -987,6 +997,9 @@ public partial class MapmakerDock : VBoxContainer
         }
         if (ops.Count > 0) _plugin.Do("Set transform", ops.ToArray());
     }
+
+    /// <summary>Test aid: a value typed into one of the Object tab's transform spin boxes (the same path as typing it).</summary>
+    public void TestTypeTransform(TransformProp prop, int axis, float value) => ApplyTransform(prop, axis, value);
 
     static T Safe<T>(Func<T> f) { try { return f(); } catch (MapException) { return default!; } }
     static Num.Vector3 V(SpinBox[] s) => new((float)s[0].Value, (float)s[1].Value, (float)s[2].Value);
