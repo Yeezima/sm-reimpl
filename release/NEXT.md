@@ -17,7 +17,9 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - **Executions, Classic PvP Extended and Warfront:** tap Q (rebindable under Controls) to finish a target with the original paired finisher animations. A glowing red dot with a melting, dripping edge floats over the head of the one target the tap would take. The camera then orbits freely around the scene.
 - **Classic PvP Extended:** the finisher opens for a moment after you kill an enemy in melee. The kill and the score count as usual and the victim's respawn is not delayed.
 - **Warfront:** tap Q beside an Ork to finish it. You are safe during the finisher and come out of it with full health, full armour and a blue overshield on top of the armour bar; the shield glows over your armour and jump pack (not weapons or cloth). After a finisher there is a short cooldown before the next one.
-- Executions are not available against Chaos in Warfront for now.
+- **Warfront against Chaos:** Traitor Guardsmen, Cultists, Chaos Marines (including Havocs, Aspiring Champions, grounded Raptors and the Lord's Chosen) and Daemons can be finished too, with their original finishers. In the final duel, finish the Chaos Lord once his health is below a tenth to win; the win waits for the finisher to play out.
+- Every executor now puts his pistol away during a finisher, so the free hand grabs the victim. Combat-knife players use the chainsword's finishers on anything that is not an Ork, and the power sword uses the chainsword's finishers too.
+- In the free melee camera, Fire and Reload do nothing while your finisher plays, so you come out of it still in the free camera; holding Aim when it ends returns to the normal camera.
 
 ### Warfront
 - **Lightning Claw and Power Spear:** switched off for now. The Assault Marine no longer finds them in his melee choices, and a saved loadout or retainer that carried one now uses the class's default melee weapon. Everything else in it stays as you saved it.
