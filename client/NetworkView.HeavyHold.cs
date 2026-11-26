@@ -18,9 +18,10 @@ public partial class NetworkView
     const string HeavyHopPrefix = "SM_EVD_TB_Evade_", CannonHopPrefix = "SM_EVD_LC_Evade_";
     readonly Dictionary<string, string?> _cannonHops = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The hop clip to pose for <paramref name="clip"/> (the simulation's evade clip): the cannon's own with a lascannon or plasma cannon in hand, else the clip itself.</summary>
+    /// <summary>The hop clip to pose for <paramref name="clip"/> (the simulation's evade clip): the cannon's own with a lascannon or plasma cannon in hand, else the clip itself; a jump-pack dash clip: the hammer's own for a hammer marine (<see cref="DashClipFor"/>).</summary>
     string HopClipFor(PlayerState s, string clip)
     {
+        clip = DashClipFor(s, clip);   // install transitions pass 2 batch 2 (NetworkView.HammerDash.cs)
         if (CharacterViewer.NoP3 || _config is null || !clip.StartsWith(HeavyHopPrefix, StringComparison.OrdinalIgnoreCase)) return clip;
         if (Loadouts.InHand(_config, s)?.Name is not { } weapon || LocomotionAnimations.SprintFamilyOf(weapon) != SprintFamily.Cannon) return clip;
         if (!_cannonHops.TryGetValue(clip, out var cannon))

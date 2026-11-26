@@ -65,7 +65,8 @@ public sealed class ArmourAudit
                 var slot = (ArmourSlot)s;
                 var offered = race.PiecesFor(ProfileWire.SlotName(slot));
                 for (int i = 0; i < offered.Count; i++)
-                    cases.Add(Check(race, cls, $"piece {ProfileWire.SlotName(slot)} {offered[i].Name}", AppearanceCode.Default.WithPiece(slot, (byte)i), catalog, options));
+                    if (!offered[i].Reserved)   // armour-pieces-1125: a reserved place (a piece this install lacks) is never offered
+                        cases.Add(Check(race, cls, $"piece {ProfileWire.SlotName(slot)} {offered[i].Name}", AppearanceCode.Default.WithPiece(slot, (byte)i), catalog, options));
             }
         }
         return cases;

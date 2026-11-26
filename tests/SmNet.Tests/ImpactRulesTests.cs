@@ -149,6 +149,87 @@ public class PowerFlashRulesTests
     public void Other_melee_weapons_do_not_flash(string? wargear) => Assert.Null(PowerFlashRules.KindOf(wargear));
 
     [Fact]
+    public void The_flash_plays_at_forty_percent_strength_and_every_part_ends_at_exactly_that()
+    {
+        // owner 2026-11-24 (series 37 answers 2 and 3): "40% strength, see-through"; lead decision 5a (2026-11-25): blended sprites end at 0.4 too, not 0.4 x 0.4
+        Assert.Equal(0.4f, PowerFlashRules.FlashOpacity);
+        var sprite = (R: 0.6f, G: 0.8f, B: 1f, A: 0.9f);
+        var s = PowerFlashRules.ShadeOnce(sprite, PowerFlashRules.FlashOpacity, light: false);
+        // an additive sprite adds colour x alpha: 0.4 of before
+        Assert.Equal(0.4f * sprite.R * sprite.A, s.R * s.A, 4);
+        Assert.Equal(0.4f * sprite.B * sprite.A, s.B * s.A, 4);
+        // a blended sprite covers by alpha with its own colour: 0.4 of the coverage, colour unchanged (see-through, not darkened)
+        Assert.Equal(0.4f * sprite.A, s.A, 4);
+        Assert.Equal(sprite.G, s.G, 4);
+        // a light: 0.4 of its colour
+        var l = PowerFlashRules.ShadeOnce(sprite, PowerFlashRules.FlashOpacity, light: true);
+        Assert.Equal(0.4f * sprite.R, l.R, 4);
+        Assert.Equal(sprite.A, l.A, 4);
+        // full strength changes nothing; out-of-range strengths clamp
+        Assert.Equal(sprite, PowerFlashRules.ShadeOnce(sprite, 1f, false));
+        Assert.Equal(0f, PowerFlashRules.ShadeOnce(sprite, -1f, false).A);
+    }
+
+    static string Src(params string[] parts)
+    {
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) d = d.Parent;
+        return File.ReadAllText(Path.Combine(new[] { d!.FullName, "client" }.Concat(parts).ToArray()));
+    }
+
+    [Fact]
+    public void Every_flash_part_sets_opacity_once_and_the_musou_gpu_sprays_honour_it()
+    {
+        // re-review of 50ae0bd7, findings 2 and 4: the three effects and the sword's contact flare are shaded once (alpha only), and the Musou/Warfront GPU spray path, which had passed
+        // only the opacity and multiplied all four channels (blended sprites at 0.16), carries the flag and applies it to alpha only. Fails if any site drops it.
+        var flash = Src("NetworkView.PowerFlash.cs");
+        foreach (var part in new[] { "main", "second", "cloud" })
+            Assert.Matches(@"is \{ \} " + part + @"\) \{ " + part + @"\.Opacity = opacity; " + part + @"\.OpacityOnce = true;", flash);
+        Assert.Contains("flare.Opacity = ImpactRules.PowerFlashRules.FlashOpacity; flare.OpacityOnce = true;", Src("NetworkView.MeleeFx.cs"));
+        var gpu = Src("Extras", "Musou", "FxPlayer.MusouGpu.cs");
+        Assert.Contains("v[11] = e.Opacity;", gpu);
+        Assert.Contains("(e.OpacityOnce ? 8 : 0);", gpu);
+        var shader = Src("Extras", "Musou", "FxGpuSprays.cs");
+        Assert.Contains("int flags = int(s4.w + 0.5);", shader);   // v[19] is the fifth slot's w
+        Assert.Contains("if (o < 1.0) { if ((flags & 8) != 0) col.a *= o; else col *= o; }", shader);
+        Assert.Contains("if (e.OpacityOnce) {", Src("FxPlayer.cs"));   // the CPU path's ShadeOnce
+    }
+
+    [Theory]
+    [InlineData(PowerKind.Hammer, true)]
+    [InlineData(PowerKind.Maul, true)]
+    [InlineData(PowerKind.Sword, false)]
+    [InlineData(PowerKind.Axe, false)]
+    public void Only_the_thunder_hammer_and_the_daemon_maul_flash_and_the_restore_switch_brings_every_weapon_back(PowerKind kind, bool flashes)
+    {
+        // the owner, 2026-11-25: "Only the thunder hammer and daemon maul should have that blue flash. The rest of the weapons should have no on hit blue flash at all."
+        Assert.Equal(flashes, PowerFlashRules.Flashes(kind, old: false));
+        Assert.True(PowerFlashRules.Flashes(kind, old: true));   // --old-power-flash-strength: every power weapon, as before
+        // every power wargear file maps to its weapon, so the table above is the whole rule
+        Assert.All(Enum.GetValues<PowerKind>(), k => Assert.True(PowerFlashRules.Flashes(k, false) == (k is PowerKind.Hammer or PowerKind.Maul)));
+    }
+
+    [Fact]
+    public void The_flash_plays_at_half_its_size_on_both_paths_and_the_sword_s_contact_flare_is_gone()
+    {
+        // the owner, 2026-11-25: "That blue flash should be reduced in size for all game modes by 50%." 40 % strength kept (2026-11-24)
+        Assert.Equal(0.5f, PowerFlashRules.FlashSize);
+        Assert.Equal((0.5f, 0.4f), PowerFlashRules.Look(old: false));
+        Assert.Equal((1f, 1f), PowerFlashRules.Look(old: true));
+        var flash = Src("NetworkView.PowerFlash.cs");
+        Assert.Contains("if (!PowerFlashRules.Flashes(kind, OldPowerFlashStrength)) return;", flash);
+        Assert.Contains("float scale = look.Size * PowerFlashRules.Scale(kind)", flash);   // the one scale all three effects are played at (main, secondary, cloud)
+        Assert.Contains("float opacity = look.Opacity;", flash);
+        // the effect's scale sizes its sprites and its lights' reach on the CPU path, and goes into every GPU spray record (Musou Mode, Warfront)
+        Assert.Contains("float range = MathF.Min(At(n.AttenEnd, t, 4f) * c.S, e.LightCap);", Src("FxPlayer.cs"));
+        Assert.Contains("v[3] = c.S;", Src("Extras", "Musou", "FxPlayer.MusouGpu.cs"));
+        // the power sword's contact flare and the blade's hit flare: only with the restore switch
+        Assert.False(PowerFlashRules.SwordContactFlare(old: false));
+        Assert.True(PowerFlashRules.SwordContactFlare(old: true));
+        Assert.Contains("if (PowerBlade.IsPowerSword(wargear) && ImpactRules.PowerFlashRules.SwordContactFlare(OldPowerFlashStrength))", Src("NetworkView.MeleeFx.cs"));
+    }
+
+    [Fact]
     public void A_swing_gets_one_big_burst_then_five_small_then_none_and_the_next_swing_starts_again()
     {
         var b = new PowerFlashRules.Budget();

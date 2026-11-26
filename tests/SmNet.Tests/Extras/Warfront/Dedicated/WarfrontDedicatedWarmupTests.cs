@@ -66,7 +66,7 @@ public class WarfrontDedicatedWarmupTests : IDisposable
         var log = new List<string>();
         using var stop = new ManualResetEventSlim();
         var task = Task.Run(() => WarfrontSupervisor.Loop(_dir, stages, true, Fast(), stop, log.Add, pre));
-        Assert.True(SpinWait.SpinUntil(() => pre.Children.Count == 1, 5000));
+        Assert.True(SpinWait.SpinUntil(() => pre.Children.Count == 1, 60000));   // 60 s: in a full run the loaded thread pool started the loop's Task.Run more than 5 s late (series-37 integration)
         Thread.Sleep(100);
         Assert.Single(pre.Children);
         Assert.False(pre.Children[0].Killed);
@@ -187,7 +187,7 @@ public class WarfrontDedicatedWarmupTests : IDisposable
             {
                 for (int i = 0; i < 3; i++) SmContent.Extras.Warfront.Maps.WarfrontLayoutCache.LoadOrGenerate(slot, dir, "dotnet", gen, out _);
             })).ToArray();
-            Task.WaitAll(writers);
+            Assert.True(Task.WaitAll(writers, TimeSpan.FromSeconds(120)));   // bounded: fails instead of hanging
             string path = SmContent.Extras.Warfront.Maps.WarfrontLayoutCache.PathIn(dir, slot, "dotnet");
             Assert.True(File.Exists(path));
             Assert.Empty(Directory.GetFiles(dir, "*.tmp"));   // no leftover temp file

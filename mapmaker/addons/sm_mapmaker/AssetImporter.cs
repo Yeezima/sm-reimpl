@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Godot;
+using SmClient;
 using SmMapmaker;
 using static SmMapmaker.ModelImport;
 
@@ -203,7 +204,7 @@ public static class AssetImporter
                 if (role == TextureRole.Opacity) continue;
                 var image = Decode(info, p);
                 if (image is null) continue;
-                if (role == TextureRole.Normal && NormalNeedsGreenFlip(info)) { FlipGreen(image); p.Flipped = true; }
+                if (MaterialPlan.IsDirectXNormal(info)) { FlipGreen(image); p.Flipped = true; }
                 p.Images[role] = image;
             }
             if (set.TryGetValue(TextureRole.Opacity, out var op) && p.Images.TryGetValue(TextureRole.Albedo, out var albedo) && Decode(op, p) is { } alpha) { MergeAlpha(albedo, alpha); p.Cutout = true; }
@@ -262,37 +263,35 @@ public static class AssetImporter
         foreach (var c in n.GetChildren()) foreach (var m in AllMeshes(c)) yield return m;
     }
 
+    /// <summary>
+    /// The material of one texture set. Which feature and channel each role feeds (an ORM picture: AO red, roughness green, metallic blue; it wins over separate roughness, metallic
+    /// and AO pictures) is <see cref="MaterialPlan.Uses"/>, and the binding is <see cref="MaterialBuild.Bind"/>: the same helpers the Materials panel's image import and the map
+    /// materials use (docs/mapmaker.md "Materials (editor)").
+    /// </summary>
     static StandardMaterial3D BuildMaterial(PreparedSet p, string name)
     {
         var mat = new StandardMaterial3D { ResourceName = name.Length > 0 ? name : p.Name };
         Texture2D? Tex(TextureRole r) => p.Images.TryGetValue(r, out var image) ? ImageTexture.CreateFromImage(image) : null;
-        if (Tex(TextureRole.Albedo) is { } albedo) { mat.AlbedoTexture = albedo; if (p.Cutout) mat.Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor; }
-        if (Tex(TextureRole.Normal) is { } nt) { mat.NormalEnabled = true; mat.NormalTexture = nt; }
-        if (Tex(TextureRole.Orm) is { } ot)
+        void Use(TextureRole role, Texture2D tex)
         {
-            mat.AOEnabled = true; mat.AOTexture = ot; mat.AOTextureChannel = BaseMaterial3D.TextureChannel.Red;
-            mat.RoughnessTexture = ot; mat.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Green;
-            mat.MetallicTexture = ot; mat.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Blue; mat.Metallic = 1f;
+            foreach (var (feature, channel) in MaterialPlan.Uses(role))
+            {
+                MaterialBuild.Bind(mat, feature, tex, channel);
+                if (feature == MaterialPlan.Feature.Metallic) mat.Metallic = 1f;   // Godot multiplies the texture by the scalar (default 0)
+            }
         }
+        if (Tex(TextureRole.Albedo) is { } albedo) { Use(TextureRole.Albedo, albedo); if (p.Cutout) mat.Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor; }
+        if (Tex(TextureRole.Normal) is { } nt) Use(TextureRole.Normal, nt);
+        if (Tex(TextureRole.Orm) is { } ot) Use(TextureRole.Orm, ot);
         else
-        {
-            if (Tex(TextureRole.Roughness) is { } rt) { mat.RoughnessTexture = rt; mat.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Red; }
-            if (Tex(TextureRole.Metallic) is { } mt) { mat.MetallicTexture = mt; mat.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Red; mat.Metallic = 1f; }
-            if (Tex(TextureRole.Occlusion) is { } at) { mat.AOEnabled = true; mat.AOTexture = at; mat.AOTextureChannel = BaseMaterial3D.TextureChannel.Red; }
-        }
-        if (Tex(TextureRole.Emissive) is { } et) { mat.EmissionEnabled = true; mat.EmissionTexture = et; }
+            foreach (var role in new[] { TextureRole.Roughness, TextureRole.Metallic, TextureRole.Occlusion })
+                if (Tex(role) is { } t) Use(role, t);
+        if (Tex(TextureRole.Emissive) is { } et) Use(TextureRole.Emissive, et);
         return mat;
     }
 
-    /// <summary>DirectX normal maps point green down; Godot (and glTF) want it up: invert the green channel.</summary>
-    static void FlipGreen(Image image)
-    {
-        image.Convert(Image.Format.Rgba8);
-        var data = image.GetData();
-        for (int i = 1; i < data.Length; i += 4) data[i] = (byte)(255 - data[i]);
-        image.SetData(image.GetWidth(), image.GetHeight(), false, Image.Format.Rgba8, data);
-    }
-
+    /// <summary>DirectX normal maps point green down; Godot (and glTF) want it up: invert the green channel (<see cref="MaterialBuild.FlipGreen"/>, shared with the map materials).</summary>
+    static void FlipGreen(Image image) => MaterialBuild.FlipGreen(image);
     /// <summary>The opacity map's red channel becomes the albedo's alpha.</summary>
     static void MergeAlpha(Image albedo, Image opacity)
     {

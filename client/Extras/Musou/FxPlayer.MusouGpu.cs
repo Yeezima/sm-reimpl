@@ -196,7 +196,8 @@ public sealed partial class FxPlayer
         v[12] = b.Z.X; v[13] = b.Z.Y; v[14] = b.Z.Z; v[15] = e.SmokeRein;
         var tint = e.Tint ?? Colors.Black;
         v[16] = tint.R; v[17] = tint.G; v[18] = tint.B;
-        v[19] = (e.Tint is not null ? 1 : 0) + (e.GammaColours ? 2 : 0) + (e.SoftGround && FxBatch.Fades && !FxBatch.NoGroundSoft ? 4 : 0);
+        // flag 8: the opacity applied once, on alpha only (FxEffect.OpacityOnce, the power weapons' hit flash at 0.4: additive and blended sprites both end at exactly the opacity, as on the CPU path)
+        v[19] = (e.Tint is not null ? 1 : 0) + (e.GammaColours ? 2 : 0) + (e.SoftGround && FxBatch.Fades && !FxBatch.NoGroundSoft ? 4 : 0) + (e.OpacityOnce ? 8 : 0);
         _gpu.WriteSlot(s.Slot, v);
         s.Visited = _gpuFrame;
         _gpuSlotTicks += global::System.Diagnostics.Stopwatch.GetTimestamp() - slotFrom;

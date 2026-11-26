@@ -44,6 +44,9 @@ public sealed partial class TfwRun
             case TfwCommand.RequestPickup or TfwCommand.CancelPickup or TfwCommand.Redeploy or TfwCommand.ReturnToShip:
                 handled = true;   // no pickup, no redeploy for supplies, no recall in Warfront
                 break;
+            case TfwCommand.Orbital or TfwCommand.DropPod when w.WarfrontDuelRefusesSupport:
+                handled = true;   // WARFRONT-HOOK Chaos Warfront C5: no support during the duel relay, whoever calls it (outside help; Chaos/Finale/)
+                break;
         }
     }
 
@@ -74,6 +77,7 @@ public sealed partial class TfwRun
         rules.Node = node;
         rules.InNode = true;
         _spectating.Clear();
+        WarfrontDuelHoldReset();   // executions X4b review: no win hold carries into a new battle (Chaos/Finale/TfwRun.WarfrontDuel.cs)
         rules.BattleBegan?.Invoke(lane, node);
     }
 
@@ -86,6 +90,7 @@ public sealed partial class TfwRun
     {
         if (Warfront is null) return;
         handled = true;
+        if (DuelWinHeld(w)) return;   // executions X4b: a finisher on the Chaos Lord plays out first (Chaos/Finale/TfwRun.WarfrontDuel.cs)
         Leave(w, left: false, TfwMapResult.Won);   // no victory wave, no pickup: everyone back in the hub the same tick
     }
 
@@ -94,6 +99,7 @@ public sealed partial class TfwRun
         if (Warfront is not { } rules) return;
         bool was = rules.InNode;
         _spectating.Clear();
+        WarfrontDuelHoldReset();   // executions X4b review: the battle is left, its win hold with it
         rules.EndBattle();
         if (!was) return;
         rules.BattleEnded?.Invoke(result);
@@ -108,6 +114,7 @@ public sealed partial class TfwRun
     partial void WarfrontDowned(World w, int rate, ref bool handled)
     {
         if (Warfront is not { } rules || Battle is not { } battle) return;
+        bool duel = false; WarfrontDuelDowned(w, rate, ref duel); if (duel) { handled = true; return; }   // WARFRONT-HOOK Chaos Warfront C5: the duel relay's rules replace these (Chaos/Finale/TfwRun.WarfrontDuel.cs; a no-op outside it)
         handled = true;
         if (battle.HqLost) { _spectating.Clear(); Leave(w, left: false, TfwMapResult.Lost); return; }   // V fell: the HQ defence is lost
         _warfrontRate = Math.Max(1, rate);

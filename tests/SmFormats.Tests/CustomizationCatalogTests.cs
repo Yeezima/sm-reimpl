@@ -131,10 +131,10 @@ public partial class CustomizationCatalogTests : IDisposable
     static readonly string[] SmAquila = ["sm_a_head", "sm_a_torso", "sm_a_shoulder_left", "sm_a_shoulder_right", "sm_a_arm_left", "sm_a_arm_right", "sm_a_leg_left", "sm_a_leg_right", "sm_a_backpack"];
 
     /// <summary>Writes a complete synthetic install (the locale unless <paramref name="locale"/> is false).</summary>
-    void WriteInstall(bool locale = true, bool progression = true)
+    void WriteInstall(bool locale = true, bool progression = true, params SyntheticObpkWriter.File[] extraWargear)
     {
         WritePackage("global", Entry("global", GlobalBaf(progression)));
-        WritePackage("wargear",
+        WritePackage("wargear", [
             // weapons and equipment
             Entry("sm_mp_ranged_bolter", Gear("ranged", 1, 1100, 1101)),
             Entry("sm_mp_ranged_plasma_gun", Gear("ranged", 8, 0)),
@@ -176,7 +176,8 @@ public partial class CustomizationCatalogTests : IDisposable
             Entry("csm_basic_head", Gear("head", packages: ["pkg_c_helmet"])),
             Entry("csm_basic_torso", Gear("torso", packages: ["pkg_c_torso"])),
             Entry("csm_raptor_head", Gear("head", 1, 1320, packages: ["pkg_r_helmet"], helmet: "helmet")),
-            Entry("sm_backpack_heavy_bolter", Gear("backpack", packages: ["pkg_hb_bp"])));
+            Entry("sm_backpack_heavy_bolter", Gear("backpack", packages: ["pkg_hb_bp"])),
+            .. extraWargear]);
         WritePackage("mp_armor_set",
             Entry("mk_8_errant", ArmourSet("space_marine", "customizable", "", 1401, null,
                 "sm_b_leg_right", "sm_b_head", "sm_b_torso", "sm_b_leg_left", "sm_a_shoulder_left", "sm_a_shoulder_right", "sm_a_arm_left", "sm_a_arm_right", "sm_a_backpack", "sm_b_belt")),
@@ -251,19 +252,64 @@ public partial class CustomizationCatalogTests : IDisposable
         var notes = new List<string>();
         var sm = Load(notes).SpaceMarines;
         Assert.Equal(CustomizationCatalog.ArmourSlots.Order(), sm.Pieces.Keys.Order());
-        Assert.Equal(["sm_a_head", "sm_b_head"], sm.PiecesFor("head").Select(p => p.Name));       // sm_bt_head is a predefined set's: not offered
-        Assert.Equal(["sm_a_torso", "sm_b_torso"], sm.PiecesFor("torso").Select(p => p.Name));
-        Assert.Equal(["sm_a_leg_left", "sm_b_leg_left"], sm.PiecesFor("leftleg").Select(p => p.Name));
-        Assert.Equal(["sm_a_leg_right", "sm_b_leg_right"], sm.PiecesFor("rightleg").Select(p => p.Name));
-        Assert.Equal(["sm_a_arm_left"], sm.PiecesFor("leftarm").Select(p => p.Name));              // shared by both sets: listed once
-        Assert.Equal(["sm_a_backpack"], sm.PiecesFor("backpack").Select(p => p.Name));
+        Assert.Equal(["sm_a_head", "sm_b_head", "sm_bt_head"], sm.OfferedPiecesFor("head").Select(p => p.Name));   // armour-pieces-1125: the predefined set's piece follows the customizable ones
+        Assert.Equal(["sm_a_torso", "sm_b_torso", "sm_bt_torso"], sm.OfferedPiecesFor("torso").Select(p => p.Name));
+        Assert.Equal(["sm_a_leg_left", "sm_b_leg_left"], sm.OfferedPiecesFor("leftleg").Select(p => p.Name));
+        Assert.Equal(["sm_a_leg_right", "sm_b_leg_right"], sm.OfferedPiecesFor("rightleg").Select(p => p.Name));
+        Assert.Equal(["sm_a_arm_left"], sm.OfferedPiecesFor("leftarm").Select(p => p.Name));              // shared by both sets: listed once
+        Assert.Equal(["sm_a_backpack"], sm.OfferedPiecesFor("backpack").Select(p => p.Name));
         Assert.Empty(sm.PiecesFor("belt"));
         Assert.Empty(sm.PiecesFor("nonsense"));
         Assert.Contains(notes, n => n.Contains("sm_b_belt") && n.Contains("not an armour slot"));
         // Chaos has its own, smaller lists; slots without any piece are empty lists.
         var chaos = Load().ChaosMarines;
-        Assert.Equal(["csm_basic_head"], chaos.PiecesFor("head").Select(p => p.Name));
-        Assert.Empty(chaos.PiecesFor("leftleg"));
+        Assert.Equal(["csm_basic_head"], chaos.OfferedPiecesFor("head").Select(p => p.Name));
+        Assert.Empty(chaos.OfferedPiecesFor("leftleg"));
+    }
+
+    [Fact]
+    public void Every_predefined_piece_is_offered_after_the_customizable_ones_and_marked()
+    {
+        var sm = Load().SpaceMarines;
+        foreach (var set in sm.PredefinedSets)
+            foreach (var (slot, item) in set.Items)
+                Assert.Contains(sm.PiecesFor(slot), p => p.Name == item);
+        foreach (var slot in CustomizationCatalog.ArmourSlots)
+        {
+            var list = sm.PiecesFor(slot);
+            int firstExtra = list.ToList().FindIndex(p => p.FromPredefinedSet);
+            if (firstExtra >= 0) Assert.All(list.Skip(firstExtra), p => Assert.True(p.FromPredefinedSet));   // never interleaved: old indices keep their meaning
+        }
+        var bt = sm.PiecesFor("head").Single(p => p.Name == "sm_bt_head");
+        Assert.Equal(["black_templars"], bt.SetNames);
+        Assert.True(bt.BuiltMasks);   // its baked materials get built masks when worn alone
+        Assert.All(sm.PiecesFor("head").Where(p => !p.FromPredefinedSet), p => Assert.False(p.BuiltMasks));
+    }
+
+    [Fact]
+    public void Old_appearance_codes_keep_their_pieces_and_the_switch_restores_the_original_library()
+    {
+        var withExtras = Load();
+        CustomizationCatalog original;
+        using (CustomizationCatalog.OverridePredefinedPieces(false)) original = Load();
+        foreach (var slot in CustomizationCatalog.ArmourSlots)
+        {
+            var before = original.SpaceMarines.PiecesFor(slot).Select(p => p.Name).ToList();
+            Assert.Equal(before, withExtras.SpaceMarines.PiecesFor(slot).Take(before.Count).Select(p => p.Name));   // the same index names the same piece
+            Assert.DoesNotContain(original.SpaceMarines.PiecesFor(slot), p => p.FromPredefinedSet);
+        }
+        // A code written against the original lists resolves to the same pieces with the added ones present.
+        var code = SmSim.AppearanceCode.Default.WithPiece(SmSim.ArmourSlot.Head, 1).WithPiece(SmSim.ArmourSlot.Torso, 0);
+        var a = SmContent.Customization.ProfileWire.FromCode(code, CustomizationCatalog.SpaceMarine, original);
+        var b = SmContent.Customization.ProfileWire.FromCode(code, CustomizationCatalog.SpaceMarine, withExtras);
+        Assert.Equal(a.Pieces, b.Pieces);
+        // A pick of a predefined piece round-trips through the wire.
+        var look = b with { Pieces = new Dictionary<string, string> { ["head"] = "sm_bt_head" } };
+        var wire = SmContent.Customization.ProfileWire.ToCode(look, withExtras);
+        Assert.Equal(2, wire.Piece(SmSim.ArmourSlot.Head));
+        Assert.Equal("sm_bt_head", SmContent.Customization.ProfileWire.FromCode(wire, CustomizationCatalog.SpaceMarine, withExtras).Pieces["head"]);
+        // An old build (original lists) reads that index as the default piece rather than failing.
+        Assert.False(SmContent.Customization.ProfileWire.FromCode(wire, CustomizationCatalog.SpaceMarine, original).Pieces.ContainsKey("head"));
     }
 
     [Fact]
@@ -274,7 +320,7 @@ public partial class CustomizationCatalogTests : IDisposable
         Assert.Equal(["pkg_a_torso", "pkg_a_belt"], torso.Packages);                // the belt rides on the torso
         Assert.Equal(("torso", "space_marine"), (torso.Slot, torso.Race));
         Assert.Equal(["mk_7_aquila"], torso.SetNames);
-        Assert.Equal(["mk_7_aquila", "mk_8_errant"], sm.PiecesFor("leftarm").Single().SetNames);   // shared piece names both sets, ordinal
+        Assert.Equal(["mk_7_aquila", "mk_8_errant"], sm.OfferedPiecesFor("leftarm").Single().SetNames);   // shared piece names both sets, ordinal
         Assert.Equal("helmet", sm.PiecesFor("head").Single(p => p.Name == "sm_a_head").HelmetOverride);
     }
 
@@ -411,7 +457,7 @@ public partial class CustomizationCatalogTests : IDisposable
         var c = Load();
         var head = c.SpaceMarines.PiecesFor("head").Single(p => p.Name == "sm_a_head");
         Assert.Equal(("Aquila Helm", "A helmet."), (head.DisplayName, head.Description));
-        var noName = c.SpaceMarines.PiecesFor("leftarm").Single();
+        var noName = c.SpaceMarines.OfferedPiecesFor("leftarm").Single();
         Assert.Equal(("sm_a_arm_left", ""), (noName.DisplayName, noName.Description));          // text id 0: the file name, no description
         Assert.Equal("Mk8 Errant", c.SpaceMarines.Set("mk_8_errant")!.DisplayName);
         Assert.Equal("Tactical Marine", c.Perks.Class("sm - tactical")!.DisplayName);
@@ -586,7 +632,7 @@ public partial class CustomizationCatalogTests : IDisposable
         WritePackage("global", Entry("global", GlobalBaf()));
         var notes = new List<string>();
         var c = CustomizationCatalog.Load(_dir, notes);
-        Assert.Empty(c.SpaceMarines.PiecesFor("head"));
+        Assert.Empty(c.SpaceMarines.OfferedPiecesFor("head"));
         Assert.Empty(c.Palette);
         Assert.Empty(c.SpaceMarines.Decals);
         Assert.Null(c.SpaceMarines.DefaultSet);

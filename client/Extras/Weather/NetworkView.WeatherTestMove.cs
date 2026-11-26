@@ -13,7 +13,10 @@ namespace SmClient;
 /// <item><c>wxmove:right:4</c> (also <c>left</c>, <c>forward</c>, <c>back</c>): the player's own movement input held at full stick for the given seconds (default 4), as if the key were held: the sim's own run speed, nothing faster.</item>
 /// <item><c>wxslide:20:3</c>: the camera alone slides sideways (to its right; a negative speed goes left) at the given m/s for the given seconds (default 3), then returns to the player: the rain rig, the sky and the shelter rays all see the
 /// moving camera, so the rain's coverage at a jump-pack speed can be captured on a real map without the jump pack. The player does not move; the server sees nothing.</item>
-/// <item><c>wxstop</c>: both end at once.</item>
+/// <item>Rain motion (series 37): <c>wxslide:20:3:-15</c>: a third number adds a vertical speed (m/s, up positive) to the slide, so a fast rise or drop (a jump pack, a ledge) can be captured; <c>wxslide:0:2:-25</c> is a straight drop.</item>
+/// <item>Rain motion (series 37): <c>wxfly</c> (or <c>wxfly:16</c>, the forward speed in m/s): the camera alone flies the path of a full jump-pack jump (spec "Jump pack": lift-off 26.8 m/s up under 20 m/s2 to the apex, the 0.5 s hang under
+/// 12 m/s2, the fall under 30 m/s2 back to the start height; 16 m/s along the camera's heading throughout), about 2.7 s, then returns to the player. Camera only, like <c>wxslide</c>.</item>
+/// <item><c>wxstop</c>: every move ends at once.</item>
 /// <item>Repair 2: <c>wxlook:30</c> holds the camera's pitch at that many degrees (up positive, -80 to 80; the camera's own heading kept) so the sky can be framed; <c>wxlook:off</c> returns it to the player's aim. Camera only: the
 /// player's aim, input and the server are untouched.</item>
 /// <item>Repair 2: <c>wxpin:lull</c>, <c>wxpin:full</c>, <c>wxpin:peak</c> (or any phase name) and <c>wxpin:off</c>: the same client-only clock pin as <c>--weather-pin</c>, switched during a run (lull: the end of the recovery, the
@@ -25,7 +28,10 @@ public partial class NetworkView
 {
     float _wxMoveX, _wxMoveY;
     double _wxMoveUntil = double.NegativeInfinity, _wxSlideUntil = double.NegativeInfinity, _wxSlideLast = double.NaN;
-    float _wxSlideSpeed, _wxSlideOffset;
+    float _wxSlideSpeed, _wxSlideUp, _wxFlyForward;
+    Vector3 _wxSlideOffset;
+    bool _wxFly;
+    double _wxFlyT;
     Vector3 _wxSlideBase, _wxSlideWrote;
     bool _wxSlideHas;
     float? _wxLookPitch;
@@ -38,7 +44,7 @@ public partial class NetworkView
     /// <summary>A test-aid word from the F6 panel or <c>--dev-script</c> (through <see cref="WeatherClientLink.TestMove"/>); false when not one of the aid's words.</summary>
     bool WeatherTestMoveWord(string name, string arg)
     {
-        if (name is not ("wxmove" or "wxslide" or "wxstop" or "wxlook" or "wxpin" or "wxflash")) return false;
+        if (name is not ("wxmove" or "wxslide" or "wxfly" or "wxstop" or "wxlook" or "wxpin" or "wxflash")) return false;
         if (!WeatherTestMoveGate) { GD.Print($"weather test move: '{name}:{arg}' ignored (no developer-tools session)"); return true; }
         var parts = arg.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         static double Num(string[] p, int i, double fallback) => i < p.Length && double.TryParse(p[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) && double.IsFinite(v) ? v : fallback;
@@ -79,12 +85,20 @@ public partial class NetworkView
                 GD.Print($"weather test move: holding {parts[0]} for {seconds:0.#} s");
                 return true;
             }
+            case "wxfly":
+            {
+                _wxFlyForward = (float)Math.Clamp(Num(parts, 0, JumpForwardSpeed), -60, 60);
+                _wxFly = true; _wxFlyT = 0; _wxSlideOffset = Vector3.Zero; _wxSlideUntil = RealSeconds + JumpPathSeconds; _wxSlideLast = double.NaN; _wxSlideHas = false;
+                GD.Print($"weather test move: camera flies a jump-pack path ({JumpPathSeconds:0.00} s, apex {JumpApex:0.0} m, {_wxFlyForward:0.#} m/s forward; camera only)");
+                return true;
+            }
             default:   // wxslide
             {
                 float speed = (float)Math.Clamp(Num(parts, 0, 20), -60, 60);
                 double seconds = Math.Clamp(Num(parts, 1, 3), 0.1, 30);
-                _wxSlideSpeed = speed; _wxSlideOffset = 0f; _wxSlideUntil = RealSeconds + seconds; _wxSlideLast = double.NaN; _wxSlideHas = false;
-                GD.Print($"weather test move: camera slides {speed:0.#} m/s sideways for {seconds:0.#} s (camera only; the player stays)");
+                float up = (float)Math.Clamp(Num(parts, 2, 0), -60, 60);
+                _wxFly = false; _wxSlideSpeed = speed; _wxSlideUp = up; _wxSlideOffset = Vector3.Zero; _wxSlideUntil = RealSeconds + seconds; _wxSlideLast = double.NaN; _wxSlideHas = false;
+                GD.Print($"weather test move: camera slides {speed:0.#} m/s sideways{(up != 0f ? $" and {up:0.#} m/s up" : "")} for {seconds:0.#} s (camera only; the player stays)");
                 return true;
             }
         }
@@ -120,14 +134,43 @@ public partial class NetworkView
         }
         float dt = double.IsNaN(_wxSlideLast) ? 0f : (float)Math.Clamp(now - _wxSlideLast, 0, 0.25);
         _wxSlideLast = now;
-        _wxSlideOffset += _wxSlideSpeed * dt;
-        var current = _camera.GlobalPosition;
-        var basePos = _wxSlideHas && current.IsEqualApprox(_wxSlideWrote) ? _wxSlideBase : current;   // the camera rig placed it anew, or it stood still since our write
         var right = _camera.GlobalBasis.X; right.Y = 0f;
         right = right.LengthSquared() > 1e-6f ? right.Normalized() : Vector3.Right;
+        if (_wxFly)
+        {
+            _wxFlyT += dt;
+            var fwd = new Vector3(right.Z, 0f, -right.X);   // the heading (the camera's right turned a quarter toward its front, -Z)
+            var (along, upM) = JumpPath(_wxFlyT);
+            _wxSlideOffset = fwd * (along * _wxFlyForward / JumpForwardSpeed) + Vector3.Up * upM;
+        }
+        else _wxSlideOffset += right * (_wxSlideSpeed * dt) + Vector3.Up * (_wxSlideUp * dt);
+        var current = _camera.GlobalPosition;
+        var basePos = _wxSlideHas && current.IsEqualApprox(_wxSlideWrote) ? _wxSlideBase : current;   // the camera rig placed it anew, or it stood still since our write
         _wxSlideBase = basePos;
-        _wxSlideWrote = basePos + right * _wxSlideOffset;
+        _wxSlideWrote = basePos + _wxSlideOffset;
         _camera.GlobalPosition = _wxSlideWrote;
         _wxSlideHas = true;
+    }
+
+    // ---- rain motion (series 37): the wxfly aid's jump-pack path (spec "Jump pack": lift-off, hang, fall; camera only) ----
+
+    const float JumpLiftOff = 26.8f, JumpRiseG = 20f, JumpHangSeconds = 0.5f, JumpHangG = 12f, JumpFallG = 30f, JumpForwardSpeed = 16f;
+    static float JumpRiseSeconds => JumpLiftOff / JumpRiseG;
+    static float JumpApex => JumpLiftOff * JumpLiftOff / (2f * JumpRiseG);
+    static float JumpHangDrop => 0.5f * JumpHangG * JumpHangSeconds * JumpHangSeconds;
+    static float JumpFallSeconds
+    {
+        get { float v0 = JumpHangG * JumpHangSeconds, h = JumpApex - JumpHangDrop; return (-v0 + MathF.Sqrt(v0 * v0 + 2f * JumpFallG * h)) / JumpFallG; }
+    }
+    static float JumpPathSeconds => JumpRiseSeconds + JumpHangSeconds + JumpFallSeconds;
+
+    /// <summary>The jump-pack path at <paramref name="t"/> s: metres along the heading (at <see cref="JumpForwardSpeed"/>) and metres up from the start (never below it).</summary>
+    static (float Along, float Up) JumpPath(double t)
+    {
+        float s = (float)Math.Clamp(t, 0, JumpPathSeconds), up;
+        if (s <= JumpRiseSeconds) up = JumpLiftOff * s - 0.5f * JumpRiseG * s * s;
+        else if (s <= JumpRiseSeconds + JumpHangSeconds) { float h = s - JumpRiseSeconds; up = JumpApex - 0.5f * JumpHangG * h * h; }
+        else { float f = s - JumpRiseSeconds - JumpHangSeconds, v0 = JumpHangG * JumpHangSeconds; up = JumpApex - JumpHangDrop - (v0 * f + 0.5f * JumpFallG * f * f); }
+        return (JumpForwardSpeed * s, Math.Max(0f, up));
     }
 }

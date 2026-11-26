@@ -42,8 +42,12 @@ public sealed partial class World
         if ((DevFlags & DevToolsFlags.Invincible) != 0) return 0f;   // developer tools (DevTools.cs): a loopback-only --dev-tools server's "invincible"; never set otherwise
         float scale = 1f;
         ExtrasDamageTaken(target, ref scale);   // EXTRAS-HOOK
+        ExtrasExecutionDamage(target, ref scale);   // EXTRAS-HOOK: executions (Warfront): the executor takes nothing during the move only
         return scale;
     }
 
     partial void ExtrasDamageTaken(int target, ref float scale);
+
+    /// <summary>Executions hook (executions X1, <c>Extras/Executions/</c>): the damage-taken scale of <paramref name="target"/> during an execution (Warfront: 0; Classic: unchanged). A no-op without <see cref="ContentExtras.Executions"/>.</summary>
+    partial void ExtrasExecutionDamage(int target, ref float scale);
 }

@@ -7,7 +7,7 @@ using Xunit.Abstractions;
 namespace SmNet.Tests;
 
 /// <summary>
-/// sim/ledge-charge-air, answer 3 (the owner 2026-11-23: "Keep landings like today"): a Classic ledge charge off a given ledge looks, sounds and feels as at protocol 89 although it falls under 4 x gravity.
+/// sim/ledge-charge-air, answer 3 (the owner 2026-11-23: "Keep landings like today"): a Classic ledge charge off a given ledge looks, sounds and feels as at protocol 89 although it falls under 2 x gravity (4 x at protocol 90-91).
 /// Engine-free: the simulation's states of a synthetic ledge charge are fed, one per tick, through <see cref="LedgeChargeFallClock"/> and the client's fall-presentation rules as <c>NetworkView.Fall</c> and
 /// <c>NetworkView.Sound</c> apply them (the fall pose's delays, <see cref="FallTracker"/>, <see cref="FallRules"/>, <see cref="WeightFeel"/>, the landing sound's air time and speed parameter). Before = the restore
 /// switch (the clock is the identity there), after = the default.
@@ -150,10 +150,11 @@ public class LedgeChargeLandingTests(ITestOutputHelper output)
     [Fact]
     public void The_fall_pose_starts_at_the_drop_the_0_4_s_delay_gave()
     {
-        // protocol 89: 0.4 s of free fall at 20 m/s^2 is 1.6 m
+        // protocol 89: 0.4 s of free fall at 20 m/s^2 is 1.6 m. Under 2 x gravity (protocol 92) the clock runs √2 x, so the 0.4 s is reached on the 9th held tick (0.4 x √2 x 30 = 8.5), and the
+        // tick-stepped fall (v before x: k g dt² n (n + 1) / 2 = 40 / 900 x 45) has dropped 2.0 m, plus the departure tick's few cm at normal gravity: about 2.03 m (4 x: 6 ticks, about 1.9 m). The upper bound is that, not 1.6 + slack.
         var after = Present(Run(After, Marine, 8f), After);
         Assert.True(after.Posed);
-        Assert.InRange(after.PoseDrop, 1.3f, 2.0f);
+        Assert.InRange(after.PoseDrop, 1.3f, 2.1f);
         Assert.True(after.Hard == Present(Run(Before, Marine, 8f), Before).Hard);
     }
 

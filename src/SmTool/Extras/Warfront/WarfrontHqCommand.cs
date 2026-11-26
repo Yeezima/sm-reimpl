@@ -154,6 +154,7 @@ static class WarfrontHqCommand
             if (_scenario == "gate9")
             {
                 var ring = run.Battle!.Layout.Positions[0] with { Z = WarfrontHqMap.PlateauZ };
+                // the retired squad-target seam (Phase B): it still feeds the Orks nine targets, but no longer weighs on the hold (retainers weigh there by their World ids)
                 run.Warfront.SquadTargets = into => { int n = Math.Min(9, into.Length); for (int i = 0; i < n; i++) into[i] = new MusouTarget(i, ring + new Vector3(i * 2f - 8f, 3f, 0f), true, 0.5f); return n; };
             }
         }

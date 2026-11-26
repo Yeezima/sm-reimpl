@@ -46,7 +46,7 @@ public sealed partial class World
         }
         foreach (int id in _warfrontIds) if (LibrarianOf(id) is { } psyker) psyker.CooldownScale = rt.CooldownScale(id);   // the cooldown cards on the Shockwave and the pull
         if (_tfw.Battle is not null && rules.SquadStep is { } squad && rules.LastFought != Tick - 1) squad();   // the field was empty last tick: TfwGuardsStep returned before the fight, so the squads still take their tick
-        rt.TickPicker(now);   // an offer open for 20 s takes card 1; the protection ends with it
+        rt.TickPicker(now);   // an offer open for the pick time (40 s) takes card 1; the protection ends with it
         bool aboard = _tfw.Phase is TfwRunPhase.Hub or TfwRunPhase.Travel;   // on the ship: the hub or the way down; every battle (a node, the HQ, the fortress) is the field
         if (aboard) rules.AboardStep?.Invoke();   // W9b
         foreach (int id in _warfrontIds)
@@ -62,6 +62,7 @@ public sealed partial class World
             }
             rt.Picker.TryOpen(key, now, aboard, lull, rt.RosterSizeOf(key), DreadnoughtRules.IsDreadnought(Config, p.Class));
         }
+        WarfrontChaosStep();   // WARFRONT-HOOK Chaos Warfront C4: the warp breaches (Chaos/Breach/World.WarfrontChaosBreach.cs; a no-op outside a Chaos battle)
     }
 
     /// <summary>Each level-up since the last call refills that living player's health and shield to full (owner: "On level-up, refill HP and armor").</summary>
@@ -73,13 +74,14 @@ public sealed partial class World
             rules?.OwnerLevelUp?.Invoke(up.Key);   // W9b: the owner's standing Marines refill too
             if (!rt.TryId(up.Key, out int id) || !_players.TryGetValue(id, out var p) || !p.Alive) continue;
             var body = Loadouts.Body(Config, p);
-            _players[id] = p with { Health = body.HealthMax, Shield = body.ShieldMax };
+            _players[id] = p with { Health = body.HealthMax, Shield = Config.KeepsOvershield ? MathF.Max(p.Shield, body.ShieldMax) : body.ShieldMax };   // executions X4 phase 3: a level-up keeps an overshield
         }
     }
 
     partial void WarfrontKill(in MusouKill kill)
     {
         if (_tfw is not { Battle: not null, Warfront: { } rules }) return;   // any battle of a Warfront run (a node, the HQ defence, the fortress) pays kills
+        WarfrontRetainerKill(in kill);   // Phase B T2: a retainer's kill pays its owner, the retainers that hit it share an assist
         int points = _musou!.Rules.Of(kill.Type).Points;
         rules.Progression.Kill(kill.Enemy, kill.Player, kill.Type, points, ((long)Tick << 16) | kill.Enemy, _musou.Tick, Tick / (double)Math.Max(1, Config.TickRate), (uint)Tick);
     }
@@ -87,6 +89,7 @@ public sealed partial class World
     partial void WarfrontDamageTaken(int target, ref float scale)
     {
         if (_tfw?.Warfront is not { Progression: { } rt } rules) return;
+        if (rules.Retainers is { } retainers && WarfrontIsRetainer(target)) { WarfrontRetainerDamageTaken(retainers, target, ref scale); return; }   // Phase B T2: the squad's share, not a human's
         if (rt.IsProtected(target) || rules.CoopHeld?.Invoke(target) == true) { scale = 0f; return; }
         var b = rt.BonusesOf(target);
         if (b.MaxHp == 1f && b.MaxArmor == 1f || !_players.TryGetValue(target, out var p)) return;
@@ -108,6 +111,7 @@ public sealed partial class World
     partial void WarfrontAttackerScales(MusouSim musou)
     {
         if (_tfw?.Warfront?.Progression is not { } rt) return;
+        WarfrontRetainerScales(musou);   // Phase B T2: the retainers' card third and level curve
         foreach (int id in rt.Ids)
         {
             float d = rt.BonusesOf(id).Damage;

@@ -62,15 +62,16 @@ public sealed partial class WarfrontXpBoard : Control
         WarfrontProgressDraw.Bar(this, new Rect2(barX, y + (RowH - 20f) / 2f, barRight - barX, 20f), m.XpFraction, BoardStyle.Gold);
         Text(xp, x0 + w - 20f, y + RowH / 2f, WarfrontStyle.Heading, BoardStyle.Text, 1);
 
-        // The six counters as a small table: names in a header strip, counts under them.
+        // The five card counters as a small table: names in a header strip, counts under them (the sixth, RET, retired with the Retainer card: every player has two; T0 review 2026-11-25).
         y += RowH;
         WarfrontStyle.Strip(this, new Rect2(x0, y, w, HeaderH));
-        float cell = (w - 40f) / 6f;
-        for (int i = 0; i < 6; i++) Text(WarfrontProgressModel.CounterLabels[i], x0 + 20f + (i + 0.5f) * cell, y + HeaderH / 2f, WarfrontStyle.Body, BoardStyle.Header, 0);
+        int counters = WarfrontProgressModel.CounterLabels.Length;
+        float cell = (w - 40f) / counters;
+        for (int i = 0; i < counters; i++) Text(WarfrontProgressModel.CounterLabels[i], x0 + 20f + (i + 0.5f) * cell, y + HeaderH / 2f, WarfrontStyle.Body, BoardStyle.Header, 0);
         y += HeaderH;
         board.Row(this, new Rect2(x0, y, w, RowH), true, false, 1f);
-        for (int i = 0; i < 6; i++)
-            Text((i < 5 ? m.CardCounts[i] : m.Retainers).ToString(), x0 + 20f + (i + 0.5f) * cell, y + RowH / 2f, WarfrontStyle.Heading, BoardStyle.Text, 0);
+        for (int i = 0; i < counters; i++)
+            Text(m.CardCounts[i].ToString(), x0 + 20f + (i + 0.5f) * cell, y + RowH / 2f, WarfrontStyle.Heading, BoardStyle.Text, 0);
     }
 
     /// <summary>Text centred vertically on <paramref name="cy"/>; <paramref name="align"/> -1 left, 0 centre, 1 right (as the scoreboard's).</summary>

@@ -213,7 +213,8 @@ public sealed partial class WarfrontHubPanel : Control
         var m = _model;
         Set(_header, m.Header);
         Set(_hq, "IMPERIAL HQ\n" + m.HqState);
-        Set(_fortress, "ORK FORTRESS\n" + m.FortressState);
+        Set(_fortress, m.FortressName + "\n" + m.FortressState);
+        Set(_warboss, m.CommanderName);   // Chaos Warfront C3: CHAOS LORD in a Chaos run
         for (int lane = 0; lane < 3; lane++)
         {
             Set(_status[lane], m.LaneStatus(lane));

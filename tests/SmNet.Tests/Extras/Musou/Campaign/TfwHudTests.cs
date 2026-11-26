@@ -178,6 +178,18 @@ public class TfwHudTests
         Assert.Equal("", TfwHudModel.Prompt(War(TfwRunPhase.Battle), true));
     }
 
+    /// <summary>X4b review: Warfront's win hold (the battle won, the Lord's finisher still playing) shows no "HOLD P FOR A FREE PICKUP" line; Musou's stays, and the won battle's extraction text is unchanged.</summary>
+    [Fact]
+    public void TheFreePickupLineIsMusousOnly()
+    {
+        var won = War(TfwRunPhase.Battle, new TfwOwnView { BattleWon = true });
+        Assert.Equal("BATTLE WON: HOLD P FOR A FREE PICKUP", TfwHudModel.Prompt(won, true));
+        Assert.Equal("BATTLE WON: HOLD P FOR A FREE PICKUP", TfwHudModel.Prompt(won, true, freePickup: true));
+        Assert.Equal("", TfwHudModel.Prompt(won, true, freePickup: false));
+        var down = War(TfwRunPhase.Battle, new TfwOwnView { ExtractionSeconds = 2, BattleWon = true }, supplies: 1);
+        Assert.Equal(TfwHudModel.Prompt(down, false), TfwHudModel.Prompt(down, false, freePickup: false));   // BattleWon still pays the extraction
+    }
+
     [Fact]
     public void TheMapSaysWhyADeployCannotBeAsked()
     {

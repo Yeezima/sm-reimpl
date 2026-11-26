@@ -23,6 +23,7 @@ public sealed partial class OptionsView
     {
         if (!_concept || (Mathf.IsEqualApprox(_rowsScale, s) && _rowsKey == UiType.Key)) return;
         _rowsScale = s; _rowsKey = UiType.Key;
+        PlaceUnder(2);   // AddUnder rows: first where they stand in two columns, again below if the page turns out to need one
         var rows = _grid.GetChildren().OfType<Control>().ToList();
         float LabelOf(Control r) => r switch { UiKit.MenuChoice c => c.ConceptLabelWidth(s), UiKit.MenuSlider sl => sl.ConceptLabelWidth(s), _ => 0f };
         float CtlNeed(Control r) => r switch { UiKit.MenuChoice c => c.ConceptControlWidth(s), UiKit.MenuSlider => (60f + SliderValueWidth + 4f) * s, _ => 0f };
@@ -37,6 +38,7 @@ public sealed partial class OptionsView
         float stride = two ? Mathf.Clamp(ColStride * s, need2[0] + gap, avail - 100f * s) : 0f;   // the second column starts at the same x on every tab
         var labelWs = two ? two2 : [Mathf.Max(Col(1)[0], 150f * s)];
         var colWs = two ? new[] { need2[0], Mathf.Min(need2[1], avail - stride) } : [(ContentWidth - RowsLeft - 12f) * s];
+        if (!two && _under.Count > 0) { PlaceUnder(1); rows = _grid.GetChildren().OfType<Control>().ToList(); }
         _grid.Columns = two ? 2 : 1;
         _grid.AddThemeConstantOverride("h_separation", two ? Mathf.RoundToInt(stride - colWs[0]) : 0); _grid.AddThemeConstantOverride("v_separation", 0);
         _rowsMargin.AddThemeConstantOverride("margin_left", Mathf.RoundToInt(RowsLeft * s)); _rowsMargin.AddThemeConstantOverride("margin_top", Mathf.RoundToInt(RowsTop * s));

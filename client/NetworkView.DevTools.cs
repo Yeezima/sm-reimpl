@@ -91,12 +91,12 @@ public partial class NetworkView
         }
         if (_bot && state is not null)
         {
-            ReadBotAimFlags();
-            if (!_devBotCaptured) { _devBotCaptured = true; _devOwnAccuracy = _botAccuracyFlag; _devOwnRange = _botRangeFlag; }
+            var brain = BotBrainOf(); brain.ReadAimFlags();   // T1: the aim flags are the bot brain's (src/SmBots)
+            if (!_devBotCaptured) { _devBotCaptured = true; _devOwnAccuracy = brain.AccuracyFlag; _devOwnRange = brain.RangeFlag; }
             float? accuracy = state.BotAccuracy == Protocol.DevNoValue ? _devOwnAccuracy : state.BotAccuracy / 1000f;
-            if (accuracy != _botAccuracyFlag) { _botAccuracyFlag = accuracy; _botAim = null; GD.Print($"devtools: bot accuracy {(accuracy is { } a ? a.ToString("0.###") : "own")}"); }   // the aim model is rebuilt from it
+            if (accuracy != brain.AccuracyFlag) { brain.AccuracyFlag = accuracy; GD.Print($"devtools: bot accuracy {(accuracy is { } a ? a.ToString("0.###") : "own")}"); }   // the aim model is rebuilt from it
             float? range = state.BotRange == 0 ? _devOwnRange : state.BotRange;
-            if (range != _botRangeFlag) { _botRangeFlag = range; GD.Print($"devtools: bot range {(range is { } r ? r.ToString("0") + " m" : "own")}"); }
+            if (range != brain.RangeFlag) { brain.RangeFlag = range; GD.Print($"devtools: bot range {(range is { } r ? r.ToString("0") + " m" : "own")}"); }
         }
     }
 

@@ -6,7 +6,7 @@ namespace SmSim;
 /// The config hash's added-content block (docs/added-content.md): the one implementation of <see cref="ExtrasHash"/>, a dispatcher that writes each added
 /// content's own block only under its own flag. Nothing is written for <see cref="ContentExtras.Orks"/>, <see cref="ContentExtras.Gore"/> or
 /// <see cref="ContentExtras.LoyalistBarks"/> (they ride on <see cref="ContentExtras.WireVersion"/>), so the extended profile hashes as before Musou existed
-/// (pinned in <c>MusouIsolationTests</c>).
+/// (pinned in <c>MusouIsolationTests</c>). Executions (X1) write their block last, under their own flag (the extended and Warfront profiles).
 /// </summary>
 public sealed partial record SimConfig
 {
@@ -21,6 +21,7 @@ public sealed partial record SimConfig
         if (Extras.HasFlag(ContentExtras.Musou) && MusouUncappedMeleeHeal) w.Write("uncapped-melee-heal");   // musou/melee-heal-cap: the restore switch --musou-uncapped-melee-heal, only when on
         if (Extras.HasFlag(ContentExtras.Musou) && MusouMeleeCooldown) w.Write("melee-cooldown");   // musou/melee-spam: the restore switch --musou-melee-cooldown, only when on
         if (Extras.HasFlag(ContentExtras.Musou) && MusouOrkSwingTracking) w.Write("ork-swing-tracking");   // musou/ork-swing-commit: the restore switch --musou-ork-swing-tracking, only when on
+        if (Extras.HasFlag(ContentExtras.Executions)) SmSim.Extras.Executions.ExecutionRules.Hash(w, this);   // executions X1 (docs/added-content.md section 13): only under its flag (extended, Warfront), so faithful and Musou hash as before
     }
 
     /// <summary>musou/melee-heal-cap restore switch (<c>--musou-uncapped-melee-heal</c> on the server and every client; config hash, only when on): true gives back the heal for every enemy a melee swing strikes (no cap of <see cref="MusouCombatRules.MeleeHealsPerSwing"/>).</summary>

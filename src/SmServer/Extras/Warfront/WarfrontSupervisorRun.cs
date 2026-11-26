@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Faction;
 
 namespace SmServer;
 
@@ -109,6 +110,9 @@ static class WarfrontSupervisor
     public static bool EndsSupervisor(int code) => code is 0 or 1 or 2 or 3;
 
     /// <summary>One log line with a UTC ISO timestamp, the form the server's own lines use.</summary>
+    /// <summary>The UTC time stamp alone, for a line that is not a menu status line (<c>[ts] Warfront faction: ...</c>).</summary>
+    public static string TimeStamp(string message) => $"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] {message}";
+
     public static string Stamp(string message) => $"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] warfront: {message}";
 
     /// <summary>The warm-up child's arguments: the supervisor's own without <c>--warfront-new</c>, <c>--warfront-stage</c> and <c>--map</c>, plus <c>--warfront-prebuild</c>.</summary>
@@ -211,7 +215,7 @@ static class WarfrontSupervisor
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Console.Error.WriteLine(Stamp($"smserver: the run folder is not usable: {e.Message}")); return 1; }
         }
         using var lockHold = runLock;
-        if (PrepareRun(dir, cli.WarfrontNew, Console.WriteLine, Console.Error.WriteLine) != 0) return 1;
+        if (PrepareRun(dir, cli, Console.WriteLine, Console.Error.WriteLine) != 0) return 1;   // the supervisor's own --warfront-faction (C1 review: Program.cs applies it only in a stage child)
 
         string exe = Environment.ProcessPath ?? throw new InvalidOperationException("no process path");
         string[] host = Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? [Environment.GetCommandLineArgs()[0]] : [];
@@ -238,7 +242,13 @@ static class WarfrontSupervisor
     /// The run folder before the first stage: <c>--warfront-new</c> archives the run on disk and begins another, and a missing run.json gets a new run. A file this build cannot use never stops the server by an exception, and a newer build's or a locked
     /// save is never overwritten, not even by NEW CAMPAIGN (it is refused with the menu notice): a damaged run.json is set aside under records\ (the loader's code) and the new run starts with the notice. 0 = go on, 1 = refused.
     /// </summary>
-    public static int PrepareRun(string dir, bool warfrontNew, Action<string> log, Action<string> error)
+    public static int PrepareRun(string dir, ServerArguments cli, Action<string> log, Action<string> error) => PrepareRun(dir, cli.WarfrontNew, WarfrontRunFiles.SettingOf(cli), log, error);
+
+    /// <summary><see cref="PrepareRun(string, bool, WarfrontFactionSetting, Action{string}, Action{string})"/> with the Alternate setting (the earlier tests' entry).</summary>
+    public static int PrepareRun(string dir, bool warfrontNew, Action<string> log, Action<string> error) => PrepareRun(dir, warfrontNew, WarfrontFactionSetting.Alternate, log, error);
+
+    /// <summary>The run folder before the first stage, the new run's army from <paramref name="setting"/> (Chaos Warfront C1).</summary>
+    public static int PrepareRun(string dir, bool warfrontNew, WarfrontFactionSetting setting, Action<string> log, Action<string> error)
     {
         try
         {
@@ -273,13 +283,17 @@ static class WarfrontSupervisor
                     log(Stamp($"--warfront-new: the unreadable run is kept as {Path.GetFileName(kept)}"));
                 }
                 else if (old is not null)
+                {
+                    ReconcileFaction(dir, old, log);   // Chaos Warfront C1: the archived run counts as the last army even when a crash kept faction.json a run behind
                     log(Stamp($"--warfront-new: the run on disk is archived ({(old.IsOver ? "finished" : "unfinished, as abandoned")}): {Path.GetFileName(WarfrontSave.Archive(dir, old, DateTime.UtcNow))}"));
+                }
                 try { File.Delete(Path.Combine(dir, WarfrontRunFiles.StageFile)); } catch (IOException) { }
             }
             if (!WarfrontSave.Exists(dir))
             {
-                var fresh = WarfrontRunFiles.NewRun(dir);
+                var fresh = WarfrontRunFiles.NewRun(dir, setting);
                 log(Stamp($"a new run (seed {fresh.RunSeed:X}) on the ship"));
+                log(TimeStamp($"Warfront faction: the new run fights {fresh.Faction}; --warfront-faction {SmSim.Extras.Warfront.Faction.WarfrontFactionPolicy.Key(setting)}"));   // timestamped, not a "warfront:" status line (C1 review)
             }
             return 0;
         }
@@ -288,6 +302,13 @@ static class WarfrontSupervisor
             error(Stamp($"smserver: the Warfront run could not be read or created: {e.Message}"));
             return 1;
         }
+    }
+
+    /// <summary>Chaos Warfront C1: faction.json follows the run on disk (<see cref="SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Reconcile"/>); logged when it was behind.</summary>
+    static void ReconcileFaction(string dir, WarfrontCampaign run, Action<string> log)
+    {
+        if (SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Reconcile(dir, run.Faction, run.RunSeed))
+            log(TimeStamp($"Warfront faction: faction.json brought in line with run.json ({run.Faction}, seed {run.RunSeed:X})"));   // timestamped, not a "warfront:" status line (C1 review)
     }
 
     /// <summary>The supervisor's loop: injectable launcher, stop event and log, so the tests run it with a fake child and a short timing.</summary>
@@ -313,6 +334,7 @@ static class WarfrontSupervisor
             try { run = WarfrontSave.Load(dir); }
             catch (WarfrontSaveNewerException e) { run = null; log(Stamp($"run.json is a newer build's file ({e.Message}): left untouched, the stage refuses players")); }
             catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException) { run = null; log(Stamp($"run.json cannot be read here ({e.Message}): the stage decides what to do with it")); }
+            if (run is not null) ReconcileFaction(dir, run, log);
             string map = WarfrontStagePlan.NextMap(run, lastShip ?? WarfrontRunFiles.ReadStage(dir)?.Ship);
             if (WarfrontStagePlan.HasShip(map)) lastShip = map;
             log(Stamp($"stage {stage} on {map} ({(run is null ? "no run" : run.Phase.ToString())})"));

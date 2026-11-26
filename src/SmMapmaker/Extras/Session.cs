@@ -35,24 +35,34 @@ public sealed class MapSession
         var session = new MapSession(MapDocument.Parse(File.ReadAllText(path)), library, sm1, System.IO.Path.GetFullPath(path));
         var notes = new List<string>();
         session.RestoreEmbeddedPrefabs(notes);
-        if (session.Document.LoadedVersion < MapDocument.FormatVersion)
+        // Images that came beside a shared map and the library lacks are added to the library (like embedded prefabs), so a clean library resolves them from then on.
+        foreach (var img in session.Document.Images)
+            try
+            {
+                if (File.Exists(System.IO.Path.Combine(MapImages.LibraryDir(library), img.FileName))) continue;
+                if (MapImages.Read(img, path, library) is { } data) MapImages.Store(MapImages.LibraryDir(library), img, data);
+                else notes.Add($"The image '{img.Name}' of this map is missing (put the map's images folder beside it, or open its .smpack).");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { notes.Add($"The image '{img.Name}' could not be added to the library: {e.Message}"); }
+        int to = session.Document.WriteVersion;
+        if (session.Document.LoadedVersion < to)
         {
-            // An older file: the original is kept first, never replaced, then the file is written in the current format (nothing in it is lost: the upgrade steps only add).
+            // An older file (format 1 or 2; a format 3 file needs nothing): the original is kept first, never replaced, then the file is written in the lowest format that holds it (nothing in it
+            // is lost: the upgrade steps only add). Save makes the backup (it backs up any file on disk older than what it writes).
             int from = session.Document.LoadedVersion;
             try
             {
-                string backup = MapUpgrade.Backup(path, from);
                 // The upgrade rewrite keeps the file's own save time, so merely opening an old map never makes it the "newest" copy of its name
                 // for CustomMaps.Locate's newest-file fallback (review, pass 3).
                 var savedAt = File.GetLastWriteTimeUtc(path);
-                session.Save();
+                session.Save(null, everyBackup: true);
                 try { File.SetLastWriteTimeUtc(path, savedAt); } catch (Exception t) when (t is IOException or UnauthorizedAccessException) { }
-                notes.Add($"This map was saved by an older Mapmaker (file format {from}); it was upgraded to format {MapDocument.FormatVersion}. The original is kept as {System.IO.Path.GetFileName(backup)}.");
+                notes.Add($"This map was saved by an older Mapmaker (file format {from}); it was upgraded to format {to}. The original is kept as {System.IO.Path.GetFileName(session.LastBackup ?? "")}.");
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or MapException)
             {
                 session.Dirty = true;
-                notes.Add($"This map was saved by an older Mapmaker (file format {from}) and is read as format {MapDocument.FormatVersion}, but the file could not be backed up and rewritten ({e.Message}); Save map will write it.");
+                notes.Add($"This map was saved by an older Mapmaker (file format {from}) and is read as format {to}, but the file could not be backed up and rewritten ({e.Message}); Save map will write it.");
             }
         }
         session.OpenNotes = notes;
@@ -112,12 +122,27 @@ public sealed class MapSession
             }
         }
         batch.Doc.PruneGroups();
+        // The document a batch leaves must still be one every build reads back: its file as Save writes it (UTF-8, with the prefabs Save embeds) within the limit.
+        string after = batch.Doc.ToJson();
+        long bytes = MapDocument.FileBytes(after);
+        // The exact pass (the whole file re-serialised with the prefabs Save would embed) runs only when an upper bound says the file could be near the limit: the document as it is plus
+        // every used prefab's own text with the indentation it gets inside the map (cached per definition). An ordinary edit on a map with prefabs serialises the document once.
+        List<Prefab>? used = batch.Doc.Objects.Any(o => o.Prefab is not null) ? UsedPrefabs(batch.Doc, id => { try { return batch.GetPrefab(id); } catch (MapException) { return null; } }) : null;
+        if (used is not null && bytes + used.Sum(EmbeddedBytesBound) + 32 > MapDocument.MaxChars)
+        {
+            var saved = batch.Doc.Clone();
+            saved.EmbeddedPrefabs = used;
+            bytes = MapDocument.FileBytes(saved.ToJson());
+        }
+        if (bytes > MapDocument.MaxChars)
+            return Failure(new OpError("too-big", $"The map would be larger than {MapDocument.MaxChars / 1_000_000} MB.", "commit"), dryRun);
         var result = new OpResult(true, batch.Created, batch.Warnings, [])
         {
             CreatedPrefabs = batch.CreatedPrefabs, CreatedAssets = batch.CreatedAssets, Mapping = batch.Mapping, DryRun = dryRun, Refresh = batch.Refresh,
+            CreatedMaterials = batch.CreatedMaterials, CreatedImages = batch.CreatedImages,
         };
         if (dryRun) return result;
-        try { Commit(batch); }
+        try { Commit(batch, after); }
         catch (MapException e) { return Failure(new OpError(e.Code, e.Message, "commit"), false); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -128,9 +153,9 @@ public sealed class MapSession
 
     static OpResult Failure(OpError error, bool dryRun) => new(false, [], [], [error]) { DryRun = dryRun };
 
-    void Commit(Batch batch)
+    void Commit(Batch batch, string after)
     {
-        string before = Document.ToJson(), after = batch.Doc.ToJson();
+        string before = Document.ToJson();
         var prefabChanges = new List<(string, string?, string?)>();
         foreach (var (id, p) in batch.Prefabs)
         {
@@ -140,6 +165,10 @@ public sealed class MapSession
         foreach (var id in batch.DeletedPrefabs.Where(d => !batch.Prefabs.ContainsKey(d)))
             if (Library.ReadPrefabText(id) is { } was) prefabChanges.Add((id, was, null));
         var trashIds = batch.DeletedAssets.ToList();
+        // Images are content-addressed (the file name is the SHA-256 of its bytes), so writing one is idempotent and never replaces another picture; one that is already there is kept. Written
+        // before the no-change return: re-adding an image the map already lists (its library copy lost) repairs the library without changing the document.
+        foreach (var (imgId, data) in batch.StagedImages)
+            if (batch.Doc.Images.FirstOrDefault(i => i.Id == imgId) is { } img) MapImages.Store(MapImages.LibraryDir(Library), img, data);
         if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) { LastTrashed = []; LastReplaced = []; return; }   // a batch that changes nothing trashes nothing: the editor must not reuse the last batch's slots for this step
 
         // Storage steps run as a transaction: each records its inverse as it succeeds; on any failure the inverses run in reverse order (best effort) and the
@@ -319,6 +348,8 @@ public sealed class MapSession
         Document.Grid = from.Grid;
         Document.Look = from.Look;
         Document.RemovedSrc = [.. from.RemovedSrc];
+        Document.Materials = [.. from.Materials];
+        Document.Images = [.. from.Images];
     }
 
     void Touch()
@@ -366,11 +397,24 @@ public sealed class MapSession
     }
 
     /// <summary>Writes the canonical document (atomically) to <paramref name="path"/> or the path it was loaded from.</summary>
-    public void Save(string? path = null)
+    public void Save(string? path = null) => Save(path, everyBackup: false);
+
+    void Save(string? path, bool everyBackup)
     {
         path ??= Path ?? throw new MapException("bad-args", "This map has no file yet; pass a path.");
         EmbedUsedPrefabs();
+        // The map's images go beside it first (images/<sha256>.<format>), so the file and that folder are the whole map for another PC and the map never names a picture not yet written.
+        var copyFailures = new List<string>();
+        var missing = Document.Images.Count == 0 ? [] : MapImages.CarryBeside(Document, path, Library, Path, copyFailures);
+        // A file on disk in an older format than this save writes is kept beside it first (name.smmap.bak-v<n>, never replaced), so a build that reads only that format still has its copy.
+        LastBackup = null;
+        // One backup per distinct older file: a map flipped between format 3 and 4 again and again keeps one .bak-v3, but a format-3 file that changed since its last backup (format-3 work between
+        // the flips) gets a new one beside it (.bak-v3-2, ...), so the copy a format-3 build can open is never stale; nothing is ever replaced. The open-time upgrade of a format 1 or 2 file always
+        // keeps a new one.
+        if (File.Exists(path) && MapUpgrade.VersionOfFile(path) is var onDisk and > 0 && onDisk < Document.WriteVersion && (everyBackup || !SameAsABackup(path, onDisk)))
+            LastBackup = MapUpgrade.Backup(path, onDisk);
         MapLibrary.WriteAtomic(path, Encoding.UTF8.GetBytes(Document.ToJson()));
+        SaveNotes = [.. missing.Count == 0 ? [] : new[] { $"{missing.Count} image(s) of this map are neither in the library nor beside the map; the game will refuse the map until they are added again." }, .. copyFailures];
         Path = System.IO.Path.GetFullPath(path);
         Dirty = false;
     }
@@ -379,23 +423,53 @@ public sealed class MapSession
     /// Puts the definition of every prefab the objects use (and the prefabs those use) into the document, so the saved file brings them along (a map sent to another PC no longer has
     /// "unknown prefab" instances). A prefab the library lacks but an earlier save embedded stays embedded.
     /// </summary>
-    void EmbedUsedPrefabs()
+    /// <summary>Whether <paramref name="path"/>'s bytes equal one of its existing <c>.bak-v&lt;version&gt;</c> backups.</summary>
+    static bool SameAsABackup(string path, int version)
+    {
+        var dir = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path))!;
+        var name = System.IO.Path.GetFileName(path) + ".bak-v" + version;
+        var current = File.ReadAllBytes(path);
+        foreach (var f in Directory.EnumerateFiles(dir, name + "*"))
+        {
+            var rest = System.IO.Path.GetFileName(f)[name.Length..];
+            if (rest.Length > 0 && !(rest[0] == '-' && rest.Skip(1).All(char.IsAsciiDigit))) continue;
+            try { if (new FileInfo(f).Length == current.LongLength && File.ReadAllBytes(f).AsSpan().SequenceEqual(current)) return true; }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        return false;
+    }
+
+    void EmbedUsedPrefabs() => Document.EmbeddedPrefabs = UsedPrefabs(Document, id => { try { return Library.GetPrefab(id); } catch (MapException) { return null; } });
+
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Prefab, System.Runtime.CompilerServices.StrongBox<long>> EmbeddedBytes = new();
+
+    /// <summary>
+    /// At least the bytes <paramref name="p"/> adds to a saved map file: its canonical text at depth 0, plus the 4 spaces per line it is indented by inside the map's <c>prefabs</c> list,
+    /// plus a separator. Cached per definition (prefabs are immutable records).
+    /// </summary>
+    static long EmbeddedBytesBound(Prefab p) => EmbeddedBytes.GetValue(p, x =>
+    {
+        string text = CanonicalJson.Write(x.ToNode());
+        long lines = text.Count(c => c == '\n') + 1;
+        return new System.Runtime.CompilerServices.StrongBox<long>(MapDocument.FileBytes(text) + 4 * lines + 8);
+    }).Value;
+
+    /// <summary>The prefabs <paramref name="doc"/>'s objects use (and the prefabs those use): from <paramref name="lookup"/> first, else the ones the document already embeds.</summary>
+    static List<Prefab> UsedPrefabs(MapDocument doc, Func<string, Prefab?> lookup)
     {
         var wanted = new SortedSet<string>(StringComparer.Ordinal);
-        var queue = new Queue<string>(Document.Objects.Where(o => o.Prefab is not null).Select(o => o.Prefab!));
+        var queue = new Queue<string>(doc.Objects.Where(o => o.Prefab is not null).Select(o => o.Prefab!));
         var result = new List<Prefab>();
         while (queue.Count > 0)
         {
             string id = queue.Dequeue();
             if (!wanted.Add(id)) continue;
-            Prefab? p = null;
-            try { p = Library.GetPrefab(id); } catch (MapException) { }
-            p ??= Document.EmbeddedPrefabs.FirstOrDefault(e => e.Id == id);
+            var p = lookup(id) ?? doc.EmbeddedPrefabs.FirstOrDefault(e => e.Id == id);
             if (p is null) continue;
             result.Add(p);
             foreach (var part in p.Parts.Where(x => x.Prefab is not null)) queue.Enqueue(part.Prefab!);
         }
-        Document.EmbeddedPrefabs = result;
+        return result;
     }
 
     /// <summary>
@@ -403,6 +477,12 @@ public sealed class MapSession
     /// never overwritten), and an upgrade of an older file format (the original kept as <c>.bak-v&lt;n&gt;</c>, then the file rewritten in the current format).
     /// </summary>
     public IReadOnlyList<string> OpenNotes { get; private set; } = [];
+
+    /// <summary>What the last <see cref="Save"/> could not do (an image that is nowhere to be copied); empty when it saved everything.</summary>
+    public IReadOnlyList<string> SaveNotes { get; private set; } = [];
+
+    /// <summary>The backup the last <see cref="Save"/> made of an older-format file it replaced (<c>name.smmap.bak-v&lt;n&gt;</c>), or null.</summary>
+    public string? LastBackup { get; private set; }
 
     void RestoreEmbeddedPrefabs(List<string> notes)
     {

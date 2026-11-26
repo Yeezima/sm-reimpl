@@ -111,6 +111,7 @@ public sealed partial class MusouSim
     {
         if (!keepYaw && SpawnCentre is { } centre && new Vector2(centre.X - position.X, centre.Y - position.Y) is { } way && way.LengthSquared() > 1f) yaw = MathF.Atan2(-way.X, way.Y);
         if (_free.Count == 0 || !float.IsFinite(health) || !float.IsFinite(yaw) || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return 0;
+        WarfrontKind(ref type, ref health);   // WARFRONT-HOOK
         if ((int)type >= Rules.Types.Count) return 0;
         WarfrontSpawn(type, ref health);   // WARFRONT-HOOK
         int i = _free.Dequeue();
@@ -134,6 +135,31 @@ public sealed partial class MusouSim
 
     /// <summary>Warfront: a hit by <paramref name="attacker"/> (a player id; 0 for none) on the enemy <paramref name="enemy"/>, before it is applied (the assists' record).</summary>
     partial void WarfrontDamaged(ushort enemy, int attacker);
+
+    /// <summary>Executions X4 phase 2 (Extras/Executions/Orks/MusouSim.Executions.cs): sets <paramref name="held"/> when enemy <paramref name="id"/> is held for a Warfront execution and this hit is not its kill frame. No-op while none is held.</summary>
+    partial void ExecutionsDamageHeld(ushort id, ref bool held);
+
+    /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the kind an enemy spawns as, and its health, at the one spawn chokepoint (the 'Ard Boy slot as a Chaos kind). No-op without Warfront and the Chaos faction.</summary>
+    partial void WarfrontKind(ref MusouEnemyType type, ref float health);
+
+    /// <summary>Warfront's Chaos faction (C0 seam): a hit on <paramref name="enemy"/> before it lands; <paramref name="barred"/> refuses it (Damage returns false, nothing changes: the leashed Lord), <paramref name="amount"/> may be scaled. No-op without Warfront and the Chaos faction.</summary>
+    partial void WarfrontDamageGate(ushort enemy, int attacker, MusouDeathKind cause, ref float amount, ref bool barred);
+
+    /// <summary>
+    /// The kind whose rules an enemy of <paramref name="type"/> follows in the tables keyed by kind (target preference, powerup and weapon drops, the Librarian's tiers, the crowds' big-Ork test): the kind
+    /// itself, except in a Warfront Chaos battle, where the Chaos Marine of the 'Ard Boy slot follows the 'Ard Boy's rows (Chaos Warfront C2 review R3). Musou Mode and Orks battles: always the kind.
+    /// </summary>
+    public MusouEnemyType RuleKind(MusouEnemyType type) { WarfrontRuleKind(ref type); return type; }   // WARFRONT-HOOK
+    partial void WarfrontRuleKind(ref MusouEnemyType type);
+
+    /// <summary>
+    /// Set by the World while a weapon's own blast (the autocannon's, the Dreadnought cannon's) is dealt: the owner's rule that it kills any fodder in one blast (2026-11-11). Warfront's Chaos gate reads it so the
+    /// tougher Chaos fodder (Cultists, Traitor Guardsmen) still die to one blast, by kind not by health (C2 review R4). Nothing else reads it.
+    /// </summary>
+    public bool FodderBlast { get; set; }
+
+    /// <summary>Warfront's Chaos faction (C2, the C0 review): a stagger, a boss's melee stun or a fodder throw of <paramref name="enemy"/> by <paramref name="attacker"/> (0: unknown) before it lands; <paramref name="barred"/> refuses it (nothing changes). No-op without Warfront and the Chaos faction.</summary>
+    partial void WarfrontStaggerGate(ushort enemy, int attacker, ref bool barred);
 
     /// <summary>
     /// <see cref="Spawn"/> for a leashed defender (Musou Mode, design section D): it stands at home until a target comes within <paramref name="aggro"/> metres of that home
@@ -196,6 +222,9 @@ public sealed partial class MusouSim
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !(amount > 0f)) return false;
         amount *= AttackerScale(attacker, cause);   // the powerups' damage (Double Damage, Supercharged Melee; MusouSim.Powerups.cs)
+        bool barred = false; WarfrontDamageGate(id, attacker, cause, ref amount, ref barred); if (barred) return false;   // WARFRONT-HOOK
+        if (!(amount > 0f) || !float.IsFinite(amount)) return false;   // after the scales and the gate (C0 review: a scale or gate of 0, or one not finite, lands nothing)
+        bool execHeld = false; ExecutionsDamageHeld(id, ref execHeld); if (execHeld) return false;   // EXECUTIONS-HOOK: an Ork held for a Warfront execution takes only its kill frame (X4 phase 2)
         WarfrontDamaged(id, attacker);   // WARFRONT-HOOK
         if (_type[i] == MusouEnemyType.BombSquig && cause != MusouDeathKind.World) amount = MathF.Max(amount, _health[i]);   // expansion S2: any hit sets a Squig off (MusouSim.Squig.cs)
         if (MekDemo && _type[i] == MusouEnemyType.ScrapMek) return false;   // expansion S4's capture aid only (MusouSim.Mek.cs)

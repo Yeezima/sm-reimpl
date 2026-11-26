@@ -34,6 +34,9 @@ public sealed record PieceKind(string Id, string Label, string Tip, PieceGroup G
     ];
 
     public static PieceKind? Find(string? id) => All.FirstOrDefault(k => k.Id == id);
+
+    /// <summary>Drawn in the game (and so takes a material): the solid Build pieces except the invisible wall. Every other kind is invisible in play.</summary>
+    public static bool IsDrawn(string kind) => kind is Box or Ramp or Column;
 }
 
 /// <summary>

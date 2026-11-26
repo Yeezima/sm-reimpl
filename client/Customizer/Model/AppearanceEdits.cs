@@ -177,7 +177,7 @@ public static class AppearanceEdits
         var rows = new List<PieceRow>();
         string? worn = p.Pieces.GetValueOrDefault(slot);
         string defaultName = resolved?.Piece(slot)?.Name ?? "";
-        var offered = race?.PiecesFor(slot) ?? [];
+        var offered = race?.OfferedPiecesFor(slot).ToList() ?? [];   // armour-pieces-1125: reserved places of pieces this install lacks are not offered
         string DefaultTitle() => offered.FirstOrDefault(x => x.Name.Equals(defaultName, StringComparison.OrdinalIgnoreCase))?.DisplayName is { } t ? $"Default ({t})" : "Default";
         rows.Add(new PieceRow(null, DefaultTitle(), "The class's own armour piece.", worn is null));
         foreach (var piece in offered)

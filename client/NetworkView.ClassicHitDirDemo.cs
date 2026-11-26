@@ -41,7 +41,13 @@ public partial class NetworkView
             else if (d < next) { next = d; second = pid; }
         }
         if (first == 0) return;
+        // repair 4, re-review of 06ef6bc2 finding N6: the first stroke went out on the first frame a victim was seen, before the fixed side camera (--observe-side, placed by the
+        // observer's update) had moved, so it was laid across the old camera's view and recorded end-on and small (about 1/4 of the later bursts' red). Now it waits for that
+        // camera and then one second (the first frames after the join).
+        if (ObserveSide > 0f && _sideCamera is null) return;
+        if (double.IsNegativeInfinity(_hitDirDemoAt)) { _hitDirDemoAt = _connectedFor - every + 1.0; return; }
         _hitDirDemoAt = _connectedFor;
+        if (LogHitDir) GD.Print($"HITDIRDEMO turn (t {_connectedFor:F2}): camera at {camera.GlobalPosition.X:F2},{camera.GlobalPosition.Y:F2},{camera.GlobalPosition.Z:F2}");
         string kind = _hitDirDemo switch
         {
             "cycle" => HitDirDemoCycle[_hitDirDemoStep++ % HitDirDemoCycle.Length],
@@ -79,7 +85,7 @@ public partial class NetworkView
         if (kind is "gun" or "headshot" or "wallshot" or "farshot")
         {
             var from = camera.GlobalPosition;
-            if (ObserveSide > 0f && kind == "gun") from = chest - right * 8f + Vector3.Up * 0.3f;   // the fixed side camera: the shot comes from the frame's left, across the view
+            if (ObserveSide > 0f && kind is "gun" or "headshot") from = (kind == "gun" ? chest : head) - right * 8f + Vector3.Up * 0.3f;   // the fixed side camera: the shot comes from the frame's left, across the view (the headshot too since repair 4: along the camera's line its spray went away from the camera, hidden behind the head)
             var target = kind == "gun" ? chest + toCam * BodySurface : head;
             var dir = (target - from).Normalized();
             NoteHitDirFocus(target, dir);
@@ -160,5 +166,18 @@ public partial class NetworkView
         bool drawn = false;
         if (HasBlood(visual))
             ExtrasClassicBlood(new ClassicContact(victim, _client!.PlayerId, contact, motion, visual, false, false, lethal, heavy, spread, BloodAmount(heavy, lethal), 0.0, hist, hist.Length, null, Exit: thrust > 0.5f), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
+        DemoPowerHit(contact, toCam);
+    }
+
+    /// <summary>
+    /// Capture aid <c>--hit-dir-demo-power hammer|maul|axe|sword</c> (gore visibility pass, 2026-11-24): each demo stroke also plays that power weapon's hit flash and cloud at the contact,
+    /// through the same <see cref="PowerHit"/> a real power-weapon hit uses (outward toward the camera's side, as the real hit's toward the attacker), so the blood can be judged over the glow.
+    /// </summary>
+    void DemoPowerHit(Vector3 contact, Vector3 toCam)
+    {
+        if (CmdArg("hit-dir-demo-power") is not { Length: > 0 } w) return;
+        string wargear = w switch { "maul" => "csm_mp_melee_2hand_power_mace", "axe" => "sm_mp_melee_power_axe", "sword" => "sm_mp_melee_powersword", _ => "sm_mp_melee_2hand_thunder_hammer" };
+        _powerSwing.Forget(-1);
+        PowerHit(-1, wargear, contact, toCam + Vector3.Up * 0.3f, "hit-dir demo");
     }
 }

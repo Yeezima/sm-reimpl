@@ -68,8 +68,6 @@ public sealed partial class GameServer
         public readonly Dictionary<ulong, long> ProgressQueueBaseXp = new();
         /// <summary>Keys whose reset this host has applied (this process): their ProgressSave carries the Reset flag, so the client clears its pending-reset mark only once the reset is really in the run (a queued reset's level-1 copy has no flag).</summary>
         public readonly HashSet<ulong> ResetApplied = new();
-        /// <summary>Extra retainers of an applied record whose roster does not exist yet: given to the roster once it does.</summary>
-        public readonly Dictionary<ulong, List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>> PendingExtras = new();
         public readonly Dictionary<int, (byte[] Bytes, int Level, int Picks, int Extras, uint Tick)> SaveSent = new();
         public uint NextAliveCheck, NextPlaySave;
         public uint LandingStartTick, LandingLastLog, LandingEnqueued;
@@ -288,7 +286,7 @@ public sealed partial class GameServer
         }
         if (state.NoSave) WfLog($"NO SAVE: {state.NoSaveText}; every Identify is refused and nothing is written");
         WfLog($"{how}; map {Map.Name}; at most {maxHumans} human(s)");
-        foreach (var aid in new[] { "SM_WF_ROLLS", "SM_WF_START", "SM_WF_RESOLVE", "SM_WF_PREBUILD_DELAY", "SM_WF_PREPARE_TEST", "SM_WF_DIR", "SM_WF_SEED", "SM_WF_FORTRESS_WALK", "SM_WF_FALL_TEST" })
+        foreach (var aid in new[] { "SM_WF_ROLLS", "SM_WF_START", "SM_WF_RESOLVE", "SM_WF_PREBUILD_DELAY", "SM_WF_PREPARE_TEST", "SM_WF_DIR", "SM_WF_SEED", "SM_WF_FORTRESS_WALK", "SM_WF_FALL_TEST", "SM_WF_FINALE" })
             if (Environment.GetEnvironmentVariable(aid) is { Length: > 0 } v) WfLog($"test aid {aid}={(aid == "SM_WF_DIR" ? "(set)" : v)}");
         string? resolve = Environment.GetEnvironmentVariable("SM_WF_RESOLVE");
         if (resolve is "win" or "wipe") { state.ResolveAid = true; state.ResolveWins = resolve == "win"; }
@@ -313,6 +311,7 @@ public sealed partial class GameServer
         }
         if (campaign.IsOver) { WfLog("the loaded run is over: its end was not archived; finishing it now"); WarfrontFinishRun(state); }
         WarfrontWeatherBind(state);   // weather W1: this slot's forecast (GameServer.WarfrontWeather.cs)
+        WarfrontChaosCreated();   // Chaos Warfront C4: the breaches' log and the filter's census (Chaos/GameServer.WarfrontChaos.cs; nothing unless the stage's army is Chaos)
         Stepped += _ => WarfrontStep();
     }
 
@@ -335,6 +334,7 @@ public sealed partial class GameServer
             WarfrontFortressWalkAid(s);
             WarfrontLaneWalkAid(s);
             WarfrontFallAid(s);
+            WarfrontFinaleAid(s);   // Chaos Warfront C5c test aid SM_WF_FINALE (dev tools only)
             WarfrontResolveAid(s);
             WarfrontPrepareWatch(s);
             WarfrontGoWatch(s);

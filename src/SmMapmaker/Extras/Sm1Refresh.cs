@@ -30,7 +30,8 @@ internal sealed partial class Batch
     {
         var t = o.Transform;
         return Sm1ClassicKeys.Fp("state", o.Visible ? "on" : "off", Sm1ClassicKeys.V(t.Position), Sm1ClassicKeys.V(t.Rotation), Sm1ClassicKeys.V(t.Scale),
-            o.Piece?.Kind ?? "", o.Piece?.Shape ?? "", o.Asset?.Id ?? o.Asset?.Definition ?? "");
+            o.Piece?.Kind ?? "", o.Piece?.Shape ?? "", o.Asset?.Id ?? o.Asset?.Definition ?? "")
+            + (o.Mesh is { } m ? "|mesh:" + Sm1ClassicKeys.Fp(m.ToNode().ToJsonString()) : "");   // an edited shape counts as edited (appended only when there is one, so older stamps still match)
     }
 
     /// <summary>The object with its Classic link carrying the hash of its present state (the import and the refresh call this on what they create or update).</summary>
@@ -203,7 +204,7 @@ internal sealed partial class Batch
             }
             // the 8 MB file limit: drop what this run added, hidden placements first, last first (what is dropped is listed under skipped and comes back as "added" next time)
             var drop = new List<(MapObject Obj, JsonObject Row, bool Hidden)>();
-            while (made.Count > 0 && Doc.ToJson().Length > MapDocument.MaxChars)
+            while (made.Count > 0 && MapDocument.FileBytes(Doc.ToJson()) > MapDocument.MaxChars)
             {
                 var pool = made.Any(m => m.Hidden) ? made.Where(m => m.Hidden).ToList() : made;
                 int n = Math.Min(Math.Max(1, made.Count / 20), pool.Count);

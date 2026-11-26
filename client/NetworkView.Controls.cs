@@ -49,7 +49,8 @@ public partial class NetworkView
 
     /// <summary>The buttons the tap latch handles (Interact and the wheel switch have latches of their own).</summary>
     const InputButtons LatchedButtons = InputButtons.Fire | InputButtons.Melee | InputButtons.MeleeHeavy | InputButtons.Reload | InputButtons.Grenade
-        | InputButtons.Switch | InputButtons.Jump | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.SlotSecond | InputButtons.Aim | InputButtons.Sprint | InputButtons.Stab;
+        | InputButtons.Switch | InputButtons.Jump | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.SlotSecond | InputButtons.Aim | InputButtons.Sprint | InputButtons.Stab
+        | InputButtons.Execute;   // executions X1: a quick tap of Execute (Q) reaches a tick
 
     readonly InputLatch _latch = new();
 
@@ -91,6 +92,8 @@ public partial class NetworkView
         bool musou = _config is { } cfg && (cfg.Extras & ContentExtras.Musou) != 0;
         bool stab = _stabPulse.Sample((buttons & InputButtons.Stab) != 0);
         buttons &= ~InputButtons.Stab;
+        // executions X1: the Execute bit leaves the client only in a match with the executions flag (Classic PvP Extended, Warfront); the faithful game and Musou Mode never send it.
+        if (_config is not { } executions || (executions.Extras & ContentExtras.Executions) == 0) buttons &= ~InputButtons.Execute;
         return stab && !musou ? buttons | InputButtons.Stab : buttons;
     }
 

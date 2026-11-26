@@ -35,6 +35,9 @@ public partial class NetworkView
                 bool warfront = false;
                 WarfrontEnvelope(section.Tag, section.Payload, ref warfront);   // WARFRONT-HOOK
                 if (warfront) continue;   // Warfront's tags (40 to 46, the squad's 32 to 34), on a Warfront server only
+                bool execution = false;
+                ExecutionsEnvelope(section.Tag, section.Payload, ref execution);   // EXECUTIONS-HOOK: tag 50 (ExecutionWire), on an executions server only
+                if (execution) continue;
                 if (section.Tag == LoyalistShoutWire.Tag) _barkSections.Add(section);
                 else if (MusouWire.Owns(section.Tag)) _musouSections.Add(section);
                 else if (TfwWire.Owns(section.Tag)) _tfwSections.Add(section);
@@ -47,8 +50,17 @@ public partial class NetworkView
         TfwFrame(me, others, delta, _tfwSections);
         WeatherFrame(me, delta);   // weather (client/Extras/Weather): the clock, the look through the lighting grade, rain
         WarfrontFrame(me, delta);   // WARFRONT-HOOK: the stage flow (commands, panels, rejoin; client/Extras/Warfront/Stage)
+        StreakWarfrontFrame();   // gore-streak: Warfront's streak prewarm before the first hit (Extras/Gore/NetworkView.WarfrontStreak.cs)
         SpearPoseFrame(me, others, delta);   // Musou's power spear: its clips between strikes, the fades and the spear on the hands (Musou/Arsenal/Spear/NetworkView.SpearPose.cs)
+        if (_config is { } executionsConfig && executionsConfig.Extras.HasFlag(ContentExtras.Executions)) ExecutionsFrame(me, others, delta);   // EXECUTIONS-HOOK: the paired animation, camera, HUD prompt and shield shell (X5, X6)
     }
+
+    // ---- Executions (docs/added-content.md section 13): X5 and X6 implement these in client/Extras/Executions/; each call above is marked // EXECUTIONS-HOOK. ----
+
+    /// <summary>An envelope section: sets <paramref name="handled"/> for tag 50 (<c>ExecutionWire.Tag</c>) and queues it.</summary>
+    partial void ExecutionsEnvelope(byte tag, byte[] payload, ref bool handled);
+    /// <summary>Once a frame after the other features (only with the executions flag).</summary>
+    partial void ExecutionsFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta);
 
     /// <summary>The own damage flash and HUD vignette: off while the own player is the Musou Dreadnought (owner 2026-11-15, "Turn flash off"; Musou Mode only).</summary>
     partial void ExtrasDamageFlashOff(PlayerState me, ref bool off) { if (IsDreadnoughtClass(me.Class)) off = true; }
@@ -100,6 +112,11 @@ public partial class NetworkView
     partial void WarfrontFrame(PlayerState me, double dt);
     partial void WarfrontPickerBusy(ref bool busy);
     partial void WarfrontSpectateView(PlayerState me, ref (Godot.Vector3 Eye, Godot.Vector3 Target)? view);
+
+    partial void WarfrontPickupWalkOver(ref bool walks);
+
+    /// <summary>Added content whose boxes are collected by walking over them (Warfront, owner 2026-11-25): the press prompt is not shown.</summary>
+    partial void ExtrasPickupWalkOver(ref bool walks) => WarfrontPickupWalkOver(ref walks);   // WARFRONT-HOOK
 
     /// <summary>A panel of added content that takes the game's input (Warfront's card picker and squad panel).</summary>
     partial void ExtrasPickerBusy(ref bool busy) => WarfrontPickerBusy(ref busy);   // WARFRONT-HOOK

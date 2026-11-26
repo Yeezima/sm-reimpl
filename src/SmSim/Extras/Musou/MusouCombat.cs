@@ -119,10 +119,18 @@ public sealed partial class MusouSim
     /// or burst is lost, so is its attack token) and a knockback of <paramref name="distance"/> along <paramref name="push"/> (a Nob a share of it). False for
     /// the Warboss and the Boss Orks (stagger-immune) and anything dying or unknown.
     /// </summary>
-    public bool Stagger(ushort id, Vector2 push, float distance)
+    public bool Stagger(ushort id, Vector2 push, float distance) => Stagger(id, push, distance, 0);
+
+    /// <summary>Executions X4 phase 2 (Extras/Executions/Orks/MusouSim.Executions.cs): sets <paramref name="held"/> when enemy <paramref name="id"/> is held for a Warfront execution. No-op while none is held.</summary>
+    partial void ExecutionsStaggerHeld(ushort id, ref bool held);
+
+    /// <summary><see cref="Stagger(ushort, Vector2, float)"/> by <paramref name="attacker"/> (0: unknown), through Warfront's stagger gate.</summary>
+    internal bool Stagger(ushort id, Vector2 push, float distance, int attacker)
     {
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] is MusouEnemyState.Dying or MusouEnemyState.Airborne || _type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i])) return false;   // in a hop he cannot be staggered (S3); a Boss Ork too (owner, 2026-11-06: hyper armour)
+        bool execHeld = false; ExecutionsStaggerHeld(id, ref execHeld); if (execHeld) return false;   // EXECUTIONS-HOOK: an Ork held for a Warfront execution is not staggered (X4 phase 2)
+        bool barred = false; WarfrontStaggerGate(id, attacker, ref barred); if (barred) return false;   // WARFRONT-HOOK: Warfront's Chaos gate (MusouSim.cs)
         if (_state[i] is not (MusouEnemyState.Knocked or MusouEnemyState.Stunned)) SetState(i, MusouEnemyState.Stagger);   // one on the ground stays down: a war's fodder (MusouSim.Knock.cs); a stunned Weirdboy stays stunned
         _token[i] = 0; _burst[i] = 0;
         if (_type[i] == MusouEnemyType.Nob) distance *= Rules.Combat.NobKnockbackScale;
@@ -190,11 +198,12 @@ public sealed partial class MusouSim
         var spec = rules.Of(type);
         float scale = type == MusouEnemyType.Warboss ? rules.BossScale : 1f;
         float radius = spec.Radius * scale, height = spec.Height * scale;
+        if (rules.ShotHeightsFromTable) return (radius * ShotRadiusScale, height);   // Chaos Warfront C3: the Chaos table's bodies are its drawn models' (the Chosen at their row's height too, before the Boss Orks' 3x)
         if (MusouBossOrks.Is(type)) return (radius * ShotRadiusScale, ShotBodyOf(rules, MusouBossOrks.BaseOf(type)).Height * MusouBossOrks.BodyScale);   // its base's drawn height, 3x
         height = type switch
         {
             MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.ArdBoy => 2.15f,
-            MusouEnemyType.Gretchin => 1.5f,
+            MusouEnemyType.Gretchin => MathF.Max(1.5f, height),   // the Gretchin drawn 1.5 m over its 1.2 m row; a taller row (Warfront Chaos's Daemon, 2.6 m since C3) is its own height
             MusouEnemyType.Nob => 3f,
             _ => height,
         };

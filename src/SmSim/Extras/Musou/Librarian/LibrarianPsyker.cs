@@ -174,7 +174,7 @@ public sealed class LibrarianPsyker
             var away = flat.LengthSquared() > 1e-6f ? Vector2.Normalize(flat) : new Vector2(-MathF.Sin(c.Yaw), MathF.Cos(c.Yaw));
             sim.Damage(id, c.PlayerId, LibrarianRules.ShockwaveDamage, new Vector3(away, 0.5f), out bool killed, marker: 1, cause: MusouDeathKind.Blast);
             if (killed) continue;
-            var tier = LibrarianRules.TierOf(e.Type);
+            var tier = LibrarianRules.TierOf(sim.RuleKind(e.Type));
             if (tier == LibrarianRules.Tier.Boss) { sim.Stagger(id, away, 0f); continue; }   // staggered where he stands (false for the stagger-immune Warboss and Boss Orks)
             float roll = Roll(sim.Tick, id);
             float distance = tier == LibrarianRules.Tier.Elite
@@ -198,7 +198,7 @@ public sealed class LibrarianPsyker
             var flat = new Vector2(e.Position.X - c.Feet.X, e.Position.Y - c.Feet.Y);
             var away = flat.LengthSquared() > 1e-6f ? Vector2.Normalize(flat) : new Vector2(-MathF.Sin(c.Yaw), MathF.Cos(c.Yaw));
             sim.Damage(id, c.PlayerId, LibrarianRules.Pass2.ShockwaveDamage, new Vector3(away, 0.5f), out bool killed, marker: 1, cause: MusouDeathKind.Blast);
-            if (killed || LibrarianRules.TierOf(e.Type) != LibrarianRules.Tier.Ordinary) continue;
+            if (killed || LibrarianRules.TierOf(sim.RuleKind(e.Type)) != LibrarianRules.Tier.Ordinary) continue;
             float distance = LibrarianRules.Pass2.ThrowMin + (LibrarianRules.Pass2.ThrowMax - LibrarianRules.Pass2.ThrowMin) * Roll(sim.Tick, id);
             if (!sim.KnockDown(id, away, 0.1f, c.PlayerId, 0f)) sim.Stagger(id, away, 0f);
             sim.Drive(id, away * (distance / seconds), ticks);
@@ -217,7 +217,7 @@ public sealed class LibrarianPsyker
         for (int k = 0; k < n; k++)
         {
             if (!sim.TryGet(_scan[k], out var e) || !e.Alive) continue;
-            var tier = LibrarianRules.TierOf(e.Type);
+            var tier = LibrarianRules.TierOf(sim.RuleKind(e.Type));
             if (tier == LibrarianRules.Tier.Boss) continue;
             var flat = new Vector2(e.Position.X - c.Feet.X, e.Position.Y - c.Feet.Y);
             float distance = flat.Length();

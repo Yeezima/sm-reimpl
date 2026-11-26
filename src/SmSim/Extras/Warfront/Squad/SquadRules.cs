@@ -9,10 +9,15 @@ namespace SmSim.Extras.Warfront.Squad;
 /// </summary>
 public static class SquadRules
 {
-    /// <summary>Retainers per player at most, players with a roster at most, and so the whole squad system's most [owner].</summary>
+    /// <summary>
+    /// The roster's capacity (owner 2026-11-17: 9 per player, 4 players, 36 in all): what the squad sim, its target ids and the squad wire are sized for, and what a bench may fill. A run never grows a roster past
+    /// <see cref="RetainersPerPlayer"/> (owner 2026-11-23, card 2).
+    /// </summary>
     public const int MaxPerPlayer = 9, MaxOwners = 4, MaxTotal = MaxPerPlayer * MaxOwners;
-    /// <summary>A new roster starts with this many retainers [owner].</summary>
-    public const int StartRetainers = 1;
+    /// <summary>Every player always has exactly this many retainers (owner 2026-11-23, card 2: "make it so each player always has 2 retainers except the dreadnought"); a Dreadnought's roster is held, so he has none in the field [owner].</summary>
+    public const int RetainersPerPlayer = 2;
+    /// <summary>A new roster starts with <see cref="RetainersPerPlayer"/> retainers (was 1 and grew by +1 Retainer cards until 2026-11-23) [owner].</summary>
+    public const int StartRetainers = RetainersPerPlayer;
     /// <summary>A downed Marine can be revived this long; then it is out for the battle (and back in the next) [owner].</summary>
     public const float DownedSeconds = 20f;
     /// <summary>A player holding Use within <see cref="PlayerReviveReach"/> of a downed Marine revives it after <see cref="PlayerReviveSeconds"/> [ours/estimate, plan section 6].</summary>

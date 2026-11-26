@@ -80,7 +80,9 @@ public enum MarineOrder : byte { Follow = 0, Hold = 1, Attack = 2 }
 
 /// <summary>What a puppet is: a player's retainer (takes that player's orders, revives it, recovers 180 war seconds after a death), or a Marine of the allied pair (autonomous, back in 30 s).</summary>
 /// <summary>A retainer, one of the allied pair, or a Marine a called drop pod brought (<see cref="TfwPod"/>; Musou Mode's second support ability).</summary>
-public enum MarineRole : byte { Retainer = 0, Ally = 1, Pod = 2 }
+public enum MarineRole : byte { Retainer = 0, Ally = 1, Pod = 2,
+    /// <summary>Warfront only (Phase B T2): a squad's retainer as a World player; Musou Mode never makes one (Warfront/Battle/World.WarfrontRetainers.cs runs it).</summary>
+    Squad = 3 }   // WARFRONT-HOOK: the role Warfront's retainers spawn with
 
 /// <summary>One AI Marine (a real World player, <see cref="TfwContracts.PuppetIdFirst"/> up): what the brain remembers between ticks.</summary>
 public sealed class Marine(int id, int slot, string name, MarineRole role = MarineRole.Ally, int owner = 0)

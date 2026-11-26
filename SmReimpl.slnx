@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/SmBots/SmBots.csproj" />
     <Project Path="src/SmContent/SmContent.csproj" />
     <Project Path="src/SmFormats/SmFormats.csproj" />
     <Project Path="src/SmLauncher.Core/SmLauncher.Core.csproj" />

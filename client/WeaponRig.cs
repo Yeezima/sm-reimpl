@@ -383,6 +383,8 @@ public sealed partial class WeaponRig
     /// <summary>The model nodes drawn (weapons held or stowed, worn models) for the info line.</summary>
     public int WeaponCount => _items.Count;
     public int WornCount => _worn.Count;
+    /// <summary>The meta set on each attachment node of the worn wargear (the jump pack), not on a weapon's own worn part.</summary>
+    public const string WornPackMeta = "worn_pack";
     public IEnumerable<string> Description => _items.Select(i => $"{i.Role}:{i.Attachment.VisualName}({(i.Mode == 1 ? "hand" : i.Mode == 0 ? "stowed" : i.Mode == 3 ? "thigh" : "hidden")})");
 
     public WeaponRig(Skeleton3D skeleton, WeaponAssets assets) { _skeleton = skeleton; _assets = assets; }
@@ -421,6 +423,7 @@ public sealed partial class WeaponRig
                 foreach (var (bone, mesh) in asset.Worn)
                 {
                     var node = new BoneAttachment3D { Name = "Worn_" + attachment.VisualName + "_" + bone };
+                    if (pack) node.SetMeta(WornPackMeta, true);   // EXTRAS-HOOK: executions (overshield shell): the worn wargear (the jump pack) is armour, covered whole
                     _skeleton.AddChild(node);
                     node.BoneName = bone;
                     var instance = new MeshInstance3D { Name = "Mesh", Mesh = mesh };
@@ -635,6 +638,17 @@ public sealed partial class WeaponRig
 
     /// <summary>anim/melee-flow: the pistol goes to its holster (the marine holds the thunder hammer or the daemon maul in both hands); set by the networked view before <see cref="Update"/>.</summary>
     public bool StowPistol { get; set; }
+
+    /// <summary>Whether the pistol / the melee weapon was put in hand by the last <see cref="Update"/> (logs and capture aids: the executor's hands, X4b review).</summary>
+    public bool PistolInHand => RoleInHand(Role.Pistol);
+    /// <inheritdoc cref="PistolInHand"/>
+    public bool MeleeHeld => RoleInHand(Role.Melee);
+
+    bool RoleInHand(Role role)
+    {
+        foreach (var i in _items) if (i.Role == role && i.InHand) return true;
+        return false;
+    }
 
     /// <summary>fix/stow-right: between the old weapon's release and the new one's take both ranged weapons are on their stow markers.</summary>
     bool _empty;

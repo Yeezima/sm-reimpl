@@ -80,7 +80,7 @@ public sealed record ServerArguments
     /// <summary>sim/hop-rules (restore switch): the protocol 71 jump and hop rules (<see cref="SimConfig.HopRules"/>; config hash: clients need it too).</summary>
     public bool OldHopRules { get; init; }
     public bool OldLedgeHop { get; init; }
-    /// <summary>sim/ledge-charge-air (restore switch): a Classic PvP ledge charge falls under normal gravity (protocol 89), not 4 x (<see cref="SimConfig.LedgeChargeHalfAir"/>; config hash: clients need it too).</summary>
+    /// <summary>sim/ledge-charge-air (restore switch): a Classic PvP ledge charge falls under normal gravity (protocol 89), not 2 x (protocol 92; <see cref="SimConfig.LedgeChargeHalfAir"/>; config hash: clients need it too).</summary>
     public bool OldLedgeChargeAir { get; init; }
     /// <summary>sim/stomp-release (restore switch): the stomp locks the player to the end of its clip (<see cref="SimConfig.StompRelease"/>; config hash: clients need it too).</summary>
     public bool OldStompRelease { get; init; }
@@ -110,6 +110,10 @@ public sealed record ServerArguments
     public bool MusouOrkSwingTracking { get; init; }
     /// <summary>remove-spear-claw (restore switch, owner 2026-11-23): Musou Mode and Warfront offer the lightning claw and the power spear again (ArsenalRules.SpearClawOffered; config hash: clients need it too).</summary>
     public bool OldArsenalSpearClaw { get; init; }
+    /// <summary>armour-pieces-1125 (restore switch): the customizer's original piece library, without the predefined sets' pieces (and the further ones); the appearance codes' piece ranges shrink, so clients need it too.</summary>
+    public bool NoPredefinedPieces { get; init; }
+    /// <summary>armour-pieces-1125 Series A (restore switch): the predefined sets' pieces without the further ones (MP extras, Librarian, campaign armour); clients need it too.</summary>
+    public bool NoExtraPieces { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
     /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
@@ -128,6 +132,10 @@ public sealed record ServerArguments
     public bool WarfrontNew { get; init; }
     /// <summary>--warfront-max-humans (Warfront): humans admitted, 1 to 4 (default 4).</summary>
     public int? WarfrontMaxHumans { get; init; }
+    /// <summary>--warfront-faction (Warfront, Chaos Warfront C1): the enemy army of the next new run, <c>alternate</c> (null, the default: Orks and Chaos take turns, Orks first), <c>orks</c> or <c>chaos</c>. A run in progress keeps its army; the supervisor's stage children inherit the flag.</summary>
+    public string? WarfrontFaction { get; init; }
+    /// <summary>The keys <c>--warfront-faction</c> takes (the same list as the Warfront code's <c>WarfrontFactionPolicy.Keys</c>; a test holds them equal).</summary>
+    public static readonly string[] WarfrontFactionKeys = ["alternate", "orks", "chaos"];
     /// <summary>--warfront-dedicated (Warfront, added content): the always-on shared campaign of the project's server: implies --content warfront and --warfront-max-humans 4 (unless given), refuses --warfront-new, and the supervisor restarts a crashed stage, locks the run folder and stops on SIGTERM (docs/warfront.md "Dedicated mode").</summary>
     public bool WarfrontDedicated { get; init; }
     /// <summary>--warfront-prebuild (Warfront, dedicated only): this process is the supervisor's map warm-up child: it builds every Warfront map's layout and walking graph into the cache, one at a time, and exits 0 (docs/warfront.md "Map warm-up").</summary>
@@ -185,7 +193,7 @@ public static class ServerCommandLine
           --old-charge-melee-chain     switch: restore: no instant melee cancel of a charge and no spacing reset by a melee attack (clients need --old-charge-melee-chain too)
           --old-sprint-melee           switch: restore: a light press while sprinting swings instead of charging (clients need --old-sprint-melee too)
           --old-ledge-hop              switch: restore: a hop out of a ledge charge drops to the hop's own start speed (clients need --old-ledge-hop too)
-          --old-ledge-charge-air       switch: restore: a Classic PvP charge off a ledge falls at normal gravity, full distance, not 4 x and half (clients need --old-ledge-charge-air too)
+          --old-ledge-charge-air       switch: restore: a Classic PvP charge off a ledge falls at normal gravity, full distance, not 2 x and about 0.71 (clients need --old-ledge-charge-air too)
           --old-ledge-cancel           switch: restore: a light press keeps a ledge charge's momentum (clients need --old-ledge-cancel too)
           --old-hop-rules              switch: restore: no ledge jump after a charge, no shortening of the melee wait by a hop, no hop out of the aerial tackle (clients need --old-hop-rules too)
           --old-stomp-release          switch: restore: the Devastator's and Havoc's stomp locks them to the end of its clip instead of 1.2 s (clients need --old-stomp-release too)
@@ -207,16 +215,20 @@ public static class ServerCommandLine
           --warfront-stage              switch: (--content warfront) this process is one stage child of the Warfront supervisor (internal)
           --warfront-new                switch: (--content warfront) start a new campaign run; an unfinished one is archived as abandoned
           --warfront-max-humans <1-4>   (--content warfront) humans admitted (default 4; 1 for a local campaign)
+          --warfront-faction <f>        (--content warfront) the enemy of the next new campaign: alternate (default; Orks first, then
+                                        turn about), orks or chaos; a campaign in progress keeps its own
           --warfront-dedicated          switch: the always-on shared Warfront campaign (implies --content warfront; up to 4 humans unless --warfront-max-humans; refuses --warfront-new; the supervisor restarts a crashed stage, locks the run folder, stops on SIGTERM)
           --warfront-prebuild           switch: (--warfront-dedicated; started by the supervisor) build every Warfront map's cache at low priority, one map at a time, then exit
           --old-arsenal-spear-claw      switch: restore: Musou Mode and Warfront offer the lightning claw and the power spear again (clients need it too)
+          --no-predefined-pieces        switch: restore: the customizer's piece library without the DLC and campaign sets' pieces and the further pieces (clients need it too)
+          --no-extra-pieces             switch: restore: the piece library without the further pieces (MP extras, Librarian, campaign armour) (clients need it too)
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--old-ledge-charge-air", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild", "--old-arsenal-spear-claw"];
+    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--old-ledge-charge-air", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild", "--old-arsenal-spear-claw", "--no-predefined-pieces", "--no-extra-pieces"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
-         "--name-seed", "--weather", "--weather-seed", "--weather-draw", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
+         "--name-seed", "--weather", "--weather-seed", "--weather-draw", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans", "--warfront-faction"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
     public static bool TryParse(IReadOnlyList<string> args, out ServerArguments result, out string error)
@@ -269,6 +281,8 @@ public static class ServerCommandLine
                     "--warfront-dedicated" => a with { WarfrontDedicated = true },
                     "--warfront-prebuild" => a with { WarfrontPrebuild = true },
                     "--old-arsenal-spear-claw" => a with { OldArsenalSpearClaw = true },
+                    "--no-predefined-pieces" => a with { NoPredefinedPieces = true },
+                    "--no-extra-pieces" => a with { NoExtraPieces = true },
                     _ => a with { Help = true },
                 };
                 continue;
@@ -325,7 +339,7 @@ public static class ServerCommandLine
                     if (value == "all") a = a with { Unlocks = UnlockMode.All }; else bad = "'all' (no progression yet)";
                     break;
                 case "--max-per-ip":
-                    if (Int(value) is { } cap && cap is >= 0 and <= Protocol.MaxPlayers) a = a with { MaxPerIp = cap }; else bad = $"a whole number from 0 (no cap) to {Protocol.MaxPlayers}";
+                    if (Int(value) is { } cap && cap is >= 0 and <= Protocol.MaxMatchPlayers) a = a with { MaxPerIp = cap }; else bad = $"a whole number from 0 (no cap) to {Protocol.MaxMatchPlayers}";
                     break;
                 case "--max-spectators":
                     if (Int(value) is { } spectators && spectators is >= 0 and <= Protocol.MaxSpectators) a = a with { MaxSpectators = spectators }; else bad = $"a whole number from 0 (none) to {Protocol.MaxSpectators}";
@@ -339,6 +353,9 @@ public static class ServerCommandLine
                 case "--ban-file": a = a with { BanFile = value }; break;
                 case "--warfront-max-humans":
                     if (Int(value) is { } humans && humans is >= 1 and <= 4) a = a with { WarfrontMaxHumans = humans }; else bad = "a whole number from 1 to 4";
+                    break;
+                case "--warfront-faction":
+                    if (Array.IndexOf(ServerArguments.WarfrontFactionKeys, value.Trim().ToLowerInvariant()) is int fi and >= 0) a = a with { WarfrontFaction = ServerArguments.WarfrontFactionKeys[fi] }; else bad = "alternate, orks or chaos";
                     break;
                 case "--content":
                     if (!ContentProfiles.TryParse(value, out var extras, out string contentError)) { error = contentError; return false; }
@@ -372,12 +389,15 @@ public static class ServerCommandLine
             if (a.WarfrontNew) { error = "--warfront-dedicated refuses --warfront-new (the shared campaign is never restarted by a command line)"; return false; }
             // Without --content: the Warfront profile (ContentProfiles.WarfrontProfile), the one the client's ONLINE WARFRONT row joins with. Before 2026-11-20 this
             // added Warfront to the default (extended) profile, so the VM's config hash never matched a client and every join was refused (ConfigMismatch).
-            a = a with { Content = contentGiven ? a.Content | ContentExtras.Warfront : ContentProfiles.WarfrontProfile, WarfrontMaxHumans = a.WarfrontMaxHumans ?? 4 };
+            // executions X1: a given --content (musou) gains the whole Warfront profile, executions included, so it still matches the clients' profile.
+            // executions X3 (X1 review): only musou or warfront may be given; any other content (extended, a flag list) would make a superset profile no client joins with.
+            if (contentGiven && (a.Content & ~ContentProfiles.WarfrontProfile) != ContentExtras.None) { error = "--warfront-dedicated takes --content musou or warfront only (or none)"; return false; }
+            a = a with { Content = contentGiven ? a.Content | ContentProfiles.WarfrontProfile : ContentProfiles.WarfrontProfile, WarfrontMaxHumans = a.WarfrontMaxHumans ?? 4 };
         }
         if (a.WarfrontPrebuild && (!a.WarfrontDedicated || a.WarfrontStage)) { error = "--warfront-prebuild is the dedicated supervisor's warm-up child: it needs --warfront-dedicated and is not a stage"; return false; }
-        if ((a.WarfrontStage || a.WarfrontNew || a.WarfrontMaxHumans is not null) && !a.Content.HasFlag(ContentExtras.Warfront))
+        if ((a.WarfrontStage || a.WarfrontNew || a.WarfrontMaxHumans is not null || a.WarfrontFaction is not null) && !a.Content.HasFlag(ContentExtras.Warfront))
         {
-            error = "--warfront-stage, --warfront-new and --warfront-max-humans need --content warfront";
+            error = "--warfront-stage, --warfront-new, --warfront-max-humans and --warfront-faction need --content warfront";
             return false;
         }
         if (a.Maps is not null && a.Content.HasFlag(ContentExtras.Warfront))

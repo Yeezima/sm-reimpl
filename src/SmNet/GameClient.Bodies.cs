@@ -42,6 +42,18 @@ public sealed partial class GameClient
     public Func<PlayerState, uint, PlayerState>? ExtrasCarry { get; set; }
 
     /// <summary>
+    /// Executions (X1; docs/added-content.md section 13): the input the prediction steps the own player with at a tick (the first prediction and every replay), returned with added content's
+    /// changes (a locked executor: no stick, no buttons, the view kept). The stored and sent input is never changed. Null (the default, and always without the executions flag) changes nothing.
+    /// </summary>
+    public Func<PlayerInput, uint, PlayerInput>? ExtrasPredictInput { get; set; }
+
+    /// <summary>
+    /// Executions (X1): the predicted own state after a tick's step (the first prediction and every replay), returned pinned as the server pins it (a locked executor's position, yaw and
+    /// velocity on the alignment). Null (the default, and always without the executions flag) changes nothing.
+    /// </summary>
+    public Func<PlayerState, uint, PlayerState>? ExtrasPin { get; set; }
+
+    /// <summary>
     /// The others a melee lock is chosen and checked against at view tick <paramref name="tick"/> for a player standing as <paramref name="self"/>: <see cref="ViewAt"/>, plus
     /// added content's lock targets (<see cref="ExtrasSolids"/>); null without a view. Only the lock reads it (the charge's contact keeps <see cref="ViewAt"/>, as the server).
     /// </summary>

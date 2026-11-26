@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using SmSim.Extras.Warfront.Progression;
 
 namespace SmClient.Extras.Warfront.Stage;
@@ -11,7 +12,7 @@ public enum WarfrontProgressLoad
     Absent,
     /// <summary>A good file for this key.</summary>
     Ok,
-    /// <summary>A file of a newer build (version above 1): never read further, never touched, never overwritten ("needs a newer build").</summary>
+    /// <summary>A file of a newer build (version above <see cref="WarfrontProgressFile.CurrentVersion"/>): never read further, never touched, never overwritten ("needs a newer build").</summary>
     Newer,
     /// <summary>A good file, but for another key than this PC's client.json: treated as absent; it is kept as <see cref="WarfrontProgressStore.OtherKeyCopyPath"/> before the next write replaces it.</summary>
     KeyMismatch,
@@ -80,6 +81,7 @@ public sealed class WarfrontProgressStore
                         Log("warfront: the progress file belongs to another key: treated as absent");
                         return State = WarfrontProgressLoad.KeyMismatch;
                     }
+                    if (file.Version < WarfrontProgressFile.CurrentVersion) KeepOldVersion(p, file.Version);
                     Current = WarfrontProgressFile.Sanitize(file);
                     Current.Key = KeyHex;
                     return State = WarfrontProgressLoad.Ok;
@@ -188,6 +190,24 @@ public sealed class WarfrontProgressStore
         try { if (File.Exists(BakPath)) File.Delete(BakPath); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Log("warfront: the old backup could not be deleted"); }
         return true;
+    }
+
+    /// <summary>The dated copy of an older record version (T0 review, 2026-11-25): <c>progress-v&lt;n&gt;-&lt;yyyyMMddTHHmmssZ&gt;.json</c> beside the file, written once per older version (never replaced) before the converted file is written.</summary>
+    public string OldVersionCopyPath(int version, DateTime utc) =>
+        (Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? Path[..^5] : Path) + "-v" + version + "-" + utc.ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture) + ".json";
+
+    /// <summary>Keeps <paramref name="source"/> (a record of <paramref name="version"/>) as its dated copy, unless one of that version is kept already. A failure is logged; the load goes on.</summary>
+    void KeepOldVersion(string source, int version)
+    {
+        try
+        {
+            string stem = System.IO.Path.GetFileName(Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? Path[..^5] : Path) + "-v" + version + "-";
+            string dir = System.IO.Path.GetDirectoryName(Path) is { Length: > 0 } d ? d : ".";
+            if (Directory.Exists(dir) && Directory.EnumerateFiles(dir, stem + "*.json").Any()) return;
+            File.Copy(source, OldVersionCopyPath(version, DateTime.UtcNow), overwrite: false);
+            Log($"warfront: the version {version} progress file was kept as a dated copy before its conversion");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Log("warfront: the old progress file's dated copy could not be written"); }
     }
 
     /// <summary>The first of main and .bak that parses as a good file of this build (the one <see cref="Load"/> uses), or null.</summary>

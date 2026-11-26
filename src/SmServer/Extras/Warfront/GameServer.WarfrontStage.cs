@@ -30,7 +30,9 @@ public sealed partial class GameServer
         if (refusal is not null) { WfLog($"deploy from P{player} refused: {refusal}"); s.GateRefusal = refusal; s.GateRefusalTick = World.Tick; return; }
 
         string map = WarfrontStagePlan.MapOf(c, target);
-        if (map == s.Map && World.Tfw is not null)
+        bool landHere = WarfrontStagePlan.CanLandHere(map, s.Map, c.Faction, WarfrontRunFiles.StageFaction);   // Chaos Warfront C1 (wired at the series-37 integration): a stage built for the other army restages
+        if (map == s.Map && !landHere) WfLog($"deploy {target.Kind} lane {target.Lane} on this map ({map}): this stage was built for {WarfrontRunFiles.StageFaction}, the run's army is {c.Faction}: restaging");
+        if (landHere && World.Tfw is not null)
         {
             if (!c.TryDeploy(key, target, out string? error)) { WfLog($"deploy refused: {error}"); return; }
             WfSave(s);
@@ -257,14 +259,15 @@ public sealed partial class GameServer
         if (c.Phase != WarfrontPhase.Battle) return;
         bool? forced = s.ForcedWin; s.ForcedWin = null;
         s.ResolveAtTick = null;
-        if (forced is null && result == TfwMapResult.Left && (s.KeyOf.Count == 0 || s.KeyOf.Keys.All(id => !World.Players.ContainsKey(id))))   // the last human may have dropped this very tick: the roster below is synced after the step
+        bool finaleLost = false; WarfrontChaosFinaleLost(result, ref finaleLost);   // WARFRONT-HOOK Chaos Warfront C5: the duel relay ran out, or the last human left during it (Chaos/GameServer.WarfrontChaosDuel.cs; false anywhere else)
+        if (forced is null && !finaleLost && result == TfwMapResult.Left && (s.KeyOf.Count == 0 || s.KeyOf.Keys.All(id => !World.Players.ContainsKey(id))))   // the last human may have dropped this very tick: the roster below is synced after the step
         {
             c.ResumeAfterRestart();
             WfSave(s);
             WfLog("the battle was left with nobody connected: no result, back on the ship, nothing rolled");
             return;
         }
-        var outcome = (forced ?? result == TfwMapResult.Won) ? WarfrontOutcome.Win : WarfrontOutcome.Wipe;
+        var outcome = (forced ?? result == TfwMapResult.Won) ? WarfrontOutcome.Win : finaleLost ? WarfrontOutcome.FinaleLost : WarfrontOutcome.Wipe;
         int dep = c.Deployments + 1;
         c.Resolve(outcome);
         string rolls = string.Join(", ", c.Rolls.Where(r => r.Deployment == dep).Select(r => $"lane {(char)('A' + r.Lane)} {(r.Lost ? (r.HeldAtFloor ? "lost, held at the floor" : "lost") : "held")} ({r.Before}->{r.After})"));

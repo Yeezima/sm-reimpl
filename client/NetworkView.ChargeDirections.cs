@@ -19,17 +19,8 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    bool BotChargeDirs => _botChargeDirs ??= OS.GetCmdlineUserArgs().Contains("--bot-charge-dirs");
-    bool? _botChargeDirs;
-    bool BotDashDirs => _botDashDirs ??= OS.GetCmdlineUserArgs().Contains("--bot-dash-dirs");
-    bool? _botDashDirs;
-    /// <summary>Seconds the <c>--bot-charge-dirs</c> bot runs with W (no sprint) before holding Shift for F (test aid, ours).</summary>
-    const float ChargeDirsRunUp = 0.5f;
-    static readonly (float X, string Name)[] ChargeDirs = [(0f, "Shift+W"), (-1f, "Shift+W+A"), (1f, "Shift+W+D")];
-    static readonly (float X, float Y, string Name)[] DashDirs =
-        [(0f, 1f, "W"), (1f, 1f, "W+D"), (1f, 0f, "D"), (1f, -1f, "S+D"), (0f, -1f, "S"), (-1f, -1f, "S+A"), (-1f, 0f, "A"), (-1f, 1f, "W+A")];
-    int _botChargeDir, _botDashDir;
-    double _botChargeRunSince = -1;
+    // T1 (2026-11-25): the --bot-charge-dirs / --bot-dash-dirs flags, run-up and key tables moved with the bot's charge into the bot brain (src/SmBots,
+    // ClassicBotBrain.World.cs, ClassicBotBrain.Reactions.cs); the press log below gets its presses through IBotHooks.NotePress (NetworkView.BotBrain.cs).
 
     // ---- the own charge's travel log ----
     RushPhase _travelPhase;

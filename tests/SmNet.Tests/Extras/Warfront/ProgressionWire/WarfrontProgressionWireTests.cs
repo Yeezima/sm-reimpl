@@ -26,9 +26,11 @@ public class WarfrontProgressionWireTests
     }
 
     [Fact]
-    public void The_pick_timeout_fits_one_byte_of_tenths()
+    public void The_pick_timeout_fits_the_u16_of_tenths()
     {
-        Assert.True(WarfrontProgressionRules.PickTimeoutSeconds * 10 <= 255, "a longer timeout would clamp silently on the wire");
+        // 40 s since owner 2026-11-23, card 2: the time left is a u16 of tenths (a u8 stopped at 25.5 s)
+        Assert.True(WarfrontProgressionRules.PickTimeoutSeconds * 10 <= ushort.MaxValue, "a longer timeout would clamp silently on the wire");
+        Assert.True(WarfrontProgressionRules.PickTimeoutSeconds * 10 > 255);
     }
 
     [Fact]
@@ -85,7 +87,7 @@ public class WarfrontProgressionWireTests
 
         var o = WarfrontProgressionWire.Encode(Offer());
         Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 0, 2), out WarfrontOfferWire _));                          // open flag
-        Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 9, 2), out WarfrontOfferWire _));                          // aboard flag
+        Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 10, 2), out WarfrontOfferWire _));                         // aboard flag (byte 10 since the u16 time)
         Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 2, 7), out WarfrontOfferWire _));                          // unknown card
         Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 2, 0), out WarfrontOfferWire _));                          // empty card in an open offer
         Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 3, o[2]), out WarfrontOfferWire _));                       // a duplicate

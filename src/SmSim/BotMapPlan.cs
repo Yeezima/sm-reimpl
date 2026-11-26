@@ -14,10 +14,11 @@ namespace SmSim;
 /// <item><b>roam points</b>: up to <see cref="MaxRoam"/> cells spread over the reachable floor by farthest-point sampling, at least <see cref="RoamSpacing"/> m apart and
 /// <see cref="OwnStartClearance"/> m from the own start;</item>
 /// <item><b>lanes</b>: up to three cells across the map (left, middle, right of the line between the start areas) <see cref="LaneFrom"/> to <see cref="LaneTo"/> of
-/// the way from the own start toward the enemy's, the first leg of a life, so a side's bots leave the spawn by different routes.</item>
+/// the way from the own start toward the enemy's, the first leg of a life, so a side's bots leave the spawn by different routes;</item>
+/// <item><b>routes and vantages</b> (bots A2): see BotMapPlan.Routes.cs.</item>
 /// </list>
 /// </summary>
-public sealed class BotMapPlan
+public sealed partial class BotMapPlan
 {
     /// <summary>Metres (flat) around the enemy's spawn door and start area where a bot never waits, roams or chases (ours, an estimate).</summary>
     public const float NoLoiterRadius = 25f;
@@ -77,7 +78,7 @@ public sealed class BotMapPlan
     /// The plan of a bot on <paramref name="graph"/> whose side starts at <paramref name="ownStart"/>; null when the own start is off the graph. <paramref name="world"/>
     /// (optional) scores the holds for cover. <paramref name="cancel"/> is polled in the loops.
     /// </summary>
-    public static BotMapPlan? Build(NavGraph graph, Vector3 ownStart, Vector3 enemyStart, Vector3? enemyDoor, Vector3 centre, CollisionWorld? world = null, CancellationToken cancel = default)
+    public static BotMapPlan? Build(NavGraph graph, Vector3 ownStart, Vector3 enemyStart, Vector3? enemyDoor, Vector3 centre, CollisionWorld? world = null, CancellationToken cancel = default, float eye = 1.7f)
     {
         int start = graph.Nearest(ownStart, 3f, 3f);
         if (start < 0) return null;
@@ -177,7 +178,8 @@ public sealed class BotMapPlan
             }
         }
         plan.Lanes = lanes;
-        plan.Note = $"centre {c.X:F0},{c.Y:F0},{c.Z:F0}; {plan.CentreHolds.Count} centre holds, {roam.Count} roam points, {lanes.Count} lanes; no-loiter {NoLoiterRadius:F0} m around the enemy's "
+        plan.BuildRoutesAndVantages(graph, reach, start, ownStart, world, eye, cancel);   // bots A2 (BotMapPlan.Routes.cs)
+        plan.Note = $"centre {c.X:F0},{c.Y:F0},{c.Z:F0}; {plan.CentreHolds.Count} centre holds, {roam.Count} roam points, {lanes.Count} lanes, {plan.Routes.Count} routes, {plan.Vantages.Count} vantages; no-loiter {NoLoiterRadius:F0} m around the enemy's "
             + $"{(enemyDoor is { } door ? $"door {door.X:F0},{door.Y:F0} and " : "")}start {enemyStart.X:F0},{enemyStart.Y:F0}";
         return plan;
     }

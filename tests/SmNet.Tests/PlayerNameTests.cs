@@ -203,7 +203,7 @@ public class PlayerNameTests(ITestOutputHelper output)
     [Fact]
     public void Names_round_trip_in_the_scoreboard_and_a_full_board_stays_in_budget()
     {
-        Assert.Equal(91, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         string longest = "Ilkarn of the Ninth Pyre";
         Assert.Equal(PlayerNames.MaxLength, longest.Length);
         var board = new Scoreboard(9, true, 41, 600f, false,
@@ -238,7 +238,7 @@ public class PlayerNameTests(ITestOutputHelper output)
         // 16 rows with 24-character names and the Seize Ground layout: under the 1200-byte packet.
         var seize = new SeizeGroundInfo(20f, 10f, 2, 5f, [.. Enumerable.Range(0, World.MaxControlPoints).Select(i => new ControlPointInfo(new string('p', Protocol.MaxMapName), new System.Numerics.Vector3(i, 2, 3), 5f, 2f))]);
         var full = new Scoreboard(1, true, 1, 1f, true,
-            [.. Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new ScoreEntry(i, Team.Chaos, 1, 65535, 65535, 65535, 3, ("Name" + i).PadRight(PlayerNames.MaxLength, 'x')))], seize);
+            [.. Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new ScoreEntry(i, Team.Chaos, 1, 65535, 65535, 65535, 3, ("Name" + i).PadRight(PlayerNames.MaxLength, 'x')))], seize);
         int size = Protocol.Write(full).Length;
         output.WriteLine($"largest scoreboard (16 rows, 24-character names, {World.MaxControlPoints} points with {Protocol.MaxMapName}-character names): {size} bytes (budget {Protocol.SnapshotBudget})");
         Assert.True(size <= Protocol.SnapshotBudget, $"{size} bytes");
@@ -333,10 +333,10 @@ public class PlayerNameTests(ITestOutputHelper output)
     public void A_name_is_not_reused_while_its_player_is_connected()
     {
         var h = Match(1, out _);
-        var bots = Enumerable.Range(0, Protocol.MaxPlayers).Select(i => Bot(h, (uint)(100 + i), Team.SpaceMarines, CustomFixture.SmTac)).ToList();
+        var bots = Enumerable.Range(0, Protocol.MaxMatchPlayers).Select(i => Bot(h, (uint)(100 + i), Team.SpaceMarines, CustomFixture.SmTac)).ToList();
         h.Run(TimeSpan.FromSeconds(3));
         var connected = bots.Where(c => c.Status == ClientStatus.Connected).ToList();
-        Assert.Equal(Protocol.MaxPlayers, connected.Count);
+        Assert.Equal(Protocol.MaxMatchPlayers, connected.Count);
         var names = connected.Select(c => h.Server.DisplayNameOf(c.PlayerId)!).ToList();
         Assert.Equal(names.Count, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
 

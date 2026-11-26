@@ -110,6 +110,10 @@ public static class WarfrontRunLoader
         }
         if (campaign is not null)
         {
+            KeepBeforeRetainerConversion(dir, text, io, clock, log);
+            // Chaos Warfront C1: run.json is the army's record; faction.json follows it (a crash between a new run's two writes left it a run behind, or the run predates the file).
+            if (SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Reconcile(dir, campaign.Faction, campaign.RunSeed))
+                log($"faction.json brought in line with run.json ({campaign.Faction}, seed {campaign.RunSeed:X})");
             try
             {
                 io.Write(dir, campaign);
@@ -158,6 +162,40 @@ public static class WarfrontRunLoader
         return true;
     }
 
+    /// <summary>
+    /// The one-time safety copy of the retainer conversion (T0 review, 2026-11-25): a run file older than <see cref="WarfrontCampaign.RetainerCardsRetiredVersion"/> is copied, with squads.json beside it, to
+    /// <c>records\&lt;yyyyMMddTHHmmssZ&gt;-before-v6[-n].json</c> (squads: <c>...-before-v6[-n]-squads.json</c>) before its first rewrite, as a reset keeps its before-reset copy. The rewrite is at the current version, so
+    /// it happens once. A copy that fails is logged; the load goes on. True when the run file was copied.
+    /// </summary>
+    public static bool KeepBeforeRetainerConversion(string dir, string text, WarfrontLoaderIo io, Func<DateTime> clock, Action<string> log)
+    {
+        int version;
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("Version", out var v) || !v.TryGetInt32(out version)) return false;
+        }
+        catch (JsonException) { return false; }
+        if (version >= WarfrontCampaign.RetainerCardsRetiredVersion) return false;
+        try
+        {
+            string records = Path.Combine(dir, WarfrontSave.RecordsDir);
+            Directory.CreateDirectory(records);
+            string stamp = clock().ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'Z'") + "-before-v6", suffix = "";
+            for (int n = 2; File.Exists(Path.Combine(records, stamp + suffix + ".json")); n++) suffix = "-" + n;
+            io.Copy(Path.Combine(dir, WarfrontSave.RunFile), Path.Combine(records, stamp + suffix + ".json"));
+            string squads = Path.Combine(dir, "squads.json");
+            if (File.Exists(squads)) io.Copy(squads, Path.Combine(records, stamp + suffix + "-squads.json"));
+            log($"run.json (save version {version}) kept as {stamp + suffix}.json before the retainer conversion");
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            log($"the before-v6 safety copy could not be written ({e.Message}); the load goes on");
+            return false;
+        }
+    }
+
     static WarfrontRunLoad Refuse(string dir, DateTime utc, Action<string> log, string why)
     {
         log($"run.json is damaged and could not be set aside ({why}); left untouched, nothing will be saved");
@@ -185,11 +223,12 @@ public static class WarfrontRunLoader
         try
         {
             var c = io.NewRun(dir);
-            return new WarfrontRunLoad(c, state, notice, $"{how} (seed {c.RunSeed:X})");
+            return new WarfrontRunLoad(c, state, notice, $"{how} (seed {c.RunSeed:X}, {c.Faction})");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            var c = WarfrontRunFiles.BuildNewRun();   // the folder cannot be written now: play on in memory, the server retries the write
+            // the folder cannot be written now: play on in memory, the server retries the write (the army as the setting and the rotation say; faction.json follows once run.json is written and loaded)
+            var c = WarfrontRunFiles.BuildNewRun(null, SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Next(dir, WarfrontRunFiles.FactionSetting));
             return new WarfrontRunLoad(c, state, notice, $"{how} (seed {c.RunSeed:X}; not yet written: {e.Message})", WriteFailed: true);
         }
     }

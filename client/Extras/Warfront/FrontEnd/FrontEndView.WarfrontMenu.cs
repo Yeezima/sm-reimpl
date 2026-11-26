@@ -134,6 +134,7 @@ public sealed partial class FrontEndView
             if (run.Kind == WarfrontRunKind.Newer) { fresh.Disabled = true; UiTooltip.Attach(fresh, "The campaign file on this PC needs a newer build. Update the game."); }   // the server would refuse a new run over it
             first ??= fresh;
             column.Add(fresh); Add(fresh);
+            var faction = WarfrontFactionPlate(); column.Add(faction); Add(faction);   // Chaos Warfront C3: the FACTION plate (Extras/Warfront/Chaos/FrontEndView.WarfrontFaction.cs)
         }
         // The friends' ways in, the same two as Classic PvP's lobby: the Host panel on the Warfront profile (this PC only, or LAN / Internet, up to 4 players) and the address page.
         var hostRow = Plate(WarfrontLocal.HostRow, () => ShowPage(_hostPage!), WarfrontLocal.CoopNote);
@@ -145,8 +146,7 @@ public sealed partial class FrontEndView
         if (WarfrontOnline.Enabled) { var online = Plate(WarfrontOnline.Row, WarfrontJoinOnline, WarfrontOnline.RowTooltip); column.Add(online); Add(online); }
         var customizer = Plate("Customizer", WarfrontCustomizer, "Your Warfront loadouts: Standard Marines, the Librarian, the Heretic (not yet)");
         column.Add(customizer); Add(customizer);
-        var reset = WarfrontResetPlate(running, progress);
-        column.Add(reset); Add(reset);
+        // RESET PROGRESSION moved to OPTIONS, INTERFACE under SCREEN FLASHES (owner 2026-11-25): the column ends with the customizer, BACK below it as before.
         Add(UiKit.MenuButton("Back", WarfrontBackToMain));
         page.SetStatus(run.CanContinue ? run.Cells : null, honor);
         if (_wfNotice.Length > 0) page.SetNote(_wfNotice, "refusal");
@@ -222,13 +222,13 @@ public sealed partial class FrontEndView
         _wfLastStatus = "";
         _wfLogged.Clear();
         _services.Content = ContentProfiles.WarfrontProfile;
-        if (HostedServer.Start(exe, WarfrontLocal.Options(port, _services.GameDir, newRun)) is { } error)
+        if (HostedServer.Start(exe, WarfrontLocal.Options(port, _services.GameDir, newRun, WarfrontLocalFaction)) is { } error)
         {
             Say(error, true);
             if (!CommandLineMusou) _services.Content = _services.Settings.ContentExtras;
             return;
         }
-        GD.Print($"warfront: supervisor started (pid {HostedServer.ProcessId}) on UDP {port}, this PC only, one human, new campaign {newRun}; kill-on-close job: {HostedServer.Guarded}");
+        GD.Print($"warfront: supervisor started (pid {HostedServer.ProcessId}) on UDP {port}, this PC only, one human, new campaign {newRun}, faction {SmSim.Extras.Warfront.Faction.WarfrontFactionPolicy.Key(WarfrontLocalFaction)}; kill-on-close job: {HostedServer.Guarded}");
         _wfPending = true;
         _wfStartedAt = Time.GetTicksMsec() / 1000.0;
         ShowWarfrontPrep();

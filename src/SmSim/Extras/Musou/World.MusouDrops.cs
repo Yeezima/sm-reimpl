@@ -97,8 +97,9 @@ public sealed partial class World
     void MusouDropFor(MusouKill kill)
     {
         if (kill.Cause == MusouDeathKind.World) return;   // a stranded enemy removed by the failsafe drops nothing
-        bool weapons = MusouWeaponDrops && MusouDropRules.Drops(kill.Type);
-        if (!weapons && !(MusouPowerupDrops && (MusouPowerupRules.Boss(kill.Type) || MusouPowerupRules.Elite(kill.Type)))) return;
+        var kind = _musou!.RuleKind(kill.Type);   // a Warfront Chaos battle's 'Ard-slot Chaos Marine drops as the 'Ard Boy (C2 review R3)
+        bool weapons = MusouWeaponDrops && MusouDropRules.Drops(kind);
+        if (!weapons && !(MusouPowerupDrops && (MusouPowerupRules.Boss(kind) || MusouPowerupRules.Elite(kind)))) return;
         if (!_musou!.TryGet(kill.Enemy, out var enemy)) return;
         var at = enemy.Position;
         // On the floor: the height of the enemy's walking-graph node (the flat ground without a graph).
@@ -133,6 +134,7 @@ public sealed partial class World
             foreach (int id in _musouDropPlayers) _musouDropVersions.Remove(id);
         }
         MusouPowerupsStep();   // World.MusouPowerups.cs: the buffs' upkeep, the fear list and the damage scales
+        WarfrontWalkOver();   // WARFRONT-HOOK: Warfront takes every drop but a weapon, and the ammunition boxes, by walking over them (owner 2026-11-25); nothing outside Warfront
         if (_musouDrops.Count == 0) { _musouHolds.Clear(); return; }
         if (_state == MatchState.Playing && _interactPresses.Count > 0)
         {
@@ -148,6 +150,9 @@ public sealed partial class World
                 {
                     var d = _musouDrops[i];
                     if (d.Player != id || d.State != MusouDropState.Live || !MusouInReach(d.Position, p.Position)) continue;
+                    bool walked = false;
+                    WarfrontWalksOver(in d, ref walked);   // WARFRONT-HOOK: in Warfront a press takes weapons only (the rest goes by walking over it)
+                    if (walked) continue;
                     float d2 = Vector3.DistanceSquared(d.Position, p.Position);
                     if (d2 < bestD) { bestD = d2; best = i; }
                 }
@@ -172,6 +177,12 @@ public sealed partial class World
             else if (d.State != MusouDropState.Live && Tick - d.EndTick >= keep) { _musouDrops.RemoveAt(i); MusouDropChanged(d.Player); }
         }
     }
+
+    /// <summary>Warfront (owner 2026-11-25): once a tick before the presses, each living human takes his own drops that are not weapons, and the ammunition boxes, that lie under his feet.</summary>
+    partial void WarfrontWalkOver();
+
+    /// <summary>Warfront: true for a drop taken by walking over it, which a press then leaves alone (no hold begins on it).</summary>
+    partial void WarfrontWalksOver(in MusouDrop drop, ref bool walks);
 
     /// <summary>Whether feet at <paramref name="feet"/> reach a drop at <paramref name="drop"/> (<see cref="MusouDropRules.ReachMetres"/> flat, <see cref="MusouDropRules.ReachHeight"/> up or down).</summary>
     public static bool MusouInReach(Vector3 drop, Vector3 feet)

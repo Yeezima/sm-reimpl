@@ -65,8 +65,33 @@ public static class WarfrontSquadClassOption
     /// <summary>The squad class a row's action names (<c>squad:assault</c>); null for any other action.</summary>
     public static SquadClass? OfAction(string? action) => action is not null && action.StartsWith(ActionPrefix, StringComparison.Ordinal) ? Parse(action[ActionPrefix.Length..]) : null;
 
-    /// <summary>The Librarian's squad rows, <paramref name="chosen"/> marked: one section, three choices, whole squad (no mixed squads).</summary>
+    /// <summary>
+    /// What the Librarian's SUPPORT step shows for his retainers since 2026-11-23 (the retainer brief and owner card 2: each of the two retainers rolls its own class, so no option sets the squad and the page must not promise
+    /// one): one section with one fixed row that says so. <paramref name="chosen"/> is no longer read (a stored option is kept in the profile and ignored by the server).
+    /// </summary>
     public static IReadOnlyList<MusouSection> Rows(SquadClass chosen) =>
+    [
+        new(Heading,
+        [
+            new MusouRow(RolledTitle, RolledText, MusouRowKind.Fixed),
+        ]),
+    ];
+
+    /// <summary>The section's heading, and the caption of the Librarian's RETAINERS slot card in the default Armoury layout (the card's value is <see cref="RolledTitle"/>, upper case as every card).</summary>
+    public const string Heading = "RETAINERS";
+
+    /// <summary>The <c>--step</c> name that opens the SUPPORT step with the RETAINERS row focused (test aid).</summary>
+    public const string StepAlias = "retainers";
+
+    /// <summary>Whether <paramref name="stepName"/> (a <c>--step</c> value) names the retainers' row.</summary>
+    public static bool IsRetainersStep(string? stepName) => stepName is not null && stepName.Trim().Equals(StepAlias, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The fixed row's words.</summary>
+    public const string RolledTitle = "Two retainers, random classes",
+        RolledText = "Each of your two retainers is a Tactical, Assault or Devastator Marine, rolled on its own for the run (for Chaos: a Chaos Marine, Raptor or Havoc), with a matching Classic loadout.";
+
+    /// <summary>The retired squad-class choices (owner 2026-11-17: the whole squad's class), kept for the stored option's tests; never shown since 2026-11-23.</summary>
+    public static IReadOnlyList<MusouSection> ChoiceRows(SquadClass chosen) =>
     [
         new("SQUAD CLASS",
         [

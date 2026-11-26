@@ -555,7 +555,7 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_17_carries_reactions_and_heavy_strikes_in_every_record_and_the_knockback_and_blindness_in_the_own()
     {
-        Assert.Equal(91, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true)
         {
             Alive = true, Reaction = ReactionKind.Stagger, ReactionDirection = ReactionDirection.Left, ReactionTicks = 7,
@@ -615,7 +615,7 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void The_fullest_snapshot_with_every_player_reacting_carries_the_guaranteed_shots_within_the_budget()
     {
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, true)
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, true)
         {
             Alive = true, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Primary = 254, Pistol = 253, MeleeChoice = 254,
             Reaction = ReactionKind.Stagger, ReactionDirection = ReactionDirection.Left, ReactionTicks = 255,

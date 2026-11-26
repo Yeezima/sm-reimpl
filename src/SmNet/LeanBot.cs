@@ -60,7 +60,7 @@ public static class LeanBot
     {
         "warfront-hooks-test", "weather-shelter-test", "hit-dir-demo", "log-hit-dir", "old-classic-hit-dir", "log-hit-dir-paths", "capture-fill", "observe-stage-front", "stab-recovery-test", "warfront-results-demo", "warfront-selftest", "warfront-station-test", "warfront-ui-demo", "anim-probe", "log-fov", "fov-demo", "old-melee-fov", "tracer-probe", "fire-test", "log-power-glow", "old-kraken-tracer", "tfw-bay-capture", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
         "frame-profile", "frame-stats", "perf-tour", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
-        "no-extra-transitions", "no-sprint-stop", "no-sprint-start", "no-turns", "log-sprint-edges", "feel-shots-dense",   // install transitions: the restore switches change what is drawn, so a lean bot would not show them
+        "no-extra-transitions", "brace-turn-test", "no-brace-turn", "brace-turn-cam", "no-sprint-stop", "no-sprint-start", "no-turns", "log-sprint-edges", "feel-shots-dense",   // install transitions: the restore switches change what is drawn, so a lean bot would not show them
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
         "slash-trace", "claw-crackle-demo", "claw-glow-test", "run-start-log", "log-sound", "sound-mix-roll-hop-proof", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every", "text-audit",
         "record-demo", "spectate", "ragdoll-debug", "death-orbit-test", "no-shader-sweep", "old-ragdoll-world", "hit-reaction-test", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-headshot-demo", "hud-score-demo", "hud-vitals-demo", "hud-clip-demo", "hud-plasma-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
@@ -113,6 +113,11 @@ public static class LeanBot
         "old-feel", "old-camera-impulse", "old-landing-settle", "old-recoil-weight", "old-flinch-weight", "old-strike-entry", "old-heavy-footfall", "log-weight-feel", "feel-shots", "jump-test-pound", "old-pack-idle", "old-air-legs", "log-air-legs", "jump-test-air-melee",
         // jump-pack death (2026-11-11): the mid-air death's before (the ragdoll at once)
         "no-jump-death",
+        // series-37 integration (2026-11-25): aids of branches made before T1's flag scan: the hammer dash clips' capture and log (transitions batch 2), the drawn Dir 180 strike log (sim/hammer-180), the melee camera's mode log and demos (camera/melee-orbit)
+        "dash-dirs-test", "log-dash", "log-hammer-180", "log-melee-mode", "melee-orbit-demo", "melee-orbit-demo-point",
+        "execution-demo", "execution-selftest", "execution-test", "executions-x6-demo", "executions-x6-test",   // executions X5/X6: the paired clips' viewer, the presenter's self-test and demo rows, the marker and overshield demos
+        "capture-1080", "capture-backdrop", "gore-streak-capture", "gore-streak-probe", "hit-dir-demo-power",   // gore streak and the gore-visibility line: the streak's capture stage and probe, the power flash in the hit-dir demo
+        "wf-breach-demo", "wf-breach-demo-daemons", "wf-breach-demo-frames", "wf-breach-demo-lift", "wf-breach-demo-range", "wf-duel-demo", "wf-duel-demo-shots",   // Chaos Warfront C4c/C5c: the breach look's and the duel HUD's synthetic stills
     };
 
     /// <summary>
@@ -122,7 +127,8 @@ public static class LeanBot
     /// <remarks>perf/pass-1's <c>--perf-probe</c> only reads the engine's and runtime's counters (frame times, renderer, memory, GC), so a lean bot keeps it: it
     /// measures the lean bot itself.</remarks>
     public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-no-capture-hud", "musou-old-capture-ui", "tfw-bot", "bot-trace", "test-window", "perf-probe", FrameProfileFlag,
-        "old-bot-throws" };   // bot-grenade-safety (owner 2026-11-11): the Classic PvP bots' old throws and no holds (it steers the bot, it draws nothing)
+        "old-bot-throws",   // bot-grenade-safety (owner 2026-11-11): the Classic PvP bots' old throws and no holds (it steers the bot, it draws nothing)
+        "bot-grenade-demo" };   // grenade-effects capture aid (2026-11-17): unclassified until T1's scan read FloatArg; it never switched lean off, so it stays lean (lead 40, 2026-11-25)
 
     /// <summary>A flag name that reads like a test aid (a probe, log, trace, capture, sweep, test, screenshot, wait or demo): each must be classified (tested).</summary>
     public static bool LooksLikeAid(string name) =>

@@ -42,20 +42,25 @@ public sealed partial class WarfrontBattleHud : Control
         _banner.Visible = false;
     }
 
+    /// <summary>Chaos Warfront C3: the words of the strip and the banner in a Chaos run (the Warboss as the Chaos Lord, the fortress as the stronghold); null: the Ork words.</summary>
+    public Func<string, string>? Relabel;
+    string Words(string text) => Relabel is { } r ? r(text) : text;
+
     /// <summary>The newest section (<paramref name="now"/>: seconds, any steady clock).</summary>
     public void Apply(in WarfrontBattleWire.Section s, double now)
     {
         _have = s.Kind != 0;
         Visible = _have;
         if (!_have) { _lastMessage = 0; return; }
-        string line = WarfrontBattleWire.Line(s);
+        string line = Words(WarfrontBattleWire.Line(s));
         if (line != _loggedLine) { _loggedLine = line; GD.Print($"warfront: battle HUD line (kind {s.Kind}, stage {s.Stage}): \"{line}\""); }
         WarfrontProgressDraw.Set(_line, line);
         WarfrontProgressDraw.Set(_clock, WarfrontBattleWire.Countdown(s));
         if (s.Message != 0 && s.Message != _lastMessage)
         {
-            WarfrontProgressDraw.Set(_banner, WarfrontBattleWire.MessageText(s.Message));
-            GD.Print($"warfront: battle banner {s.Message}: \"{WarfrontBattleWire.MessageText(s.Message)}\"");
+            string banner = Words(WarfrontBattleWire.MessageText(s.Message));
+            WarfrontProgressDraw.Set(_banner, banner);
+            GD.Print($"warfront: battle banner {s.Message}: \"{banner}\"");
             _bannerUntil = now + BannerSeconds;
         }
         _lastMessage = s.Message;

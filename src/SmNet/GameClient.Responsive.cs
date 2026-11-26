@@ -229,10 +229,13 @@ public sealed partial class GameClient
         // speculative contact took the victim's body out of the next real step).
         var (contact, clash, checks, noView, predicted) = (LastChargeContact, LastChargeClash, ChargeContactChecks, ChargeContactNoView, ChargeContactsPredicted);
         PlayerState next;
+        var aheadInput = Match.Predicted(_latestSnapshotTick, input);
+        if (ExtrasPredictInput is { } aheadExecutionInput) aheadInput = aheadExecutionInput(aheadInput, Tick + 1);   // EXTRAS-HOOK: executions: the speculative tick locks a locked executor as the prediction does
         using (PlayerCollision.Use(ClashBodies(Predicted, input, bodies)))
-            next = Combat.StepSelf(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out _, out _, Collision,
+            next = Combat.StepSelf(Predicted, aheadInput, _config, out _, out _, Collision,
                 input.MeleeTarget > 0 ? LockViewAt(input.ViewTick, Predicted) : null);
         next = PredictChargeContact(Predicted, next, input, null, bodies);
+        if (ExtrasPin is { } aheadPin) next = aheadPin(next, Tick + 1);   // EXTRAS-HOOK: executions: the speculative tick pinned as the server pins it
         (LastChargeContact, LastChargeClash, ChargeContactChecks, ChargeContactNoView, ChargeContactsPredicted) = (contact, clash, checks, noView, predicted);
         return _ahead = next;
     }

@@ -58,7 +58,7 @@ public sealed class WarfrontProgressStoreTests : IDisposable
     public void A_newer_file_is_never_touched_by_a_load_a_save_a_host_copy_or_a_reset()
     {
         string path = Path.Combine(_dir, "progress.json");
-        const string text = "{\"version\": 2, \"key\": \"a1b2c3d4e5f60718\", \"xp\": 99, \"somethingNew\": [1,2,3]}";
+        const string text = "{\"version\": 3, \"key\": \"a1b2c3d4e5f60718\", \"xp\": 99, \"somethingNew\": [1,2,3]}";
         File.WriteAllText(path, text);
         var s = Store();
         Assert.Equal(WarfrontProgressLoad.Newer, s.Load());
@@ -268,6 +268,24 @@ public sealed class WarfrontProgressStoreTests : IDisposable
         Assert.Null(m2.ApplyProgressSave(new byte[] { 9, 9, 9 }));
         Assert.False(m2.ProgressAcked);
     }
+    [Fact]
+    public void A_version_1_file_is_kept_once_as_a_dated_copy_before_its_conversion()
+    {
+        // T0 review (2026-11-25): progress.json's version 1 survives the conversion as progress-v1-<utc>.json
+        string path = Path.Combine(_dir, "progress.json");
+        string v1 = $$"""{"version":1,"key":"{{Key:x16}}","xp":12500,"picksTaken":2,"cards":[6,3],"extraRetainers":[{"className":"Tactical","name":"Cassian"}]}""";
+        File.WriteAllText(path, v1);
+        var s = Store();
+        Assert.Equal(WarfrontProgressLoad.Ok, s.Load());
+        Assert.Equal(1, s.Current!.PicksTaken);   // the Retainer card's pick given back
+        var copies = Directory.GetFiles(_dir, "progress-v1-*.json");
+        Assert.Single(copies);
+        Assert.Equal(v1, File.ReadAllText(copies[0]));
+        Assert.True(s.Save(s.Current));
+        Assert.Equal(WarfrontProgressLoad.Ok, Store().Load());
+        Assert.Single(Directory.GetFiles(_dir, "progress-v1-*.json"));   // once
+    }
+
 }
 
 static class ProgressStoreTestExtensions

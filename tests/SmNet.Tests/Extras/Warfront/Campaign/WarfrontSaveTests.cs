@@ -20,7 +20,6 @@ public class WarfrontSaveTests : IDisposable
         c.Embark();
         c.AddXp(11, 6000); c.AddXp(12, 2000);
         c.TryTakePick(11, 3); c.TryTakePick(11, 1);
-        c.Player(12)!.Squad.Add(new WarfrontRetainerRecord { Id = "r1", ClassName = "Tactical", Name = "Brother Aurelian" });
         c.TryDeploy(11, WarfrontTarget.Node(1), out _);
         c.BeginBattle();
         c.Resolve(WarfrontOutcome.Win);
@@ -53,7 +52,7 @@ public class WarfrontSaveTests : IDisposable
         WarfrontSave.Write(_dir, c);
         var back = WarfrontSave.Load(_dir)!;
         Assert.Equal(c.Player(11)!.Cards, back.Player(11)!.Cards);
-        Assert.Equal("Brother Aurelian", back.Player(12)!.Squad.Single().Name);
+        Assert.Empty(back.Player(12)!.Squad);   // no earned retainer records since save version 6 (they are dropped on every load)
 
         back.Join(13, out var kind);
         Assert.Equal(WarfrontJoinKind.Returning, kind);
@@ -92,9 +91,9 @@ public class WarfrontSaveTests : IDisposable
     public void Load_without_a_save_is_null_and_a_newer_or_bad_version_is_refused()
     {
         Assert.Null(WarfrontSave.Load(_dir));
-        var json = Busy().ToJson().Replace("\"Version\":5", "\"Version\":99");
+        var json = Busy().ToJson().Replace("\"Version\":" + WarfrontCampaign.SaveVersion, "\"Version\":99");
         Assert.Throws<WarfrontSaveNewerException>(() => WarfrontSave.FromJson(json));   // a newer build's save: told apart, never treated as damaged
-        Assert.Throws<InvalidDataException>(() => WarfrontSave.FromJson(Busy().ToJson().Replace("\"Version\":5", "\"Version\":0")));
+        Assert.Throws<InvalidDataException>(() => WarfrontSave.FromJson(Busy().ToJson().Replace("\"Version\":" + WarfrontCampaign.SaveVersion, "\"Version\":0")));
     }
 
     [Fact]

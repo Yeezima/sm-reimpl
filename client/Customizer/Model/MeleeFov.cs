@@ -1,4 +1,5 @@
 using System;
+using SmSim;
 
 namespace SmClient.Customizer.Model;
 
@@ -53,6 +54,12 @@ public sealed class MeleeFov
         Progress = Math.Clamp(Progress + (Wide ? step : -step), 0f, 1f);
         return change;
     }
+
+    /// <summary>
+    /// The moves that widen (owner 2026-11-15; kept by camera/melee-orbit, owner 2026-11-25: "keep the old widen rules"): any swing or heavy strike (knife and kick
+    /// included, <paramref name="meleeStep"/> above 0), the charge and the dash attack's lunge (any <see cref="RushPhase"/>), the ground pound's dive (<see cref="JumpPack.Pounding"/>).
+    /// </summary>
+    public static bool Widens(int meleeStep, RushPhase rush, JumpPhase jump) => meleeStep > 0 || rush != RushPhase.None || JumpPack.Pounding(jump);
 
     /// <summary>The widest horizontal field of view for this configured one: +<see cref="Widen"/> over it, never above <see cref="FovMath.Maximum"/> (a configured 120 stays 120; 0, unset, is the data's look).</summary>
     public static float WideTarget(float configuredHorizontal, float aspect) =>

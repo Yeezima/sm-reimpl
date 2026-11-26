@@ -28,7 +28,11 @@ public sealed record ResolvedDecal(DecalKind Kind, PaintDecal? Badge, EmblemHash
 
 /// <summary>An armour piece to draw: its slot, wargear name and visual packages (a torso carries its belt). <see cref="Forced"/>: the class forces it.</summary>
 /// <remarks>Paint the piece with the paint of <see cref="Slot"/> (the belt too: **interpretation**, the data's torso slot includes the belt). Slot "perk" is an item a perk puts on the body: the perk's own attachment (the Devastator's Iron Halo) or the class's forced replacement (the Havoc's icon).</remarks>
-public sealed record ResolvedPiece(string Slot, string Name, IReadOnlyList<string> Packages, bool Forced, string HelmetOverride = "");
+public sealed record ResolvedPiece(string Slot, string Name, IReadOnlyList<string> Packages, bool Forced, string HelmetOverride = "")
+{
+    /// <summary>armour-pieces-1125: the piece's baked materials get built paint masks (<see cref="ArmourPiece.BuiltMasks"/>); the renderer asks its piece cache for them.</summary>
+    public bool BuiltMasks { get; init; }
+}
 
 /// <summary>
 /// What a renderer needs to dress a marine. Pieces are in <see cref="CustomizationCatalog.ArmourSlots"/> order (hidden slots left out; forced extras last),
@@ -122,9 +126,11 @@ public static partial class AppearanceResolver
             ArmourPiece? piece = null;
             string? wanted = null;
             if (predefined is null && code.Piece((ArmourSlot)i) != AppearanceCode.DefaultIndex) piece = race.PiecesFor(slot)[code.Piece((ArmourSlot)i)];
-            else if (defaultSet is not null && defaultSet.Items.TryGetValue(slot, out wanted))
+            // armour-pieces-1125 repair: a reserved place (a piece this install lacks) is drawn as the class's default piece; the code keeps the index.
+            if (piece is { Reserved: true }) { notes.Add($"{slot}: piece {piece.Name} is not offered (hidden, or not in this install); the default piece is drawn"); piece = null; }
+            if (piece is null && defaultSet is not null && defaultSet.Items.TryGetValue(slot, out wanted))
             {
-                piece = race.PiecesFor(slot).FirstOrDefault(p => p.Name.Equals(wanted, StringComparison.OrdinalIgnoreCase))
+                piece = race.OfferedPiecesFor(slot).FirstOrDefault(p => p.Name.Equals(wanted, StringComparison.OrdinalIgnoreCase))
                     ?? defaultSet.Pieces.GetValueOrDefault(slot) ?? options.PieceLookup?.Invoke(wanted);
                 if (piece is null)
                 {
@@ -133,7 +139,7 @@ public static partial class AppearanceResolver
                     continue;
                 }
             }
-            if (piece is not null) slotPieces[slot] = new ResolvedPiece(slot, piece.Name, piece.Packages, false, piece.HelmetOverride);
+            if (piece is not null) slotPieces[slot] = new ResolvedPiece(slot, piece.Name, piece.Packages, false, piece.HelmetOverride) { BuiltMasks = piece.BuiltMasks };
         }
 
         // Class overrides: forced pieces.

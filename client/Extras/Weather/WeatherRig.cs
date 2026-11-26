@@ -7,15 +7,15 @@ namespace SmClient.Extras.Weather;
 /// <summary>
 /// The weather's own things in the world (weather W1 and W2; client only, presentation only, **ours**): falling rain around the camera (Rain and the Thunderstorm), drifting ash (Ash Squall), sparse embers (Ember Wind), a
 /// faint sky-only glow for thunder (reduced flash by default; the full-flash setting adds a brighter pulse), and their sounds, all made in code (filtered noise: no sample, no original file; the install's own sounds are posted by the
-/// networked view). Particles are CPU particles in every renderer, cut to a third in the Compatibility renderer and in safe mode, to a quarter with the lighting preset off. Loudness is capped (spec "Weather (W2)"): rain at most -22 dB,
+/// networked view). Rain, grit, flakes and embers are world fields wrapped round the camera (<see cref="WeatherField"/>, series 37), splashes, mist, fog cards and dust CPU particles; all counts scale with the graphics preset (a third in safe mode, a quarter with the lighting preset off). Loudness is capped (spec "Weather (W2)"): rain at most -22 dB,
 /// wind at most <see cref="WindLoudestDb"/>, thunder at most <see cref="NearThunderDb"/>, so gunfire, Waaagh, rockets and the beacon stay audible. Built when a look needs it and freed when it ends: no weather leaves a node or a sound behind (the weather bus goes with the last rig).
 /// <para>W4: <see cref="SetShelter"/> (the view's upward rays, smoothed by <see cref="WeatherShelter"/>) fades the near layers out under cover and keeps the far layer only outside a hole round the player, and slides the weather bus's low-pass to the muffled indoor mix (<see cref="WeatherShelterMix"/>); <see cref="StepTrim"/> (<see cref="WeatherTrim"/>) quietly lowers the particle counts when frames run long.</para>
 /// <para>Rain is four layers (W2 pass 2, the owner: "thicker and more believable"): a dense near layer, a farther thinner layer, splashes on the ground round the player and a little low mist. Counts at the High preset:
-/// <see cref="RainNearCount"/> + <see cref="RainFarCount"/> + <see cref="SplashCount"/> + <see cref="MistCount"/> CPU particles; all of them scale by <see cref="QualityScale"/>.</para>
+/// <see cref="RainNearCount"/> + <see cref="RainFarCount"/> drops in the two rain fields and <see cref="SplashCount"/> + <see cref="MistCount"/> CPU particles; all of them scale by <see cref="QualityScale"/>.</para>
 /// </summary>
 public sealed partial class WeatherRig : Node3D
 {
-    /// <summary>Rain streaks in the near layer (a 24 m box, falling 22 to 28 m/s), in the far layer (an 80 m box, thinner and fainter), ground splashes and mist puffs, each at the High lighting preset; the others scale them.</summary>
+    /// <summary>Rain streaks in the near field (a 24 m box, falling 25 m/s), in the far field (an 80 m box, 23 m/s, thinner and fainter), ground splashes and mist puffs, each at the High lighting preset; the others scale them.</summary>
     public const int RainNearCount = 1300, RainFarCount = 600, SplashCount = 260, MistCount = 28;
     /// <summary>The loudest the rain hiss gets, in dB, at the peak of Rain.</summary>
     public const float LoudestDb = -22f, SilentDb = -60f;
@@ -24,8 +24,10 @@ public sealed partial class WeatherRig : Node3D
     /// <summary>Ash flecks at the High preset (the dense emitter; the warning's emitter is a fifth of it), embers at the High preset.</summary>
     public const int AshCount = 2400, EmberCount = 70;   // repair 2: the grit streaks at High (repair 1's 1300 dots and W2's 800 read as a few specks); the soft flakes are a fifth of it
 
-    CpuParticles3D? _rain, _rainFar, _splash, _mist;
-    ShaderMaterial? _rainMaterial, _rainFarMaterial;
+    WeatherField? _rain, _rainFar;   // rain motion (series 37): world-anchored fields wrapped round the camera, not emitters
+    CpuParticles3D? _splash, _mist;
+    ShaderMaterial? _rainMaterial => _rain?.Material;
+    ShaderMaterial? _rainFarMaterial => _rainFar?.Material;
     StandardMaterial3D? _splashMaterial, _mistMaterial;
     AudioStreamPlayer? _hiss;
 
@@ -82,11 +84,12 @@ public sealed partial class WeatherRig : Node3D
     {
         Set(_rain, RainNearCount, NearFloor); Set(_rainFar, RainFarCount, FarFloor); Set(_splash, SplashCount, SplashFloor); Set(_mist, MistCount, MistFloor);
         Set(_ashWarn, (int)(AshCount * 0.2f), AshWarnFloor, scale: false); Set(_ashMain, AshCount, AshMainFloor); Set(_embers, EmberCount, EmberFloor); Set(_fog, FogCount, FogFloor); Set(_dust, DustCount, DustFloor);
-        void Set(CpuParticles3D? p, int baseCount, int floor, bool scale = true)
+        void Set(GeometryInstance3D? layer, int baseCount, int floor, bool scale = true)
         {
-            if (p is null) return;
+            if (layer is null) return;
             int n = scale ? Count(baseCount, floor) : WeatherTrim.Count(Math.Max(floor, (int)(baseCount * QualityScale())), floor, Trim.Level);
-            if (p.Amount != n) p.Amount = n;
+            if (layer is CpuParticles3D p && p.Amount != n) p.Amount = n;
+            else if (layer is WeatherField f && f.Amount != n) f.Amount = n;
         }
     }
 
@@ -110,13 +113,17 @@ public sealed partial class WeatherRig : Node3D
     }
 
     /// <summary>
-    /// Once a frame: follows the camera and shows what the preset at its phase and intensity needs (rain, ash, embers, the sky glow, the wind); anything not needed stops at once.
+    /// Once a frame: follows the camera and shows what the preset at its phase and intensity needs (rain, ash, embers, the sky glow, the wind); anything not needed is switched off at once (the precipitation fields then fade
+    /// out over 0.5 s with their last look, the beds over 0.5 s, the sky over its blend).
     /// <paramref name="groundY"/>: the height of the ground under the player (splashes and mist lie there); null takes 1.8 m under the camera (an estimate: the camera is the head's height, higher in third person).
     /// </summary>
     public void Update(WeatherState st, float intensity, Vector3 cameraAt, float? groundY = null, Vector3? leadFrom = null)
     {
         GlobalPosition = cameraAt;
         _realDt = _frameDt.Step((long)Time.GetTicksMsec());   // repair 3 (review): sampled every update, fade or not
+        ulong usec = Time.GetTicksUsec();   // rain motion repair: the fields move on microsecond time (the millisecond clock alternates 16 and 17 ms steps at 60 fps)
+        _fieldDt = _fieldUsec == 0 || usec < _fieldUsec ? 0 : Math.Min(0.25, (usec - _fieldUsec) / 1e6);
+        _fieldUsec = usec;
         TrackVelocity(leadFrom ?? cameraAt);   // repair 3 (review): the player's own place when the view gives it, so a third-person camera whip does not shift the emission; the camera otherwise
         float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
         float wind = WeatherPlan.Wind(st.Id, i, st.Elapsed);
@@ -126,19 +133,26 @@ public sealed partial class WeatherRig : Node3D
         bool nearOn = rain && Shelter < WeatherShelterMix.NearOffAbove;   // under cover the near layers have stopped; the far layer keeps raining outside its hole
         if (rain) EnsureRain();
         MixShelter();
-        if (_rain is not null)
+        if (_rain is not null && !rain)
+        {
+            // repair 2: the preset no longer rains (its share is 0): every layer is switched off and keeps its last fall, lean and tint while it fades, so nothing steps to a fainter look or snaps its slant in the fade (as the grit and flakes do)
+            _rain.Emitting = false;
+            if (_rainFar is not null) { _rainFar.Emitting = false; FarHole(); }
+            if (_splash is not null) _splash.Emitting = false;
+            if (_mist is not null) _mist.Emitting = false;
+        }
+        else if (_rain is not null)
         {
             float yaw = WeatherPlan.WindYaw(st.Id);
             float slant = 0.08f + (st.Id == WeatherId.Thunderstorm ? 0.35f * wind : 0.05f);   // the wind leans the rain
             var dir = new Vector3(MathF.Cos(yaw) * slant, -1f, MathF.Sin(yaw) * slant);
-            _rain.Emitting = nearOn; _rain.Direction = dir;
-            // the weather finish: the emitters lead the camera by its ground velocity times the time a drop takes to fall to eye level, so a fast sideways move never outruns the rain (no dry gap)
-            var lead = LeadVelocity;
-            _rain.Position = new Vector3(lead.X * NearLeadSeconds, NearHeightM, lead.Z * NearLeadSeconds);
+            // rain motion (series 37): the drops are fixed world points of a field wrapped round the camera (WeatherField); it falls at the drops' speed along the wind's lean, so no camera speed or direction outruns it
+            var fall = dir.Normalized();
+            _rain.Emitting = nearOn; _rain.Velocity = fall * NearFallSpeed;
+            var lead = LeadVelocity;   // the splashes' lead only
             if (_rainFar is not null)
             {
-                _rainFar.Emitting = rain; _rainFar.Direction = dir; FarHole();
-                _rainFar.Position = _farHole ? new Vector3(0f, FarHeightM, 0f) : new Vector3(lead.X * FarLeadSeconds, FarHeightM, lead.Z * FarLeadSeconds);   // the ring under cover stays round the player
+                _rainFar.Emitting = rain; _rainFar.Velocity = fall * FarFallSpeed; FarHole();
             }
             // the streaks' strength follows the phase; a heavier fall draws a little brighter; the colour leans toward the scene's own haze so the rain belongs to the map's light
             var haze = SceneHaze();
@@ -178,10 +192,23 @@ public sealed partial class WeatherRig : Node3D
         UpdateFog(st, i, cameraAt, groundY);
         UpdateDust(st, i, wind, cameraAt, groundY);
         UpdateSky(st, i, wind);
+        ApplyFidelity();   // weather fidelity: the install's sprites, the High tier's soft fade, the grade's light on every layer but the embers
+        StepField(_rain); StepField(_rainFar); StepField(_ashMain); StepField(_ashWarn); StepField(_embers);   // every field every frame: its motion, its switch's fade, the far ring's radii (no per-frame array)
     }
 
+    void StepField(WeatherField? f) => f?.Advance(_fieldDt);
+
+    ulong _fieldUsec;
+    double _fieldDt;
+
+    /// <summary>Test seam (selftest): every field's fade and ease ends at once.</summary>
+    public void SettleFields() { _rain?.Settle(); _rainFar?.Settle(); _ashMain?.Settle(); _ashWarn?.Settle(); _embers?.Settle(); }
+
+    /// <summary>A field is still fading in or out (the rig stays until its drops have faded).</summary>
+    public bool FieldsFading => _rain is { Fading: true } || _rainFar is { Fading: true } || _ashMain is { Fading: true } || _ashWarn is { Fading: true } || _embers is { Fading: true };
+
     /// <summary>Anything of the rig is showing or sounding (the view keeps the rig while this holds).</summary>
-    public bool Active => Raining || FxActive || Fogging || Dusting || SkyShowing || BedsFading;
+    public bool Active => Raining || FxActive || Fogging || Dusting || SkyShowing || BedsFading || FieldsFading;
 
     // ---- repair 2: the beds' fades and the level aid ----
 
@@ -205,16 +232,11 @@ public sealed partial class WeatherRig : Node3D
         bool hole = _farHole ? Shelter > 0.2f : Shelter > WeatherShelterMix.HoleAbove;
         if (hole == _farHole) return;
         _farHole = hole;
-        if (hole)
-        {
-            _rainFar.EmissionShape = CpuParticles3D.EmissionShapeEnum.Ring;
-            _rainFar.EmissionRingAxis = Vector3.Up;
-            _rainFar.EmissionRingHeight = 0.4f;
-            _rainFar.EmissionRingRadius = 44f;
-            _rainFar.EmissionRingInnerRadius = WeatherShelterMix.FarHoleRadiusM;
-        }
-        else _rainFar.EmissionShape = CpuParticles3D.EmissionShapeEnum.Box;
+        _rainFar.SetHole(hole ? WeatherShelterMix.FarHoleRadiusM + WeatherField.HoleSoftM : 0f, hole ? FarRingM : WeatherField.RingOff);   // rain motion: the ring is the field's own dry middle, drawn in the shader: no far drop within W4's 14 m (the fade runs 14 to 16 m), out to 44 m, its radii easing over 0.5 s
     }
+
+    /// <summary>The far layer's ring under cover reaches this far (m) from the player, as the W4 ring emitter did.</summary>
+    public const float FarRingM = 44f;
 
     /// <summary>Whether the far layer is raining in its ring (selftest).</summary>
     public bool FarHoleOn => _farHole;
@@ -273,51 +295,14 @@ public sealed partial class WeatherRig : Node3D
     {
         if (_rain is null)
         {
-            _rainMaterial = RainMaterial(new Color(0.74f, 0.80f, 0.90f, 0.2f), 1.2f);
-            _rain = new CpuParticles3D
-            {
-                Name = "Rain",
-                Amount = Count(RainNearCount, NearFloor),
-                Lifetime = 0.9,
-                Preprocess = 1.0,
-                LocalCoords = false,
-                EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
-                EmissionBoxExtents = new Vector3(12f, 0.2f, 12f),
-                Direction = new Vector3(0.10f, -1f, 0.04f),
-                Spread = 2.0f,
-                Gravity = Vector3.Zero,
-                InitialVelocityMin = 22f,
-                InitialVelocityMax = 28f,
-                ScaleAmountMin = 0.7f,   // some variance in length and thickness
-                ScaleAmountMax = 1.3f,
-                Mesh = new QuadMesh { Size = new Vector2(StreakWidthM, 0.8f), Material = _rainMaterial },   // a streak is the speed times a 0.03 s shutter; the soft profile across it is the shader's
-                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                Position = new Vector3(0f, NearHeightM, 0f),
-                VisibilityAabb = new Aabb(new Vector3(-40f, -30f, -40f), new Vector3(80f, 40f, 80f)),   // wide enough for the drops a fast move leaves behind the led emitter
-            };
+            // rain motion (series 37): each layer is a wrapped world field (WeatherField), the same drops per cubic metre as the emitters had round eye level (their counts over the column they fell through)
+            _rain = new WeatherField("Rain", WeatherField.Kind.Streak, Capacity(RainNearCount, NearFloor), Count(RainNearCount, NearFloor), NearBox, new Vector2(StreakWidthM, 0.8f), 0.7f, 1.3f, 1.2f, 0f, 0x52A1)   // a streak is the speed times a 0.03 s shutter; the soft profile across it is the shader's
+            { Position = new Vector3(0f, NearCentreM, 0f) };
+            SetStreak(_rain.Material, new Vector3(0.10f, -1f, 0.04f), new Color(0.74f, 0.80f, 0.90f), 0.2f);
             AddChild(_rain);
-            _rainFarMaterial = RainMaterial(new Color(0.70f, 0.76f, 0.86f, 0.1f), 3f);
-            _rainFar = new CpuParticles3D
-            {
-                Name = "RainFar",
-                Amount = Count(RainFarCount, FarFloor),
-                Lifetime = 1.2,
-                Preprocess = 1.2,
-                LocalCoords = false,
-                EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
-                EmissionBoxExtents = new Vector3(40f, 0.2f, 40f),
-                Direction = new Vector3(0.10f, -1f, 0.04f),
-                Spread = 3.0f,
-                Gravity = Vector3.Zero,
-                InitialVelocityMin = 20f,
-                InitialVelocityMax = 26f,
-                ScaleAmountMin = 0.7f,
-                ScaleAmountMax = 1.4f,
-                Mesh = new QuadMesh { Size = new Vector2(StreakFarWidthM, 0.6f), Material = _rainFarMaterial },
-                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                Position = new Vector3(0f, FarHeightM, 0f),
-                VisibilityAabb = new Aabb(new Vector3(-72f, -34f, -72f), new Vector3(144f, 48f, 144f)),
-            };
+            _rainFar = new WeatherField("RainFar", WeatherField.Kind.Streak, Capacity(RainFarCount, FarFloor), Count(RainFarCount, FarFloor), FarBox, new Vector2(StreakFarWidthM, 0.6f), 0.7f, 1.4f, 3f, 0f, 0x52A2)
+            { Position = new Vector3(0f, FarCentreM, 0f) };
+            SetStreak(_rainFar.Material, new Vector3(0.10f, -1f, 0.04f), new Color(0.70f, 0.76f, 0.86f), 0.1f);
             AddChild(_rainFar);
             _splashMaterial = new StandardMaterial3D
             {
@@ -400,9 +385,18 @@ public sealed partial class WeatherRig : Node3D
 
     // ---- the weather finish: rain coverage at speed and the streaks' look ----
 
-    /// <summary>The near and far emitters' heights over the camera (m), and the seconds a drop takes from them to eye level (height over the mean fall speed: 13 m at 25 m/s, 16 m at 23 m/s); the splashes' lead is half their 0.3 s life.</summary>
-    public const float NearHeightM = 13f, FarHeightM = 16f;
-    public const float NearLeadSeconds = 0.52f, FarLeadSeconds = 0.70f, SplashLeadSeconds = 0.15f;
+    /// <summary>
+    /// Rain motion (series 37): the near and far rain fields' boxes round the camera (m, full size), their middles' heights over the camera (m) and their fall speeds (m/s, the mean of the old emitters' 22 to 28 and 20 to 26).
+    /// The near box spans 13 m over the camera to 11 m under it and the far one 16 m over to 12 m under, the column the old emitters' drops fell through at rest; the counts are unchanged, so the drops per cubic metre are too.
+    /// </summary>
+    public static readonly Vector3 NearBox = new(24f, 24f, 24f), FarBox = new(80f, 28f, 80f);
+    public const float NearCentreM = 1f, FarCentreM = 2f, NearFallSpeed = 25f, FarFallSpeed = 23f;
+    /// <summary>The splashes' lead (s, half their 0.3 s life): they are still short-lived ground emitters round the player, led by the camera's ground velocity.</summary>
+    public const float SplashLeadSeconds = 0.15f;
+
+    /// <summary>A field's drops allocated: the count at the highest preset scale (1.2), so a change of preset or trim only changes how many are drawn.</summary>
+    static int Capacity(int baseCount, int floor) => Math.Max(floor, (int)(baseCount * 1.2f));
+
     /// <summary>The lead's speed cap (m/s; above any player move: a jump-pack boost, a fall), the smoothing of the measured camera velocity (s); a step longer than <see cref="TeleportM"/> and than 1.5 times the cap over the frame (a respawn, a camera cut) resets it.</summary>
     public const float LeadMaxSpeed = 30f, LeadSmoothSeconds = 0.12f, TeleportM = 3f;
     /// <summary>The streak quads' widths (m): the shader's soft profile across them makes the drawn core about half of it.</summary>
@@ -444,8 +438,8 @@ public sealed partial class WeatherRig : Node3D
         if (_velocity.Length() > LeadMaxSpeed) _velocity = _velocity.Normalized() * LeadMaxSpeed;
     }
 
-    /// <summary>The near emitter's place relative to the camera (selftest).</summary>
-    public Vector3 RainEmitterOffset => _rain?.Position ?? Vector3.Zero;
+    /// <summary>The splashes' lead relative to the camera (m; the stills' log). Rain motion: the rain itself no longer leads (its field is wrapped round the camera).</summary>
+    public Vector3 RainEmitterOffset => LeadVelocity * SplashLeadSeconds;
 
     Color _haze = new(0.6f, 0.65f, 0.72f);
     double _hazeClock = 1.0;
@@ -465,61 +459,18 @@ public sealed partial class WeatherRig : Node3D
     /// <summary>The streak colour: the rain's own cool grey moved a third of the way to the scene's haze, so it sits in the map's light instead of over it.</summary>
     static Color RainTint(Color own, Color haze) => own.Lerp(new Color(Math.Clamp(haze.R, 0.2f, 1f), Math.Clamp(haze.G, 0.2f, 1f), Math.Clamp(haze.B, 0.2f, 1f)), 0.33f);
 
+    /// <summary>Rain motion repair 3: the per-frame shader parameters' names, made once (a string key allocates a StringName per call).</summary>
+    static readonly StringName PTint = "tint", PFallDir = "fall_dir";
+
     static void SetStreak(ShaderMaterial? m, Vector3 fall, Color tint, float alpha)
     {
         if (m is null) return;
-        m.SetShaderParameter("fall_dir", fall);
-        m.SetShaderParameter("tint", new Color(tint.R, tint.G, tint.B, Math.Clamp(alpha, 0f, 1f)));
+        m.SetShaderParameter(PFallDir, fall);
+        m.SetShaderParameter(PTint, new Color(tint.R, tint.G, tint.B, Math.Clamp(alpha, 0f, 1f)));
     }
 
     /// <summary>The near streaks' alpha now (selftest).</summary>
     public float RainAlpha => _rainMaterial?.GetShaderParameter("tint").AsColor().A ?? 0f;
-
-    static Shader? _streakShader;
-
-    /// <summary>
-    /// The rain streak (the weather finish): a quad turned about the fall direction to face the camera (an axial billboard), so a streak always lies along the fall and leans with the wind whatever the camera's pitch
-    /// (the full billboard before tilted with the view); a soft Gaussian profile across it and a taper along it (a faint tail, a brighter head, a short soft tip) instead of a flat rectangle; drops nearer than about
-    /// <paramref name="nearFadeM"/> fade out (no smear across the lens); the scene's fog still applies, so far rain sinks into the haze. Unshaded, no depth write, both renderers.
-    /// </summary>
-    static ShaderMaterial RainMaterial(Color color, float nearFadeM)
-    {
-        _streakShader ??= new Shader
-        {
-            Code = """
-                shader_type spatial;
-                render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
-                uniform vec4 tint : source_color = vec4(0.74, 0.80, 0.90, 0.3);
-                uniform vec3 fall_dir = vec3(0.0, -1.0, 0.0);
-                uniform float near_fade = 1.2;
-                varying float v_fade;
-                void vertex() {
-                    vec3 centre = MODEL_MATRIX[3].xyz;
-                    float sc = length(MODEL_MATRIX[1].xyz);
-                    vec3 axis = normalize(fall_dir);
-                    vec3 to_cam = CAMERA_POSITION_WORLD - centre;
-                    float dist = max(length(to_cam), 1e-4);
-                    vec3 side = cross(axis, to_cam / dist);
-                    float sl = length(side);
-                    side = sl > 1e-3 ? side / sl : vec3(1.0, 0.0, 0.0);
-                    vec3 world = centre + side * (VERTEX.x * sc) - axis * (VERTEX.y * sc);
-                    POSITION = PROJECTION_MATRIX * (VIEW_MATRIX * vec4(world, 1.0));
-                    v_fade = smoothstep(0.35, 0.35 + near_fade, dist);
-                }
-                void fragment() {
-                    float x = (UV.x - 0.5) * 2.0;
-                    float across = exp(-x * x * 3.5);
-                    float along = mix(0.25, 1.0, smoothstep(0.0, 0.85, UV.y)) * (1.0 - smoothstep(0.9, 1.0, UV.y)) * smoothstep(0.0, 0.08, UV.y);
-                    ALBEDO = tint.rgb * COLOR.rgb;
-                    ALPHA = clamp(tint.a * across * along * v_fade * COLOR.a, 0.0, 1.0);
-                }
-                """,
-        };
-        var m = new ShaderMaterial { Shader = _streakShader };
-        m.SetShaderParameter("tint", color);
-        m.SetShaderParameter("near_fade", nearFadeM);
-        return m;
-    }
 
     /// <summary>Three seconds of filtered noise as a looping 16-bit mono stream: a steady hiss, brighter than a rumble, made in code (no sample).</summary>
     static AudioStreamWav SynthesizedHiss()

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using SmMapmaker;
@@ -6,7 +8,7 @@ namespace SmMapmakerEditor;
 
 /// <summary>
 /// What a gameplay piece looks like in the editor (docs/mapmaker.md "Pieces"): solid pieces as grey shapes, markers as tinted see-through boxes or cylinders with a green arrow on the
-/// side they face (+Y). Built in the document frame (Z up, the unit shape; the object's own scale makes the size) under a node whose basis converts to Y up, like every content node.
+/// side they face (+Y). Built in the document frame (Z up, the piece's unit-space shape: its edited mesh or its stock shape; the object's own scale makes the size) under a node whose basis converts to Y up, like every content node.
 /// Nothing here is ever saved.
 /// </summary>
 public static class PieceViews
@@ -25,54 +27,58 @@ public static class PieceViews
         _ => Solid,
     };
 
-    public static Node3D Build(PieceSpec piece, out Aabb bounds)
+    public static Node3D Build(PieceSpec piece, out Aabb bounds) => Build(piece, null, out bounds);
+
+    /// <summary>
+    /// The piece drawn from its editable shape (docs/mapmaker.md "Edit mode contract"): <paramref name="mesh"/> (the stored mesh, or a drag's preview), else its stock shape
+    /// (<see cref="EditMesh.Stock(PieceSpec)"/>), in unit space; the object's scale still sizes it. The faces are the shape's own polygons, so Edit mode's vertex dots sit on the drawn corners.
+    /// </summary>
+    /// <para>An unedited round piece (capture point, round players-only wall) keeps its old drawing, a smooth circle, because that is how it plays (contract v2): a capture point is a circle
+    /// of its X size (pass <paramref name="scale"/> so its Y is drawn at the X size too; MeshDims reads (X, X, Z)), and its first edit turns it into the 16-gon of its topology.</para>
+    public static Node3D Build(PieceSpec piece, EditMesh? mesh, out Aabb bounds, System.Numerics.Vector3? scale = null)
     {
-        bounds = ContentFactory.ToGodot(new Bounds(new System.Numerics.Vector3(-0.5f, -0.5f, 0f), new System.Numerics.Vector3(0.5f, 0.5f, 1f)));
+        var shapeMesh = mesh ?? EditMesh.Stock(piece);
+        bool circle = mesh is null && (piece.Kind == PieceKind.CapturePoint || piece is { Kind: PieceKind.MoveWall, IsCylinder: true });
+        float yFix = circle && piece.Kind == PieceKind.CapturePoint && scale is { } sc && sc.Y != 0 && float.IsFinite(sc.X / sc.Y) ? MathF.Abs(sc.X / sc.Y) : 1f;
+        System.Numerics.Vector3[] tv; int[] ti;
+        List<(System.Numerics.Vector3, System.Numerics.Vector3)> outline = new();
+        if (circle)
+        {
+            (tv, ti) = PieceMesh.Cylinder(40);
+            tv = tv.Select(v => new System.Numerics.Vector3(v.X, v.Y * yFix, v.Z)).ToArray();
+            const int n = 24;
+            for (int i = 0; i < n; i++)
+            {
+                float a0 = i * Mathf.Tau / n, a1 = (i + 1) * Mathf.Tau / n;
+                System.Numerics.Vector3 P(float a, float z) => new(0.5f * MathF.Cos(a), 0.5f * MathF.Sin(a) * yFix, z);
+                outline.Add((P(a0, 0), P(a1, 0))); outline.Add((P(a0, 1), P(a1, 1)));
+                if (i % 6 == 0) outline.Add((P(a0, 0), P(a0, 1)));
+            }
+            bounds = ContentFactory.ToGodot(new Bounds(new System.Numerics.Vector3(-0.5f, -0.5f * yFix, 0f), new System.Numerics.Vector3(0.5f, 0.5f * yFix, 1f)));
+        }
+        else
+        {
+            (tv, ti, _) = shapeMesh.Triangulate();
+            foreach (var (a, b) in shapeMesh.Edges) outline.Add((shapeMesh.Vertices[a], shapeMesh.Vertices[b]));
+            bounds = ContentFactory.ToGodot(shapeMesh.UnitBounds());
+        }
         var root = new Node3D { Basis = Frame.C };
         var colour = ColourOf(piece);
         var info = piece.Info;
-        (System.Numerics.Vector3[] V, int[] I) shape = piece.Kind == PieceKind.CapturePoint || piece is { Kind: PieceKind.MoveWall, Shape: PieceSpec.CylinderShape } ? PieceMesh.Cylinder(40)
-            : PieceMesh.Unit(piece.Kind) ?? PieceMesh.MarkerBox();
-        var mesh = Flat(shape.V, shape.I);
-        StandardMaterial3D material;
-        if (info.Solid && piece.Kind != PieceKind.CollisionBox)
-            material = new StandardMaterial3D { AlbedoColor = colour, Roughness = 0.9f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
-        else
-            material = new StandardMaterial3D
-            {
-                AlbedoColor = new Color(colour, piece.Kind == PieceKind.CollisionBox ? 0.18f : piece.Kind is PieceKind.MoveWall or PieceKind.Cover ? 0.24f : 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            };
-        root.AddChild(new MeshInstance3D { Name = "Shape", Mesh = mesh, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+        var drawn = Flat(tv, ti);
+        var material = DefaultMaterial(piece);
+        root.AddChild(new MeshInstance3D { Name = "Shape", Mesh = drawn, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
         // Markers and ramps show which way they face (+Y) with a green arrow; the outline of a marker is a wire box in its colour.
         bool arrow = piece.Kind is PieceKind.SpawnArea or PieceKind.Blocker or PieceKind.Ramp;
         bool wire = !info.Solid;
         if (arrow || wire)
         {
             var lines = new ImmediateMesh();
-            if (wire && piece.IsCylinder)
+            if (wire)
             {
+                // the outline is the shape's own edges (a round piece shows its sides), so an edited marker's wire follows its edited corners
                 lines.SurfaceBegin(Mesh.PrimitiveType.Lines);
-                const int n = 24;
-                for (int i = 0; i < n; i++)
-                {
-                    float a0 = i * Mathf.Tau / n, a1 = (i + 1) * Mathf.Tau / n;
-                    foreach (float z in new[] { 0f, 1f })
-                    {
-                        lines.SurfaceAddVertex(new Vector3(0.5f * Mathf.Cos(a0), 0.5f * Mathf.Sin(a0), z));
-                        lines.SurfaceAddVertex(new Vector3(0.5f * Mathf.Cos(a1), 0.5f * Mathf.Sin(a1), z));
-                    }
-                    if (i % 6 == 0) { lines.SurfaceAddVertex(new Vector3(0.5f * Mathf.Cos(a0), 0.5f * Mathf.Sin(a0), 0)); lines.SurfaceAddVertex(new Vector3(0.5f * Mathf.Cos(a0), 0.5f * Mathf.Sin(a0), 1)); }
-                }
-                lines.SurfaceEnd();
-            }
-            else if (wire)
-            {
-                lines.SurfaceBegin(Mesh.PrimitiveType.Lines);
-                foreach (var (a, b) in new[] { (0, 1), (2, 3), (4, 5), (6, 7), (0, 2), (1, 3), (4, 6), (5, 7), (0, 4), (1, 5), (2, 6), (3, 7) })
-                {
-                    lines.SurfaceAddVertex(Corner(a)); lines.SurfaceAddVertex(Corner(b));
-                }
+                foreach (var (p, q) in outline) { lines.SurfaceAddVertex(new Vector3(p.X, p.Y, p.Z)); lines.SurfaceAddVertex(new Vector3(q.X, q.Y, q.Z)); }
                 lines.SurfaceEnd();
             }
             root.AddChild(new MeshInstance3D { Name = "Outline", Mesh = lines, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
@@ -96,7 +102,37 @@ public static class PieceViews
         return root;
     }
 
-    static Vector3 Corner(int i) => new((i & 1) == 0 ? -0.5f : 0.5f, (i & 2) == 0 ? -0.5f : 0.5f, (i & 4) == 0 ? 0f : 1f);
+    /// <summary>The editor's own look of a piece with no map material: grey solid pieces, tinted see-through markers.</summary>
+    static StandardMaterial3D DefaultMaterial(PieceSpec piece)
+    {
+        var colour = ColourOf(piece);
+        if (piece.Info.Solid && piece.Kind != PieceKind.CollisionBox)
+            return new StandardMaterial3D { AlbedoColor = colour, Roughness = 0.9f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+        return new StandardMaterial3D
+        {
+            AlbedoColor = new Color(colour, piece.Kind == PieceKind.CollisionBox ? 0.18f : piece.Kind is PieceKind.MoveWall or PieceKind.Cover ? 0.24f : 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+    }
+
+    /// <summary>
+    /// The material hook (docs/mapmaker.md "Materials (editor)"): draws the piece's "Shape" with a map material's surface built by the game's own builder (<see cref="SmClient.MaterialBuild"/>:
+    /// the mesh with normals, tangents and UVs in metres from <see cref="RenderMesh"/>, UVs sized by <paramref name="scale"/>, positions left in unit space for the node's scale as the stock
+    /// drawing is), or, with <paramref name="surface"/> null, puts the default look back. Preview = saved = in game.
+    /// </summary>
+    public static void ApplySurface(MeshInstance3D shape, PieceSpec piece, EditMesh? mesh, System.Numerics.Vector3 scale, StandardMaterial3D? surface)
+    {
+        var m = mesh ?? EditMesh.Stock(piece);
+        if (surface is null)
+        {
+            var (tv, ti, _) = m.Triangulate();
+            shape.Mesh = Flat(tv, ti);
+            shape.MaterialOverride = DefaultMaterial(piece);
+            return;
+        }
+        shape.Mesh = SmClient.MaterialBuild.Mesh(RenderMesh.Build(m, scale, System.Numerics.Matrix4x4.Identity));
+        shape.MaterialOverride = surface;
+    }
 
     static ArrayMesh Flat(System.Numerics.Vector3[] v, int[] tri)
     {

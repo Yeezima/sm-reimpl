@@ -57,6 +57,7 @@ public partial class NetworkView
         WarfrontSquadFrame(me, dt);
         WarfrontCoopFrame(me, dt);
         WarfrontBattleTick();   // W13b (routed: the lead's fan-out line)
+        WarfrontChaosFrame();   // Chaos Warfront C3: the army the Hub names drawn, heard and labelled (Extras/Warfront/Chaos/NetworkView.WarfrontChaos.cs)
     }
 
     // ---- the background layout warm-up (W5d) ---------------------------------------------------------------------------------------------

@@ -644,7 +644,7 @@ public class CustomizerModelTests : IDisposable
         var rows = AppearanceEdits.PieceRows(Catalog, look, "head", resolved);
         Assert.Null(rows[0].Id);                                                                                      // "Default" first
         Assert.Equal(["sm_b_head"], rows.Where(r => r.Selected).Select(r => r.Id));
-        Assert.Equal(2, rows.Count - 1);
+        Assert.Equal(3, rows.Count - 1);                                                                              // two customizable heads and the predefined set's (armour-pieces-1125)
         var decal = AppearanceEdits.SetDecal(look, "leftshoulder", DecalChoice.ForBadge("sm_foo_orig"));
         Assert.Equal("sm_foo_orig", decal.Decals["leftshoulder"].Badge);
         Assert.Empty(AppearanceEdits.SetDecal(decal, "leftshoulder", null).Decals);

@@ -61,7 +61,7 @@ public sealed class BodyYaw
     /// <summary>The body is put at <paramref name="yaw"/> with no turn (a respawn, a pose that has no turn).</summary>
     public void Snap(float yaw)
     {
-        Yaw = ViewSmoothing.WrapPi(yaw); Valid = true; Side = LayerSide = TurnSide.None; TurnTime = 0f; LayerWeight = 0f;
+        Yaw = ViewSmoothing.WrapPi(yaw); Valid = true; Side = LayerSide = TurnSide.None; TurnTime = 0f; LayerWeight = 0f; DampedAim = null;
     }
 
     /// <summary>The aim against the body: positive when the aim is to the left (counter-clockwise) of the body, radians in [-pi, pi).</summary>
@@ -73,11 +73,25 @@ public sealed class BodyYaw
     /// follows). <paramref name="blend"/>: the turn layer's fade in and out, seconds. <paramref name="maxTwist"/> and <paramref name="followRate"/> as in the class
     /// comment. A frame longer than <see cref="MaxFrameSeconds"/> or an aim that is not finite snaps the body to the aim.
     /// </summary>
-    public void Step(float aimYaw, float dt, bool canTwist, float enterTwist, TurnProfile? left, TurnProfile? right, float blend, float maxTwist, float followRate)
+    public void Step(float aimYaw, float dt, bool canTwist, float enterTwist, TurnProfile? left, TurnProfile? right, float blend, float maxTwist, float followRate) =>
+        Step(aimYaw, dt, canTwist, enterTwist, enterTwist, left, right, blend, maxTwist, followRate);
+
+    /// <summary>
+    /// As <see cref="Step(float, float, bool, float, TurnProfile?, TurnProfile?, float, float, float)"/> with a threshold per side (install transitions batch 3: the braced heavy bolter's
+    /// graph turns left when the aim is <paramref name="enterLeft"/> (60 degrees) to the left of the body and right past <paramref name="enterRight"/> (77) to the right; at the turn's
+    /// end the same tests pick the next turn, either side, or the idle: the graph's <c>BRANCH_TurnComplete</c> edges).
+    /// </summary>
+    /// <param name="dampSeconds">Install transitions batch 3 (review): the turn decision reads the aim through a low-pass of this time constant (the brace graph tests
+    /// <c>FLT_Aim_Horizontal_Deg_DAMPED</c>; the damping is set by the game code, not the graphs: <see cref="AimDampSeconds"/>, ours), so a brief flick past a threshold does not
+    /// commit to a turn. 0: the raw aim (the navigation postures, as before).</param>
+    public void Step(float aimYaw, float dt, bool canTwist, float enterLeft, float enterRight, TurnProfile? left, TurnProfile? right, float blend, float maxTwist, float followRate,
+        float dampSeconds = 0f)
     {
         if (!float.IsFinite(aimYaw)) return;
         if (!Valid || dt > MaxFrameSeconds) { Snap(aimYaw); return; }
         if (!(dt > 0f)) return;
+        DampedAim = dampSeconds > 1e-4f && DampedAim is { } d ? ViewSmoothing.WrapPi(d + ViewSmoothing.WrapPi(aimYaw - d) * (1f - MathF.Exp(-dt / dampSeconds))) : aimYaw;
+        float decisionAim = DampedAim.Value;
         float step = followRate * dt;
         float twist = Twist(aimYaw);
         if (!canTwist || left is null || right is null)
@@ -88,7 +102,7 @@ public sealed class BodyYaw
             return;
         }
         float turned = 0f;
-        if (Side == TurnSide.None && MathF.Abs(twist) > enterTwist) StartTurn(twist > 0f ? TurnSide.Left : TurnSide.Right);
+        if (Side == TurnSide.None && Beyond(Twist(decisionAim), enterLeft, enterRight) is { } side) StartTurn(side);
         if (Side != TurnSide.None)
         {
             var profile = Side == TurnSide.Left ? left : right;
@@ -102,8 +116,7 @@ public sealed class BodyYaw
             {
                 Side = TurnSide.None;
                 // The aim may still be beyond the threshold: the next turn starts at once (the graph's BRANCH_Turn_End to the same turn state).
-                twist = Twist(aimYaw);
-                if (MathF.Abs(twist) > enterTwist) { StartTurn(twist > 0f ? TurnSide.Left : TurnSide.Right); }
+                if (Beyond(Twist(decisionAim), enterLeft, enterRight) is { } next) StartTurn(next);
             }
         }
         // A view that outruns the turn drags the body: the twist is never more than maxTwist.
@@ -119,10 +132,29 @@ public sealed class BodyYaw
     /// <summary>No frame longer than this is stepped through (a stall: the body snaps to the aim instead of turning for a second).</summary>
     public const float MaxFrameSeconds = 0.5f;
 
+    /// <summary>The turn an aim <paramref name="twist"/> radians off the body calls for (positive: the aim to the left), or null inside both thresholds.</summary>
+    public static TurnSide? Beyond(float twist, float enterLeft, float enterRight) =>
+        twist > 0f && twist > enterLeft ? TurnSide.Left : twist < 0f && -twist > enterRight ? TurnSide.Right : null;
+
+    /// <summary>
+    /// Ends a turn under way where the body is (the posture changed: its clip no longer applies). The turn layer goes at once (review: fading it out would draw the new posture's
+    /// clip at the old clip's time), and the damped aim restarts from the aim.
+    /// </summary>
+    public void DropTurn() { Side = LayerSide = TurnSide.None; TurnTime = 0f; LayerWeight = 0f; DampedAim = null; }
+
+    /// <summary>The low-passed aim the turn decision reads when <c>dampSeconds</c> is given (null until the first step or after <see cref="Snap"/> / <see cref="DropTurn"/>).</summary>
+    public float? DampedAim { get; private set; }
+
+    /// <summary>
+    /// The time constant of the brace's damped aim angle, seconds (ours, an estimate: the graphs test <c>FLT_Aim_Horizontal_Deg_DAMPED</c>, but no graph modifier sets it, so the game
+    /// code damps it with a constant that is not in the data). 0.15 s: a one-frame flick to 100 degrees moves the damped angle about 10; an aim held there crosses 60 after about 0.14 s.
+    /// </summary>
+    public const float AimDampSeconds = 0.15f;
+
     void StartTurn(TurnSide side)
     {
         Side = side; LayerSide = side; TurnTime = 0f; TurnsStarted++;
-        // A turn that follows another continues the layer's weight; the clip restarts.
+        // A turn that follows another continues the layer's weight; the clip restarts at once (the graph's 0.1 s turn-to-turn blend between the ending and the restarted clip is not modelled).
     }
 
     void FadeLayer(float dt, float blend, bool active)
@@ -145,4 +177,20 @@ public sealed class BodyYaw
         for (int i = 0; i < radians.Length; i++) radians[i] = rootYawDegrees[i] * MathF.PI / 180f;
         return new TurnProfile(Math.Clamp(endFraction, 0.05f, 1f) * clipSeconds, clipSeconds, radians, rootSeconds);
     }
+}
+
+/// <summary>
+/// Install transitions batch 3: what the client's <c>BodyYawFor</c> does each frame for the brace posture (kept here so it is tested without a Godot scene).
+/// </summary>
+/// <param name="DropTurn">The marine entered or left the brace posture this frame: the turn under way ends where the body is (<see cref="BodyYaw.DropTurn"/>).</param>
+/// <param name="ClearGait">The locomotion's gait flags (the relaxed run's and the ready run's) are cleared: the brace pose returns before the locomotion, so a flag left set by a
+/// run into the brace stays stale for the stance, and the exit's first frame (the body yaw is stepped before the exit poses the locomotion) read it and let the body follow the aim
+/// for one frame (Fable review, up to 12 degrees). The braced marine stands still, so the flags are false by the rules anyway.</param>
+/// <param name="DampSeconds">The <c>dampSeconds</c> of <see cref="BodyYaw.Step(float, float, bool, float, float, TurnProfile?, TurnProfile?, float, float, float, float)"/>:
+/// <see cref="BodyYaw.AimDampSeconds"/> in the brace posture, 0 (the raw aim) otherwise.</param>
+public readonly record struct BraceTurnFrame(bool DropTurn, bool ClearGait, float DampSeconds)
+{
+    /// <summary>The frame's wiring: <paramref name="bracePosture"/> the marine stands in the brace posture this frame, <paramref name="wasBraced"/> it did last frame.</summary>
+    public static BraceTurnFrame For(bool bracePosture, bool wasBraced) =>
+        new(bracePosture != wasBraced, bracePosture, bracePosture ? BodyYaw.AimDampSeconds : 0f);
 }

@@ -145,7 +145,7 @@ public class WarfrontForecastTests
         Assert.Equal(c.Forecast, back.Forecast);
         Assert.Equal(c.ForecastPool, back.ForecastPool);
         Assert.Equal(c.StateHash(), back.StateHash());
-        Assert.Equal(WarfrontCampaign.SaveVersion, 5);
+        Assert.Equal(7, WarfrontCampaign.SaveVersion);   // 5: the forecast; 6: retired Retainer cards (T0); 7: the run's faction (Chaos Warfront C1)
     }
 
     [Fact]

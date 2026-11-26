@@ -18,6 +18,9 @@ public sealed partial class MusouSim
     /// <summary>Whether a type falls instead of staggering: the small Orks; 'Ard Boyz, Nobz, Chaos Marines and the Warboss do not.</summary>
     public static bool Fodder(MusouEnemyType type) => type is MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.Gretchin;
 
+    /// <summary>Executions X4 phase 2 (Extras/Executions/Orks/MusouSim.Executions.cs): sets <paramref name="held"/> when enemy <paramref name="id"/> is held for a Warfront execution. No-op while none is held.</summary>
+    partial void ExecutionsKnockHeld(ushort id, ref bool held);
+
     /// <summary>
     /// A fodder Ork alive is thrown <paramref name="distance"/> along <paramref name="push"/> and falls; with <paramref name="deathChance"/> (a roll of the tick and the id) he dies instead, the KO
     /// <paramref name="attacker"/>'s. False, and nothing changed, outside a war, for any other type, for one already down, or for an unknown or dying one.
@@ -26,6 +29,8 @@ public sealed partial class MusouSim
     {
         int i = id - 1;
         if (War is null || i < 0 || i >= Capacity || !_used[i] || !Fodder(_type[i]) || _state[i] is MusouEnemyState.Dying or MusouEnemyState.Knocked) return false;
+        bool execHeld = false; ExecutionsKnockHeld(id, ref execHeld); if (execHeld) return false;   // EXECUTIONS-HOOK: an Ork held for a Warfront execution is not knocked down (X4 phase 2)
+        bool barred = false; WarfrontStaggerGate(id, attacker, ref barred); if (barred) return false;   // WARFRONT-HOOK: Warfront's gate (MusouSim.cs)
         if (Unit(Mix(Tick, (uint)id * 0x9E3779B1u + 0x51ED270Bu)) < deathChance)
         {
             KnockKills++;

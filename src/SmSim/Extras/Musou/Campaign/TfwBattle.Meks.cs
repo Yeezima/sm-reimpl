@@ -20,7 +20,7 @@ public sealed partial class TfwBattle
     /// <summary>The Meks' step (from the World, in play, before the battle is won): they come at the Ork spawn points (the positions the Orks hold, the HQ's source; any source when none is held).</summary>
     public void StepMeks(ReadOnlySpan<MusouTarget> targets, Func<Vector3, Vector3, bool>? blocked, Func<Vector3, float, bool>? guardsNear)
     {
-        if (!MeksOn || Won) return;
+        if (!MeksOn || Won || !OrkKindOn(MusouEnemyType.ScrapMek)) return;   // OrkKindOn: Warfront's Chaos faction has none (TfwBattle.cs)
         _mekSpawns.Clear();
         for (int k = 0; k < Positions; k++)
             if (_objectives[k].State != TfwPositionState.Secured) _mekSpawns.Add(_layout.Positions[k]);

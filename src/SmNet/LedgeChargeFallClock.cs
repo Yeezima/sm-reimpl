@@ -5,7 +5,7 @@ namespace SmNet;
 
 /// <summary>
 /// sim/ledge-charge-air, answer 3 (the owner 2026-11-23: "Keep landings like today"): the client presentation of a Classic PvP ledge charge's fall follows the drop height, so a ledge charge off a given ledge looks,
-/// sounds and feels as at protocol 89 although the simulation drops it under 4 x gravity (<see cref="LedgeChargeAir"/>). Engine-free, one per drawn player, fed once per frame; presentation only (nothing reaches the
+/// sounds and feels as at protocol 89 although the simulation drops it under 2 x gravity (4 x at protocol 90-91; <see cref="LedgeChargeAir"/>). Engine-free, one per drawn player, fed once per frame; presentation only (nothing reaches the
 /// simulation, the wire or the config hash). Its outputs replace the render clock and the vertical speed in the fall presentation's inputs: the fall pose's delays (<c>FallRules.ChargeShowsFall</c>,
 /// <c>EvadeShowsFall</c>), the fall tracker (<c>FallTracker.Observe</c>: its peak speed decides the hard landing, <c>WeightFeel</c>'s settle and camera dip; its air time the landing feel), the landing sound's
 /// air time and its speed parameter.

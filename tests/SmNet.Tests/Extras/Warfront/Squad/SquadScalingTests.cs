@@ -30,16 +30,11 @@ public class SquadScalingTests
         Assert.Equal(orks.Damage / WarfrontProgressionRules.OrkDamageBase, dmg, 4);
     }
 
-    /// <summary>The first blow's damage on a far-off tough Ork, as a multiple of the weapon's damage x DamageDealt.</summary>
+    /// <summary>Phase B T2: the scale the Orks take the first retainer's hits at, on its base player damage.</summary>
     static float FirstBlow(WarfrontSquadWiringTests.Rig r)
     {
-        var at = r.Sim.View(r.IndexOf(1, 0))!.Value.Position;
-        ushort ork = r.W.Musou!.SpawnLeashed(MusouEnemyType.Nob, at + new Vector3(8f, 0f, 0f), 0f, 1e6f, 1, 10f);
-        r.W.Musou.Frozen = true;
-        float full = r.W.Musou.TryGet(ork, out var o0) ? o0.Health : 0f, drop = 0f;
-        for (int t = 0; t < 240 && drop == 0f; t++) { r.Stand(1); if (r.W.Musou.TryGet(ork, out var e) && e.Health < full) drop = full - e.Health; }
-        Assert.True(drop > 0f);
-        return drop / (r.Wi.Rosters.Marine(1, 0)!.Loadout.Weapon.Damage * SquadRules.DamageDealt);
+        r.Stand(1);
+        return r.W.Musou!.MeleeScaleOf(r.IdOf(1, 0));
     }
 
     [Fact]
@@ -65,6 +60,6 @@ public class SquadScalingTests
         r.Deploy();
         float share = WarfrontStatBonuses.ForRetainer(r.Campaign.Player(1)!.Cards).MaxHp;
         Assert.True(share > 1f);
-        Assert.Equal(r.Wi.Rosters.Marine(1, 0)!.Loadout.HealthMax * share * (1f + 0.08f * 9), r.Sim.BodyOf(r.IndexOf(1, 0)).Health, 1);
+        Assert.Equal(share * (1f + 0.08f * 9), r.Ret.ScaleOf(1).Health, 3);   // Phase B T2: taken as 1 / this on an unshielded hit
     }
 }

@@ -66,10 +66,13 @@ public static class WarfrontResults
         }
         var rows = WarfrontLeaderboard.Rank(list, w);
         string result = c.Phase == WarfrontPhase.Won ? "won" : c.Phase == WarfrontPhase.Lost ? "lost" : "abandoned";
-        var battles = c.History.Select(h => $"#{h.Deployment} {h.Target.Kind}{(h.Target.Kind == WarfrontTargetKind.Hq ? "" : " lane " + (h.Target.Lane + 1))}: {h.Outcome}").ToList();
+        var battles = c.History.Select(h => $"#{h.Deployment} {h.Target.Kind}{(h.Target.Kind == WarfrontTargetKind.Hq ? "" : " lane " + (h.Target.Lane + 1))}: {OutcomeText(h.Outcome)}").ToList();
         return new WarfrontRunRecord(result, utc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture), (int)Math.Max(0, duration.TotalSeconds), w, battles,
             c.Rolls.Count, c.Rolls.Count(r => r.Lost), c.Rolls.Count(r => r.HeldAtFloor), rows);
     }
+
+    /// <summary>A battle's outcome as the record prints it: Win and Wipe as before; the Chaos finale's lost relay in words (C5c, lead 40), not the enum's name.</summary>
+    public static string OutcomeText(WarfrontOutcome outcome) => outcome == WarfrontOutcome.FinaleLost ? "Finale lost (no challenger left)" : outcome.ToString();
 
     /// <summary>A display name safe for a text block: no control characters, no backticks, no line breaks, at most 24 characters; "@" is broken so a paste never pings.</summary>
     public static string Clean(string? name, string fallback = "")

@@ -36,7 +36,7 @@ something only on a standalone server; no host migration is claimed). A returnin
 first-time joiner during a battle spectates (Classic's spectator camera) until the next ship stop; then the customizer must be opened and closed and the
 player may deploy. Since codebase fix 1 (2026-11-22) a first-time joiner with no progress file starts at level 1 (the median-XP catch-up and its cards are removed); a player who
 brings a progress file from their own PC joins with that level (the host sanitizes it, max level 50, and the better of the two copies wins). Warfront needs this build on both sides:
-`WarfrontRules.Version` 21 and `WarfrontWire.Format` 2, so older builds cannot join.
+`WarfrontRules.Version` 29 and `WarfrontWire.Format` 4 (since the series-37 integration; 21 and 2 at codebase fix 1), so older builds cannot join.
 
 **ONLINE WARFRONT row (slice S5, owner 2026-11-19; shown since the 2026-11-20 ship).** The project's VM is to host one shared, always-on Warfront campaign on UDP 27016 (up to 4 players drop in and out). The
 Warfront page gets a row ONLINE WARFRONT after JOIN A FRIEND: it sets the Warfront profile (as the friend join does) and joins the public Classic server's host (`JoinTargets.PublicServer`, never a second
@@ -99,6 +99,16 @@ favored"; answered: the Orks win about 2 of every 3 even fights, Guardsmen at ab
   reachable in a straight line from the point and 2.5 m off walls where the ground allows it. A squad within the radius plus 14 m counts as on its point. Test aid: `smtool.cmd warfront-guards [--slot wf_a1] [--seconds 240] [--frames file.rgb] [--frame-point 0..2]`
   (a lane battle in-process on the real map and graph: Guardsmen, tick cost, raw top-down frames of the rows).
 
+## Faction: Orks or Chaos (Chaos Warfront C1, 2026-11-25)
+
+A run fights one army, chosen once when the run is built and saved in `run.json` (`Faction`, save version 7): wipes, saves, restarts and reconnects keep it, and a save from before it loads as Orks. The setting is `--warfront-faction alternate|orks|chaos` (default `alternate`: Orks and Chaos take turns run by run, Orks first; the other two force the army). It is read only when a new run is built (first start, NEW CAMPAIGN, the dedicated server's own new run, a new run after a damaged save), so changing it affects only the next run. Each process reads its own flag: the supervisor passes it to the first run it builds (`WarfrontSupervisor.Run` -> `PrepareRun` -> `WarfrontRunFiles.NewRun`, also with `--warfront-new`), and its stage children inherit it for NEW CAMPAIGN and the loader's new runs; the Host panel's FACTION row (Warfront profile only; `client/Extras/Warfront/Chaos/HostPanel.WarfrontFaction.cs`) and `WarfrontLocal.ExtraArgs` pass a forced setting and send nothing for ALTERNATE.
+
+The rotation lives in `faction.json` beside `run.json` (`{LastFaction, LastRunSeed}`; an archive moves only `run.json`, so it survives). A new run writes `run.json` first and `faction.json` second; the stage's loader, the supervisor's loop and `--warfront-new` (before it archives) copy the run's army and seed into `faction.json` when it is behind, so a crash between the two writes neither repeats nor skips an army. A stage child records its run's army before the World exists (`WarfrontRunFiles.StageFaction`, logged as `Warfront faction: this stage runs ...`), and a deployment lands on the running stage only when both the map and the army match (`WarfrontStagePlan.CanLandHere`). The Hub section ends with one faction byte (0 Orks, 1 Chaos; `WarfrontWire.Format` 3, `WarfrontRules.Version` 23).
+
+**Rollback note:** a save written by this build is version 7 and is refused by any older build ("a newer build's file"); going back to an older build means starting a new campaign there or restoring an older run.json. The army is read from the `Faction` field whenever it is present (not keyed on the version), so the retainer rules' version 6 (T0) can be reconciled at integration. A `faction.json` without `LastFaction` (or `{}`) counts as no record.
+
+C1 only chooses, stores and sends the army: until C2 builds the Chaos rules table, a Chaos run plays as Orks, and Orks runs are unchanged by construction. The `FinaleLost` outcome (the duel relay ran out of challengers: the campaign is lost) is in the campaign for C5; it loses the campaign only in a Chaos run's fortress battle, anywhere else it is the fortress-wipe rule. Spec: "Warfront faction" in `spec/behavior.md`.
+
 ## Where things are stored
 
 `%LOCALAPPDATA%\sm-reimpl\warfront\` (or the folder `SM_WF_DIR` names): `run.json` (the whole campaign, written atomically at every ship arrival, pick and
@@ -117,7 +127,7 @@ dotnet run -c Debug --project src/SmTool -- warfront-maps --prebuild   # what th
 
 Four players: `.\server.cmd --content warfront --bind 127.0.0.1 --port 27200 --warfront-max-humans 4 --warfront-new` and one
 `.\client.cmd --connect 127.0.0.1:27200 --content warfront --warfront-key-file <own file>` per player. Switch and build property: `--content warfront`;
-`-p:SmWarfront=false` removes `**/Extras/Warfront/**` from the build (the build then refuses `--content warfront`). `WarfrontRules.Version` is 17.
+`-p:SmWarfront=false` removes `**/Extras/Warfront/**` from the build (the build then refuses `--content warfront`). `WarfrontRules.Version` is 29 (series-37 integration).
 
 ## Dedicated mode (`--warfront-dedicated`, slices S1 and S2)
 
@@ -175,7 +185,7 @@ new-run command, every Identify refused with the same words; the supervisor no l
 atomically with a `.bak`; a file of a newer version is never touched; another key's file is kept as `progress-other-key.json`. After Identify the client sends it as the chunked Progress command (kind 5, resent once a second up to 30 times
 until the first ProgressSave, tag 49, arrives); the host sanitizes it (max level 50, MaxXp 687499; picks, cards and extras bounded), keeps the better of its run copy and the player's under `Better` (XP, then picks, then extras; a tie takes the host) and
 applies it at the Ship phase. The host sends ProgressSave on every pick, level change and retainer gain, and every 10 s while XP changed; the client writes its file only when the host copy is not lower. A key already in the run with no file keeps its run copy, which becomes its first file.
-**Reset:** RESET PROGRESSION on the menu (only while no server of this game runs on this PC; Yes / No card) keeps one `progress-before-reset.json`, writes a level-1 file, deletes the `.bak` and sends flag 2 with the next Progress, which the host honours only in the Ship phase; run, stats and honor roll stay.
+**Reset:** RESET PROGRESSION in OPTIONS, INTERFACE, directly under SCREEN FLASHES (owner 2026-11-25; on the Warfront page before; usable only while no server of this game runs on this PC, otherwise greyed with the reason on hover, as when there is nothing to reset or in the in-match Options; Yes / No card) keeps one `progress-before-reset.json`, writes a level-1 file, deletes the `.bak` and sends flag 2 with the next Progress, which the host honours only in the Ship phase; run, stats and honor roll stay.
 **Review fixes (2026-11-22).** A reset the host has not applied yet is never undone: the host's ProgressSave to such a client carries the level-1 copy, the client's file ignores a host copy above level 1 while it is a pending reset, and the reset is resent until a ProgressSave shows level 1. A progress file that exists but cannot be read (locked) is "unreadable", never absent: it is not written, reset or sent, and the menu says so. The reset's safety copy is of the file the load used (the `.bak` when the main is damaged). A record that waited for the ship and wins gets the XP the run's copy earned meanwhile. Every recorded client gets a final ProgressSave at the end of the run and at a stage change. `--warfront-new` on a damaged `run.json` sets it aside (as the loader does) and starts the new run; on a newer or locked one it refuses and leaves it alone. A save whose autosave writer is still busy waits (SavePending) instead of racing it. Once the host has applied a reset in its run, its ProgressSave carries the Reset flag and the client clears the file's pending-reset mark, so a later join never sends the reset again (which would wipe XP earned on that host meanwhile); a queued reset's level-1 copy has no flag and leaves the mark in place.
 Spec: "Warfront save safety and persistent progression".
 

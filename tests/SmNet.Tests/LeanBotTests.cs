@@ -65,15 +65,19 @@ public class LeanBotTests
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "SmReimpl.slnx"))) root = root.Parent;
         Assert.NotNull(root);
-        var flag = new System.Text.RegularExpressions.Regex("(?:CmdFlag|CmdArg|ContainsKey|GetValueOrDefault|BarkArg)\\(\"(?:--)?([a-z0-9-]+)\"\\)|\"--([a-z0-9-]+)\"");
+        var flag = new System.Text.RegularExpressions.Regex("(?:CmdFlag|CmdArgs|CmdArg|FloatArg|ContainsKey|GetValueOrDefault|BarkArg)\\(\"(?:--)?([a-z0-9-]+)\"[,)]|\"--([a-z0-9-]+)\"");
         var names = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var file in Directory.EnumerateFiles(Path.Combine(root!.FullName, "client"), "*.cs", SearchOption.AllDirectories))
+        // T1 (2026-11-25): the bot brain's flags moved with it to src/SmBots; the client hands it its arguments, so they are the client's flags too.
+        foreach (var file in new[] { "client", Path.Combine("src", "SmBots") }.SelectMany(d => Directory.EnumerateFiles(Path.Combine(root!.FullName, d), "*.cs", SearchOption.AllDirectories)))
         {
+            if (file.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar) || file.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar)) continue;
             if (file.Contains(Path.DirectorySeparatorChar + ".godot" + Path.DirectorySeparatorChar)) continue;
             foreach (System.Text.RegularExpressions.Match m in flag.Matches(File.ReadAllText(file)))
                 names.Add(m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value);
         }
         Assert.Contains("anim-probe", names);   // the scan finds the flags at all
+        Assert.Contains("bot-trace", names);    // and the brain's (src/SmBots)
+        Assert.Contains("bot-grenade-demo", names);   // and the FloatArg reads
         var unclassified = names.Where(n => LeanBot.LooksLikeAid(n) && !LeanBot.PresentationAids.Contains(n) && !LeanBot.LeanSafeAids.Contains(n)).ToList();
         Assert.True(unclassified.Count == 0, "client flags that look like test aids but are in neither LeanBot.PresentationAids nor LeanBot.LeanSafeAids: " + string.Join(", ", unclassified));
     }

@@ -181,7 +181,7 @@ public partial class NetworkView
                 break;
             case 4:   // the squad panel
                 WarfrontSquadEnsure();
-                if (_wfSquad is null) { if (since > 15) { GD.Print("WFHOOK squad view not ready (looks); skipping"); WfhNext(now, 6); } break; }
+                if (_wfSquad is null) { if (since > 15) { GD.Print("WFHOOK squad view not ready (no roster section yet); skipping"); WfhNext(now, 6); } break; }
                 _wfSquad.Panel.Open();
                 WfhNext(now, 5);
                 break;

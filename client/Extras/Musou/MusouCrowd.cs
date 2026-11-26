@@ -48,8 +48,16 @@ public partial class MusouCrowd : CrowdView
     int DeathClipOf(int id, int type) => NoOrkVariety ? MusouLooks.Death : _looks.For((MusouEnemyType)type)?.DeathClipFor(id) ?? MusouLooks.Death;
 
     /// <summary>A death to show: the body plays its death clip where the enemy was last seen, <paramref name="age"/> s into it (the time it waited to be handed out).</summary>
-    public void AddBody(in MusouDeathShown death, float age = 0f, bool keepSkeleton = false) =>
+    public void AddBody(in MusouDeathShown death, float age = 0f, bool keepSkeleton = false)
+    {
+        bool proxied = false;
+        ExecutionsCorpseProxied(death.Id, ref proxied);   // EXECUTIONS-HOOK: an executed Ork's proxy lies and sinks as its corpse (client/Extras/Executions)
+        if (proxied) return;
         AddBody(new Vector3(death.Position.X, death.Position.Y, death.Position.Z), death.Yaw, (int)death.Type, DeathClipOf(death.Id, (int)death.Type), age, keepSkeleton ? death.Id : 0);
+    }
+
+    /// <summary>Executions X5 (client/Extras/Executions/CrowdView.Executions.cs): <paramref name="proxied"/> set when an execution proxy draws this Ork's corpse.</summary>
+    partial void ExecutionsCorpseProxied(int id, ref bool proxied);
 
     /// <summary>Deaths the view has not handed out yet (night batch 2026-11-06, <see cref="MusouDeathRules"/>) and the seconds since each arrived: drawn where they fell, playing their death clip.</summary>
     public readonly List<(MusouDeathShown Death, float Age)> Dying = new();
@@ -92,11 +100,17 @@ public partial class MusouCrowd : CrowdView
     readonly Dictionary<int, float> _blastKicked = new();
     float _clock;
 
+    /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the flinch table of a kind drawn as Chaos: whether it reacts at all, and the kick's size. No-op without Warfront and the Chaos faction.</summary>
+    partial void WarfrontFlinchReacts(MusouEnemyType type, ref bool reacts);
+    partial void WarfrontFlinchSize(MusouEnemyType type, float strength, ref float size);
+    bool FlinchReacts(MusouEnemyType type) { bool reacts = MusouOrkFlinchRules.Reacts(type); WarfrontFlinchReacts(type, ref reacts); return reacts; }   // WARFRONT-HOOK
+    float FlinchSize(float strength, MusouEnemyType type) { float size = MusouOrkFlinchRules.Amplitude(strength, type); WarfrontFlinchSize(type, strength, ref size); return size; }   // WARFRONT-HOOK
+
     /// <summary>A hit: the Ork <paramref name="id"/> flinches away from <paramref name="away"/> (a unit direction in game space), <paramref name="strength"/> by the weapon (<see cref="MusouOrkFlinchRules.ShotStrength"/> ...); <paramref name="type"/> sizes it.</summary>
     public void Hit(int id, System.Numerics.Vector2 away, float strength, MusouEnemyType type)
     {
-        if (NoOrkFlinch || !MusouOrkFlinchRules.Reacts(type)) return;
-        float size = MusouOrkFlinchRules.Amplitude(strength, type);
+        if (NoOrkFlinch || !FlinchReacts(type)) return;
+        float size = FlinchSize(strength, type);
         if (!(size > 0f)) return;
         if (_blastKicked.TryGetValue(id, out float at) && _clock - at < 0.6f) return;   // the blast's own kick covers the server's reports of it
         _kick.TryGetValue(id, out var track);
@@ -119,8 +133,8 @@ public partial class MusouCrowd : CrowdView
     /// <summary>A blast: the Ork <paramref name="id"/> takes the explosive's kick (<see cref="MusouOrkFlinchRules.BlastStrength"/> by its distance from the centre), away from it.</summary>
     public void Blast(int id, System.Numerics.Vector2 away, float distance, float radius, MusouEnemyType type)
     {
-        if (NoOrkFlinch || !MusouOrkFlinchRules.Reacts(type)) return;
-        float size = MusouOrkFlinchRules.Amplitude(MusouOrkFlinchRules.BlastStrength(distance, radius), type);
+        if (NoOrkFlinch || !FlinchReacts(type)) return;
+        float size = FlinchSize(MusouOrkFlinchRules.BlastStrength(distance, radius), type);
         if (!(size > 0f)) return;
         _kick.TryGetValue(id, out var track);
         KickVaried(ref track, id, away, size);
@@ -164,7 +178,7 @@ public partial class MusouCrowd : CrowdView
             if (_recoil.TryGetValue(e.Id, out var push)) p += push.Away * SmNet.Extras.Musou.MusouContactRules.RecoilAt(push.Age, push.Metres);
             float distance = p.DistanceTo(camera);
             var kick = Vector3.Zero;
-            if (MusouOrkFlinchRules.Flinches(e.Type, distance)) _flinchable.Add(e.Id);
+            if (FlinchReacts(e.Type) && MusouOrkFlinchRules.DistanceScale(distance) > 0f) _flinchable.Add(e.Id);   // MusouOrkFlinchRules.Flinches, through the table hook
             if (_kick.TryGetValue(e.Id, out var track) && MusouOrkFlinchRules.DistanceScale(distance) > 0f && e.State is not (MusouEnemyState.Dying or MusouEnemyState.Knocked))
             {
                 var c = track.Current();
@@ -244,7 +258,8 @@ public partial class MusouCrowd : CrowdView
         // The charge (2026-11-09): a melee Ork drawn near his sprint speed plays his own sprint clip at its stride's rate (no byte on the wire: the speed tells)
         if (look is not null && SmSim.Extras.Musou.MusouChargeRules.Charges(e.Type) && !ReferenceEquals(look.Clips[MusouLooks.Sprint], look.Clips[MusouLooks.Run]))
         {
-            float speed = (int)e.Type < Rules.Types.Count ? Rules.Of(e.Type).Speed : 5f;
+            var rules = RulesOver ?? Rules;   // Chaos Warfront C3: the Chaos army's speeds
+            float speed = (int)e.Type < rules.Types.Count ? rules.Of(e.Type).Speed : 5f;
             track.Sprinting = MusouGaitRules.Sprinting(track.Speed, speed * SmSim.Extras.Musou.MusouChargeRules.PaceScale, SmSim.Extras.Musou.MusouChargeRules.SprintSpeed(speed), track.Sprinting);
             _gait[e.Id] = track;
             if (track.Sprinting) return (MusouLooks.Sprint, MusouGaitRules.Rate(track.Speed, ClipSpeed(look, MusouLooks.Sprint)));
@@ -252,6 +267,8 @@ public partial class MusouCrowd : CrowdView
         return (MusouLooks.Run, MusouGaitRules.Rate(track.Speed, ClipSpeed(look)));
     }
     static readonly SmSim.Extras.Musou.MusouRules Rules = new();
+    /// <summary>Chaos Warfront C3: the enemy table in place of the Orks' default (the Chaos army's speeds); null: the Orks' as before.</summary>
+    public SmSim.Extras.Musou.MusouRules? RulesOver;
 
     /// <summary>A look's run clip's planted-foot speed at its scale (m/s; measured once, <c>ClipGait</c> on the Ork boy's feet, else the Marine's; 0: not measured).</summary>
     float ClipSpeed(MusouLooks.Look? look, int clip = MusouLooks.Run)

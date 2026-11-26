@@ -151,11 +151,17 @@ public static class SquadLoadoutBuilder
     /// A valid Classic PvP bot loadout (<see cref="BotLoadouts"/>: the owner's fixed presets) for squad class <paramref name="squadClass"/>, picked by <see cref="RollSeed"/>: the first legal preset from the seed's
     /// pick on; a class whose presets are all illegal in this config gets its default loadout. Class armour (no own pieces) in the colours of <paramref name="look"/>. Null for a config without the class.
     /// </summary>
-    public static SquadLoadout? Roll(SimConfig c, SquadClass squadClass, ulong runSeed, ulong key, int slot, int selection, AppearanceCode look, Team side = Team.SpaceMarines)
+    public static SquadLoadout? Roll(SimConfig c, SquadClass squadClass, ulong runSeed, ulong key, int slot, int selection, AppearanceCode look, Team side = Team.SpaceMarines) =>
+        RollClass(c, ClassIndex(c, SquadClassRules.RoleOf(squadClass), side), runSeed, key, slot, selection, look, ownPieces: false);
+
+    /// <summary>
+    /// <see cref="Roll"/> for config class <paramref name="cls"/> itself (a standard player's own class, so the faction counterpart is his side's: owner 2026-11-23 card 2 and the retainer brief, "valid Classic bot loadouts
+    /// matching the player's class"). <paramref name="ownPieces"/>: the armour list carries the pieces of <paramref name="look"/> (a standard player's retainers wear his armour). Null for a class index the config does not have.
+    /// </summary>
+    public static SquadLoadout? RollClass(SimConfig c, int cls, ulong runSeed, ulong key, int slot, int selection, AppearanceCode look, bool ownPieces)
     {
-        string role = SquadClassRules.RoleOf(squadClass);
-        int cls = ClassIndex(c, role, side);
-        if (cls < 0) return null;
+        if (cls < 0 || cls >= c.Classes.Count) return null;
+        string role = c.Classes[cls].Role;
         var presets = BotLoadouts.For(role);
         ulong seed = RollSeed(runSeed, key, slot, selection);
         int start = presets.Count == 0 ? 0 : BotLoadouts.PickIndex((int)(seed >> 33), presets.Count);
@@ -163,8 +169,8 @@ public static class SquadLoadoutBuilder
         {
             var pick = BotLoadouts.Resolve(c, cls, presets[(start + t) % presets.Count]);
             if (!pick.Legal) continue;
-            return FromChoice(c, new LoadoutChoice(cls, pick.Primary, pick.Pistol, pick.Melee, pick.Equipment, pick.Perk1, pick.Perk2, pick.Second), look, ownPieces: false);
+            return FromChoice(c, new LoadoutChoice(cls, pick.Primary, pick.Pistol, pick.Melee, pick.Equipment, pick.Perk1, pick.Perk2, pick.Second), look, ownPieces);
         }
-        return FromChoice(c, new LoadoutChoice(cls), look, ownPieces: false);
+        return FromChoice(c, new LoadoutChoice(cls), look, ownPieces);
     }
 }

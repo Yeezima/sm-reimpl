@@ -86,7 +86,9 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         _mapRow = BuildMapRow();   // classic-maps-all: the install's competitive maps (HostPanel.Maps.cs); null when there is nothing to choose
         Control? weatherRow = null;
         ExtrasHostWeatherRow(ref weatherRow);   // EXTRAS-HOOK: the Classic weather selector (weather W3; client/Extras/Weather/HostPanel.Weather.cs); null in a build without added content
-        foreach (var row in new Control?[] { _modeRow, _mapRow, weatherRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, _hostButton, _stopOther })
+        Control? factionRow = null;
+        ExtrasHostFactionRow(ref factionRow);   // EXTRAS-HOOK: Warfront's faction row (Chaos Warfront C0 seam, client/Extras/HostPanel.Extras.cs); null in a build without added content
+        foreach (var row in new Control?[] { _modeRow, _mapRow, weatherRow, factionRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, _hostButton, _stopOther })
         {
             if (row is null) continue;
             AddChild(row);
@@ -330,7 +332,8 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         string? devProject = devTools && !OS.HasFeature("template") ? ProjectSettings.GlobalizePath("res://").TrimEnd('/', '\\') : null;
         string? weather = null;
         ExtrasHostWeather(ref weather);   // EXTRAS-HOOK: the weather the Host panel's selector chose (null: None); the server gets it as --weather (weather W3)
-        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map, map is null ? chosenMaps : null, devTools, devExe, devProject, Weather: weather);
+        string? faction = null; ExtrasHostFaction(ref faction);   // EXTRAS-HOOK: the FACTION row's forced army (null: alternate, the server's default); the server gets it as --warfront-faction (Chaos Warfront C1)
+        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map, map is null ? chosenMaps : null, devTools, devExe, devProject, Weather: weather, WarfrontFaction: faction);
         if (HostedServer.Start(_exe, options, bots) is { } error) { Say(error, true); return; }
         GD.Print($"host: server started on UDP {port} ({(_localOnly ? "this PC only" : "all interfaces")}); kill-on-close job: {HostedServer.Guarded}; bots planned: {plan.Count} ({options.Difficulty})");
         _pendingJoin = true;
@@ -412,8 +415,15 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     /// <summary>Extras hook: lets added content add one setup row after the MAP row (the Classic weather selector, weather W3); left null when the build or profile has none.</summary>
     partial void ExtrasHostWeatherRow(ref Control? row);
 
+    /// <summary>Extras hook: lets added content add one setup row after the weather row (Warfront's faction, the Chaos Warfront C0 seam); left null when the build or profile has none.</summary>
+    partial void ExtrasHostFactionRow(ref Control? row);
+
     /// <summary>Extras hook: lets added content name the weather the hosted server runs (<c>--weather</c>); left null for None.</summary>
     partial void ExtrasHostWeather(ref string? weather);
+
+
+    /// <summary>Extras hook: lets added content name the army of the hosted campaign's next new run (<c>--warfront-faction</c>); left null for the server's default (alternate).</summary>
+    partial void ExtrasHostFaction(ref string? faction);
 
     /// <summary>Extras hook: lets added content hide the setup rows that do not apply to its profile (Warfront: the mode, map and bot rows).</summary>
     partial void ExtrasHostRowShown(Control row, ref bool shown);

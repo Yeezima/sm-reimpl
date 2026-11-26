@@ -24,7 +24,7 @@ public sealed partial record ServerOptions
     /// protocol 37) is scaled by this (<see cref="World.SetDamageScale"/>); 1 (default): off.
     /// </summary>
     public float BotDamageScale { get; init; } = 1f;
-    public int MaxPlayers { get; init; } = Protocol.MaxPlayers;
+    public int MaxPlayers { get; init; } = Protocol.MaxMatchPlayers;   // protocol 94: the 16 a match admits (Protocol.MaxPlayers is the records a snapshot may carry)
     /// <summary>
     /// Protocol 46 (ours; observer tooling): spectators admitted besides the <see cref="MaxPlayers"/> players (0 admits none; <c>--max-spectators</c>), at most
     /// <see cref="Protocol.MaxSpectators"/> so the Scoreboard lists all of them. They never count toward <see cref="MaxPlayers"/>, teams, scores or balance.
@@ -229,11 +229,18 @@ public sealed partial class GameServer
             throw new ArgumentException("Seize Ground needs a map with control points.");
         foreach (var p in map?.ControlPoints ?? [])
             if (!Protocol.IsMapName(p.Name)) throw new ArgumentException($"Control point name '{p.Name}' cannot travel (letters, digits, '_'; at most {Protocol.MaxMapName}).");
-        World = new World(config, map?.Collision, map?.Spawns) { BoundBodies = true, SolidGuard = _options.BodyGuard, Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
+        World = WorldFor(config, map, _options);
         _emblems = new EmblemCache(Math.Max(1, _options.MaxCachedEmblems));
         _contentFingerprint = contentFingerprint; _transport = Counted(CoreCounted(transport)); _clock = clock;
         if (config.Extras != ContentExtras.None) ExtrasCreated();   // EXTRAS-HOOK: added content's set-up of this server's match (Musou: the nav graph, the mode)
     }
+
+    /// <summary>
+    /// The match world for <paramref name="map"/>, as the constructor makes it. Its initialisers check every record (at most <see cref="World.MaxControlPoints"/> control points, positive
+    /// sizes) and throw <see cref="ArgumentException"/>; the custom-map hook builds one inside its refusal so a bad map file is refused instead of crashing the server.
+    /// </summary>
+    internal static World WorldFor(SimConfig config, GameMap? map, ServerOptions options) =>
+        new(config, map?.Collision, map?.Spawns) { BoundBodies = true, SolidGuard = options.BodyGuard, Rules = options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
 
     /// <summary>
     /// Hook for added content (docs/added-content.md): at the end of the constructor, only when <see cref="SimConfig.Extras"/> is not None (<see cref="World"/>
@@ -505,12 +512,14 @@ public sealed partial class GameServer
     /// core cannot name). A plain range, not a hook: skipping 12 of 65535 ids changes nothing a faithful match can see (8 until Musou expansion S6 widened the range down; the allied pair of 2026-11-08 needs two).
     /// </summary>
     internal const int ReservedPlayerIdFirst = 65516, ReservedPlayerIdLast = 65527;
+    /// <summary>Protocol 94 (Phase B T2b): Warfront's drop pod Marines' ids (TfwContracts.PodIdFirst..PodIdLast, pinned by a test), skipped by joiners as the range above.</summary>
+    internal const int ReservedPodIdFirst = 65490, ReservedPodIdLast = 65509;
 
     int NextPlayerId()
     {
         var used = _peers.Values.Select(p => p.PlayerId).ToHashSet();
         used.UnionWith(World.Players.Keys);   // players without a peer (added content's AI Marines) hold their ids too
-        while (used.Contains(_nextPlayerId) || _nextPlayerId is < 1 or > ushort.MaxValue or (>= ReservedPlayerIdFirst and <= ReservedPlayerIdLast))
+        while (used.Contains(_nextPlayerId) || _nextPlayerId is < 1 or > ushort.MaxValue or (>= ReservedPlayerIdFirst and <= ReservedPlayerIdLast) or (>= ReservedPodIdFirst and <= ReservedPodIdLast))
             _nextPlayerId = _nextPlayerId is < 1 or >= ushort.MaxValue ? 1 : _nextPlayerId + 1;
         int id = _nextPlayerId;
         _nextPlayerId = id >= ushort.MaxValue ? 1 : id + 1;
@@ -536,8 +545,10 @@ public sealed partial class GameServer
         // Weather (W3) is not part of the join check (its bit is not hashed), so the text names the profile without it: a weather-only server says "faithful", extended says "extended" as before.
         var named = serverExtras & ~ContentExtras.Weather;
         if (named == (ContentExtras.All & ~ContentExtras.Weather)) named = ContentExtras.All;   // the extended set, with or without the weather bit, is "extended"
-        return $"gameplay tuning differs from the server's (content profile {ContentProfiles.Describe(named)}): " +
-               $"join with --content {ContentProfiles.Name(named)} (--ork-data only if the server has it)";
+        string text = $"gameplay tuning differs from the server's (content profile {ContentProfiles.Describe(named)}): " +
+               $"join with --content {ContentProfiles.Name(named)} (--ork-data if the server has it)";   // executions X1: "only" dropped so extended (now naming executions) fits 200 characters
+        // executions X1: the longest flag lists no profile runs (Musou or Warfront bits with every extended flag) would pass 200 characters; they name the list once.
+        return text.Length <= 200 ? text : $"gameplay tuning differs from the server's: join with --content {ContentProfiles.Name(named)} (extras wire {ContentExtras.WireVersion}; --ork-data if the server has it)";
     }
 
     void Refuse(int connection, RejectReason reason, uint nonce)
@@ -597,6 +608,8 @@ public sealed partial class GameServer
             if ((World.Config.Extras & ContentExtras.ActionKeyUsers) == 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.ExtraAction };
             // sim/stab-key (protocol 81): Musou Mode's sword keeps its stomp and its T is the shout, so the bit is dropped there (Classic and Musou stay apart).
             if ((World.Config.Extras & ContentExtras.Musou) != 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.Stab };
+            // executions X1: the Execute action (bit 6) reaches the world only in a match with the executions flag (Classic PvP Extended, Warfront); every other match drops it here.
+            if ((World.Config.Extras & ContentExtras.Executions) == 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.Execute };
             peer.Inputs[input.Tick] = clean;
             peer.AckAt.TryAdd(input.Tick, peer.AckedSnapshot);
             peer.ArrivedAt.TryAdd(input.Tick, _clock.Now);   // protocol 65: the input slack
@@ -791,9 +804,29 @@ public sealed partial class GameServer
         NoteSnapshotSent(peer, World.Tick);   // protocol 50: the ping's send time
         int slack = peer.SlackMs == int.MaxValue ? Protocol.NoSlack : peer.SlackMs;   // protocol 65
         peer.SlackMs = int.MaxValue;
-        _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, players, Self: peer.PlayerId,
+        var records = players;
+        int lean = 0;
+        ExtrasSnapshotRecords(peer.PlayerId, viewer, points.Length, ref records, ref lean);   // EXTRAS-HOOK (protocol 94): Warfront picks and orders its players for this recipient and sends its AI Marines lean
+        _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, records, Self: peer.PlayerId,
             Projectiles: ProjectilesFor(World, viewer), Match: match, Kills: kills, Points: points, Hits: peer.Spectator ? null : peer.Hits,
-            Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick), InputSlack: slack)));
+            Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick), InputSlack: slack, Lean: lean)));
+    }
+
+    /// <summary>
+    /// Hook for added content (protocol 94): may reorder <paramref name="records"/> (a new array; the one passed is every recipient's) for the recipient <paramref name="self"/> seeing from
+    /// <paramref name="viewer"/> (the snapshot carries <paramref name="points"/> control points), leave some out, and send the last <paramref name="lean"/> of them as lean records
+    /// (<see cref="Snapshot.Lean"/>). The snapshot writer still leaves out the last records past its budget. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
+    /// </summary>
+    partial void ExtrasSnapshotRecords(int self, Vector3 viewer, int points, ref PlayerState[] records, ref int lean);
+
+    /// <summary>Hook for added content (protocol 94): the scoreboard rank of player <paramref name="id"/> (0, the default, first; rows sort by rank, then id, and the writer leaves out the last rows past one packet). Returns at once unless its feature runs.</summary>
+    partial void ExtrasScoreRank(int id, ref int rank);
+
+    int ScoreRank(int id)
+    {
+        int rank = 0;
+        ExtrasScoreRank(id, ref rank);   // EXTRAS-HOOK (protocol 94): Warfront's drop pod Marines last
+        return rank;
     }
 
     /// <summary>The match block every snapshot carries.</summary>
@@ -822,7 +855,7 @@ public sealed partial class GameServer
 
     /// <summary>The scoreboard every client gets: the rules and each player's side, class, kills and deaths (by id), and its ping (protocol 50).</summary>
     public Scoreboard ScoreboardOf() => new(World.Tick, World.Rules is not null, World.Rules?.ScoreLimit ?? 0, World.Rules?.TimeLimit ?? 0f, World.Rules?.FriendlyFire ?? true,
-        World.Players.Values.OrderBy(p => p.PlayerId).Select(p =>
+        World.Players.Values.OrderBy(p => ScoreRank(p.PlayerId)).ThenBy(p => p.PlayerId).Select(p =>
         {
             var s = World.Scores.GetValueOrDefault(p.PlayerId);
             var peer = PeerOf(p.PlayerId);

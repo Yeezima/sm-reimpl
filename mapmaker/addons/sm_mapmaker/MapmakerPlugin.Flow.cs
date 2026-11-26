@@ -172,7 +172,16 @@ public partial class MapmakerPlugin
             return;
         }
         RouteChecking = _routeInFlight;
-        LastCheck = MapCheck.Run(map);
+        try { LastCheck = MapCheck.Run(map); }
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+        {
+            // a damaged or hostile map the simulation refuses (the compiler leaves out markers with no inside, so this is a last guard): a status line, never an editor crash
+            GD.PushWarning("Mapmaker: check: " + e.Message);
+            LastCheck = null;
+            SetStatus($"The map could not be checked: {e.Message}");
+            CheckChanged?.Invoke();
+            return;
+        }
         bool ready = LastCheck.Ready(CheckMode.Annihilation) || LastCheck.Ready(CheckMode.Seize);
         bool startRoute = withRoute && ready;
         if (!startRoute)

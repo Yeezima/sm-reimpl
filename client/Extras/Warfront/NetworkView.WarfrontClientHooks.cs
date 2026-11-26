@@ -20,11 +20,28 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    /// <summary>Warfront's melee reach (owner 2026-11-18): x1.2, the Dreadnought x1.4, as the server's <c>World.WarfrontCleave</c>; the drawn arc and the predicted targets use it.</summary>
+    /// <summary>
+    /// Warfront's melee reach (owner 2026-11-18): x1.2, the Dreadnought x1.4, as the server's <c>World.WarfrontCleave</c>; the drawn arc and the predicted targets use it. Humans and retainers ("Exactly a human",
+    /// owner 2026-11-25, T2 review): the server's <c>WarfrontCleaveBonus</c> gives a retainer (<c>MarineRole.Squad</c>) the bonus while <c>WarfrontRetainerRules.CleaveBonus</c> is on (on), and the arc follows
+    /// the same switch (<see cref="SmClient.Extras.Warfront.Squad.WarfrontSquadModel.CleaveBonus"/>), so a retainer's arc is drawn at the reach it strikes; the allied pair and a pod's Marines keep Musou Mode's reach.
+    /// </summary>
     partial void WarfrontCleaveScaleFor(int player, ref float scale)
     {
-        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Warfront) || _tfwState.War is null || SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(player)) return;   // humans only: an AI Marine's arc (a retainer's included, cosmetic) keeps Musou Mode's reach
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Warfront) || _tfwState.War is null) return;
+        if (!SmClient.Extras.Warfront.Squad.WarfrontSquadModel.CleaveBonus(SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(player), WarfrontIsRetainer(player))) return;
         scale = WarfrontBattleRules.CleaveScale(ClassOf(player) is int c && DreadnoughtRules.IsDreadnought(_config, c));
+    }
+
+    /// <summary>A retainer's arc takes the human-only x0.6 trim as the server strikes it (<see cref="SmClient.Extras.Warfront.Squad.WarfrontSquadModel.ArcHuman"/>: a human's melee reach, or the human-only scales).</summary>
+    partial void WarfrontArcHuman(int player, ref bool human)
+    {
+        if (!human && WarfrontOn && SmClient.Extras.Warfront.Squad.WarfrontSquadModel.ArcHuman(WarfrontIsRetainer(player))) human = true;
+    }
+
+    /// <summary>A retainer standing by a landing drop pod is not one of the pod's Marines: it does not give their battle cry (a human player would not).</summary>
+    partial void WarfrontNotPodMarine(int id, ref bool not)
+    {
+        if (WarfrontOn && WarfrontIsRetainer(id)) not = true;
     }
 
     // ---- the picker and the squad panel take the game's input -----------------------------------------------------------------------------
@@ -162,6 +179,7 @@ public partial class NetworkView
 
     partial void WarfrontSpectateView(PlayerState me, ref (Vector3 Eye, Vector3 Target)? view)
     {
+        bool duel = false; WarfrontChaosDuelSpectate(me, ref view, ref duel); if (duel) return;   // WARFRONT-HOOK: Chaos Warfront C5c, the duel's spectators watch the champion
         if (!WarfrontOn || !WarfrontSpectating || _client is not { } c || _gameSpace is null) return;
         var s = WarfrontCoop.Section;
         Num.Vector3? at = null;
@@ -171,7 +189,8 @@ public partial class NetworkView
             if (s.WatchId == c.PlayerId) { at = me.Position; yaw = me.Yaw; }
             else foreach (var p in c.RemotePlayers().Players) if (p.PlayerId == s.WatchId && p.Alive) { at = p.Position; yaw = p.Yaw; break; }
         }
-        else if (s.WatchKind == WarfrontWatchKind.Marine && _wfSquad is { } squad && squad.Model.TrySample(s.WatchId, _connectedFor, out var shown)) { at = shown.Position; yaw = shown.Yaw; }
+        else if (s.WatchKind == WarfrontWatchKind.Marine && _wfSquad is { } squad && squad.Model.WorldIdOf(s.WatchId) is var marine and > 0)   // Phase B T5: the Marine is its World player
+            foreach (var p in c.RemotePlayers().Players) if (p.PlayerId == marine) { at = p.Position; yaw = p.Yaw; break; }
         if (at is null) { at = me.Position; yaw = me.Yaw; }   // nobody to watch yet (the server names the watch on the first F): the own body's place
         if (at is { } position) view = WarfrontSpectatePose(SpectateG(position), yaw);
     }

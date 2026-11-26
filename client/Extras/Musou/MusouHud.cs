@@ -127,9 +127,25 @@ public sealed partial class MusouHud : Control
     /// <summary>The view filled <see cref="Data"/> this frame.</summary>
     public void Fed() => _fedFrame = Engine.GetProcessFrames();
 
+    /// <summary>Chaos Warfront C3: the words of the boss bars, call-outs and end panel in a Chaos battle (the Ork names as the Chaos units'); null everywhere else (the Ork words as before).</summary>
+    public Func<string, string>? WarfrontRelabel;
+    /// <summary>WARFRONT-HOOK (Chaos Warfront C5c): the commander's bar of the boss column is not drawn (the duel strip carries the Chaos Lord's bar during the relay). Never set outside a Warfront Chaos finale.</summary>
+    public bool WarfrontHideCommander;
+    string Relabel(string text)
+    {
+        if (WarfrontRelabel is not { } r) return text;
+        if (!r.Equals(_relabelFor)) { _relabelled.Clear(); _relabelFor = r; }   // Chaos Warfront C5c review: a different relabel (the shielded Lord's words) is never served from the old one's cache
+        if (_relabelled.TryGetValue(text, out var known)) return known;   // the HUD's words are a few fixed strings: relabelled once each, no garbage a frame
+        if (_relabelled.Count > 64) _relabelled.Clear();
+        return _relabelled[text] = r(text);
+    }
+    readonly System.Collections.Generic.Dictionary<string, string> _relabelled = new(System.StringComparer.Ordinal);
+    Func<string, string>? _relabelFor;
+
     /// <summary>A call-out in the centre (the newest replaces an older one of the same text); <paramref name="flash"/> tints the screen for a moment.</summary>
     public void CallOut(string text, Color colour, double seconds = 2.2, Color? flash = null)
     {
+        text = Relabel(text);
         for (int i = _callOuts.Count - 1; i >= 0; i--) if (_callOuts[i].Text == text) _callOuts.RemoveAt(i);
         _callOuts.Add(new CallOutLine { Text = text, Colour = colour, At = _time, Seconds = seconds });
         while (_callOuts.Count > 2) _callOuts.RemoveAt(0);
@@ -205,7 +221,7 @@ public sealed partial class MusouHud : Control
         DrawFlash(vs);
         if (Data.Director is not { } d) return;
         if (d.Phase != MusouPhase.Campaign) DrawRunPanel(d);
-        if (MusouHudLayout.Old) { DrawBossBar(vs, d); DrawBossOrkBars(vs, d); }   // MusouHud.BossOrks.cs
+        if (MusouHudLayout.Old) { if (!WarfrontHideCommander) DrawBossBar(vs, d); DrawBossOrkBars(vs, d); }   // WARFRONT-HOOK: the old layout honours the C5c hide too   // MusouHud.BossOrks.cs
         else DrawBossColumn(vs, d);   // the column over the own bar, bottom left (MusouHud.BossColumn.cs)
         if (d.Phase is not (MusouPhase.Won or MusouPhase.Lost)) DrawChain(vs);
         DrawBreak(vs, d);
@@ -265,7 +281,7 @@ public sealed partial class MusouHud : Control
         float cx = vs.X / 2f, w = Math.Min(720f, vs.X - 760f), x = cx - w / 2f, y = 52f, h = 22f;
         bool rage = Data.BossEnraged;
         float pulse = rage ? 0.75f + 0.25f * MathF.Sin((float)_time * 8f) : 1f;
-        Txt(Data.BossName, cx, y - 10f, 24, rage ? RedText : Gold, 0, 4, true);
+        Txt(Relabel(Data.BossName), cx, y - 10f, 24, rage ? RedText : Gold, 0, 4, true);
         if (rage) Txt("ENRAGED", x + w, y - 10f, 20, new Color(RedText, pulse), 1, 3, true);
         long pct = (long)MathF.Ceiling(Math.Clamp(d.BossHealth / d.BossMaxHealth, 0f, 1f) * 100f);
         Txt(_bossPct.Of(pct, static k => $"{k}%"), x, y - 10f, 20, White, -1, 3, true);
@@ -345,7 +361,7 @@ public sealed partial class MusouHud : Control
         const float w = 560f, h = 206f;
         float x = vs.X / 2f - w / 2f, y = 196f, cx = vs.X / 2f;
         Panel(x, y, w, h, a);
-        Txt(won ? "THE WARBOSS IS DEAD" : "THE HORDE PREVAILS", cx, y + 48f, 38, new Color(won ? Gold : RedText, a), 0, 5, true);
+        Txt(Relabel(won ? "THE WARBOSS IS DEAD" : "THE HORDE PREVAILS"), cx, y + 48f, 38, new Color(won ? Gold : RedText, a), 0, 5, true);
         string sub = won ? "VICTORY" : _endSub.Of((long)d.Wave << 8 | d.Waves, static k => $"DEFEAT ON WAVE {Math.Max(1, k >> 8)} / {Math.Max(1, k & 0xFF)}");
         Txt(sub, cx, y + 80f, 22, new Color(White, a), 0, 3, true);
         Txt("KOs", cx - 120f, y + 116f, 20, new Color(Grey, a), 0, 3, true);

@@ -188,7 +188,7 @@ public sealed record Leave(uint Session) : Message;
 /// input's first arrival to the run of its tick (negative: a tick ran without it, the server repeated the last one), or <see cref="Protocol.NoSlack"/>. Lead and slack
 /// travel as 16-bit values (±32767, clamped).
 public sealed record Snapshot(uint ServerTick, uint LastInputTick, int InputLead, PlayerState[] Players, int Self = 0, ProjectileView[]? Projectiles = null,
-    MatchView? Match = null, KillView[]? Kills = null, ControlPointView[]? Points = null, HitView? Hits = null, ShotView[]? Shots = null, int InputSlack = Protocol.NoSlack) : Message;
+    MatchView? Match = null, KillView[]? Kills = null, ControlPointView[]? Points = null, HitView? Hits = null, ShotView[]? Shots = null, int InputSlack = Protocol.NoSlack, int Lean = 0) : Message;
 
 /// <summary>
 /// A shot for effects (protocol 16, 9 bytes): who fired (<paramref name="Shooter"/>, a player id that has a record in the same
@@ -556,7 +556,19 @@ public static partial class Protocol
     // 91 (sim/stab-key-only; the owner 2026-11-23): no layout change. Classic PvP's power sword: F + F (and every chain into the Y,Y finisher) is the data's stomp again; the stab is a heavy strike of its own after
     //     the finishers that only the Sword Stab key (input bit 15) starts. The cancel matrix gains the Power Sword Stab row (melee_stab) and column (stab), appended last (DevCancel row/column ranges grow by one).
     //     Prediction must agree, hence the bump; the Classic config hash changes too.
-    public const ushort Version = 91;
+    // 92 (sim/ledge-charge-air, charge fall; the owner 2026-11-24, decision 2026-11-24-series-37-playtest-fixes item 1: "2x (halve the gravity)"): no layout change. Classic PvP only: the bull rush held in the air
+    //     falls under 2 x gravity (LedgeChargeAir.Gravity, was 4 x at 90-91), so its air time and travel from a ledge are about 0.71 (1/√2) of protocol 89's rather than half; the horizontal speed, the hop, the
+    //     landing rule and Musou Mode and Warfront are unchanged. Client prediction must agree, hence the bump. The constant is not in the config hash (only the restore switch is, when off): unchanged.
+    // 93 (sim/hammer-180; the owner 2026-11-25, decision 2026-11-25-transitions-batches-2-4: "Add it for the hammer"): no layout change. Classic PvP only: the thunder hammer's and the daemon maul's Dir 180
+    //     strikes and their follow-ups (light strikes 4 to 7: a light press with the stick more than 135 degrees from where the character faces starts or chains them; MeleeStep.Dir180, TurnsBack, TurnAt,
+    //     BackNext, LightNext, BackStart, hashed only when set), struck along the turned facing with the clips' own backward root motion (no lunge scale, front-loading or early step). Prediction must agree,
+    //     hence the bump; the Classic config hash changes (Musou Mode and Warfront read none: theirs does not). SM_OLD_HAMMER_180=1 restores the plain combo.
+    // 94 (the series-37 integration, 2026-11-25; claude/drop-pod-limit-1125, Phase B T2b): Warfront drop pod Marines outside the player limit (owner 2026-11-24:
+    //     "Drop pod marines don't count towards the limit"). MaxPlayers 16 -> 32 records a snapshot may carry (MaxMatchPlayers keeps the 16 players a match admits); the player count byte carries bit 7 when
+    //     a block of lean records (Protocol.Lean.cs, 33 bytes: a Warfront run's AI Marines) follows the slim and full ones; the shot record's index gains a fifth bit (Protocol.Lean.cs); the writer keeps every
+    //     snapshot and scoreboard within the 1200-byte budget by leaving out the last records. With at most 16 records and no lean block the bytes are protocol 91's (Classic and Musou unchanged).
+    //     Executions (input bit 6 InputButtons.Execute, the Execution wire under the extended and Warfront hashes) and the Chaos Warfront sections (WarfrontRules) ride this number.
+    public const ushort Version = 94;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
@@ -593,9 +605,10 @@ public static partial class Protocol
     /// <summary>
     /// Input buttons this protocol knows (bits 0..11 since protocol 17, without bit 6 since protocol 20, bit 12 Interact since 26; bit 13
     /// <see cref="InputButtons.ExtraAction"/>, added content's action key, since extras wire 2: the faithful simulation never reads it); others are
-    /// dropped when an input batch is read.
+    /// dropped when an input batch is read. Bit 6 is <see cref="InputButtons.Execute"/> again since executions X1 (no layout change: the faithful simulation never reads it and
+    /// <c>GameServer</c> drops it unless the match runs <see cref="ContentExtras.Executions"/>).
     /// </summary>
-    const ushort KnownButtons = 0xFFFF & ~64;   // protocol 44: bit 14 SlotSecond; protocol 81: bit 15 Stab
+    const ushort KnownButtons = 0xFFFF;   // protocol 44: bit 14 SlotSecond; protocol 81: bit 15 Stab; executions X1: bit 6 InputButtons.Execute (the server drops it without ContentExtras.Executions)
     /// <summary>Most control point records in one snapshot (every point travels).</summary>
     public const int MaxSnapshotPoints = World.MaxControlPoints;
     /// <summary>
@@ -639,7 +652,7 @@ public static partial class Protocol
     /// at most the 1200-byte <see cref="SnapshotBudget"/> (7 bytes of headroom since protocol 62). A smaller snapshot
     /// carries more shot records, up to <see cref="MaxSnapshotShots"/>, but never more than the budget.
     /// </summary>
-    public const int MaxSnapshotBytes = 13 + 1 + MaxSnapshotProjectiles * 14 + 1 + (MaxPlayers - 1) * SlimRecordBytes + FullRecordBytes + 9 + 1 + MaxSnapshotKills * KillEntryBytes
+    public const int MaxSnapshotBytes = 13 + 1 + MaxSnapshotProjectiles * 14 + 1 + (MaxMatchPlayers - 1) * SlimRecordBytes + FullRecordBytes + 9 + 1 + MaxSnapshotKills * KillEntryBytes
         + 1 + MaxSnapshotPoints * 2 + HitBlockBytes + 1 + MinSnapshotShots * ShotBytes;
     /// <summary>Classes travel in the low 6 bits of the class byte, the team in the top 2 (protocol 10): class indices 0..63.</summary>
     public const int MaxClasses = SimConfig.MaxClasses;
@@ -652,7 +665,10 @@ public static partial class Protocol
     public const byte DefaultChoice = 255;
     /// <summary>A weapon index or melee choice of "none" on the wire (indices travel as one byte, so at most 255 weapons or choices).</summary>
     public const byte NoIndex = 255;
-    public const int MaxPlayers = 16;
+    /// <summary>Most player records a snapshot and rows a scoreboard may carry (protocol 94: 32, was 16; Warfront's drop pod Marines are World players besides the humans and their retainers). A match admits <see cref="MaxMatchPlayers"/>.</summary>
+    public const int MaxPlayers = 32;
+    /// <summary>Most players a match admits (Classic 8v8; the server's default <c>--max-players</c>). Until protocol 94 this was <see cref="MaxPlayers"/>.</summary>
+    public const int MaxMatchPlayers = 16;
     /// <summary>Longest map name a Challenge carries, so a Challenge never outgrows the Hello it answers.</summary>
     public const int MaxMapName = 24;
     public const int MaxInputsPerBatch = 16;
@@ -794,8 +810,9 @@ public static partial class Protocol
                     w.U16((ushort)q.Id); w.U8(Index(q.Weapon)); w.U8((byte)Math.Clamp(q.Stage, 0, byte.MaxValue)); w.U8((byte)(q.Flags & ProjectileFlags.All));
                     w.I24(Fixed(q.Position.X)); w.I24(Fixed(q.Position.Y)); w.I24(Fixed(q.Position.Z));
                 }
-                w.U8((byte)s.Players.Length);
-                foreach (var p in s.Players)
+                var records = SnapshotRecords(s, out int slimRecords, out int leanRecords);   // protocol 94: what fits the budget (Protocol.Lean.cs)
+                w.U8((byte)(slimRecords | (leanRecords > 0 ? LeanBlockFlag : 0)));
+                foreach (var p in records.Take(slimRecords))
                 {
                     bool full = s.Self != 0 && p.PlayerId == s.Self;
                     // Protocol 44: the three weapons by slot; the one in hand, the first holstered (Loadouts.Other) and the second holstered (Loadouts.Third).
@@ -855,6 +872,7 @@ public static partial class Protocol
                     // Protocol 33: the raise ticks in bits 0..5 (at most Combat.MaxRaiseTicks), the buffer ticks' high 2 bits in 6..7.
                     w.U16((ushort)Math.Clamp(p.ReadyTicks, 0, SimConfig.MaxReadyTicks)); w.U8((byte)(Math.Clamp(p.RaiseTicks, 0, Combat.MaxRaiseTicks) | ((bufferTicks >> 2) << 6)));
                 }
+                if (leanRecords > 0) WriteLeanBlock(w, records, slimRecords, leanRecords);   // protocol 94 (Protocol.Lean.cs)
                 // Match (protocol 10; 9 bytes): state | winner << 2, ticks left, team scores.
                 var match = s.Match ?? default;
                 if (match.State == MatchState.Countdown) throw new ArgumentException("MatchState.Countdown has no wire value: send it through MatchFlowWire.ToWire (Warmup with ticks left).");
@@ -887,18 +905,18 @@ public static partial class Protocol
                 var shotRecords = new List<(int Index, ShotView Shot)>();
                 foreach (var shot in s.Shots ?? [])
                 {
-                    int index = Array.FindIndex(s.Players, p => p.PlayerId == shot.Shooter);
-                    if (index >= 0 && index < MaxPlayers && Encodable(shot)) shotRecords.Add((index, shot));   // 4-bit index
+                    int index = Array.FindIndex(records, p => p.PlayerId == shot.Shooter);   // protocol 94: among the records written
+                    if (index >= 0 && index < MaxPlayers && Encodable(shot)) shotRecords.Add((index, shot));   // 5-bit index (protocol 94; ShotInfoByte)
                 }
                 int shotCount = Math.Min(Math.Min(shotRecords.Count, MaxSnapshotShots), Math.Max(0, (SnapshotBudget - w.Length - 1) / ShotBytes));
                 w.U8((byte)shotCount);
                 for (int k = 0; k < shotCount; k++)
                 {
                     var (index, shot) = shotRecords[k];
-                    var (x, y, z) = ShotOffset(shot.End - s.Players[index].Position);
-                    w.U8((byte)(index | ((int)shot.Hit << 4) | (Math.Clamp(shot.Age, 0, MaxShotAge) << 6)));
+                    var (x, y, z) = ShotOffset(shot.End - records[index].Position);
+                    w.U8((byte)((index & 15) | ((int)shot.Hit << 4) | (Math.Clamp(shot.Age, 0, MaxShotAge) << 6)));
                     w.U8((byte)shot.Weapon);
-                    w.U8((byte)(shot.Stage | (SurfaceCode(shot) << 3) | (ArmouredHit(shot) ? 128 : 0)));   // protocol 22: bit 7 armour hit
+                    w.U8(ShotInfoByte(shot, index));   // protocol 22: bit 7 armour hit; protocol 94: the index's fifth bit (Protocol.Lean.cs)
                     w.I16(x); w.I16(y); w.I16(z);
                 }
                 break;
@@ -926,7 +944,7 @@ public static partial class Protocol
                         w.U8((byte)name.Length); w.Bytes(name); w.V3(p.Center); w.F32(p.Radius); w.F32(p.HalfHeight);
                     }
                 }
-                int rows = Math.Min(b.Players.Length, MaxPlayers);
+                int rows = ScoreRowsThatFit(b, w.Length);   // protocol 94: at most MaxPlayers, and only the first rows that keep the board within one packet (Protocol.Lean.cs)
                 w.U8((byte)rows);
                 for (int k = 0; k < rows; k++)
                 {
@@ -1104,14 +1122,20 @@ public static partial class Protocol
             for (int j = 0; j < k; j++) if (projectiles[j].Id == id) return null;   // one record per projectile
             projectiles[k] = new ProjectileView(id, weapon, stage, position, (ProjectileFlags)flags);
         }
-        int n = r.U8();
+        int countByte = r.U8(), n = countByte & ~LeanBlockFlag, leanCount = -1;   // protocol 94: bit 7, a lean block follows (Protocol.Lean.cs)
         if (n > MaxPlayers) return null;
-        var players = new PlayerState[n];
+        var list = new List<PlayerState>(n);
         int self = 0;
-        for (int i = 0; i < n; i++)
+        for (int i = 0; ; i++)
         {
-            int id = r.I32(); var position = r.V3(); var velocity = r.V3(); float yaw = r.F32(), pitch = r.F32();
+            if (i == n && leanCount < 0 && (leanCount = ReadLeanCount(ref r, countByte, n)) < 0) return null;
+            if (i >= n && i >= n + leanCount) break;
+            bool lean = i >= n;
+            int id; Vector3 position, velocity; float yaw, pitch;
+            if (lean) ReadLeanHead(ref r, out id, out position, out velocity, out yaw, out pitch);   // protocol 94
+            else { id = r.I32(); position = r.V3(); velocity = r.V3(); yaw = r.F32(); pitch = r.F32(); }
             int flags = r.U8();
+            if (lean && (flags & 4) != 0) return null;   // a lean record is never the recipient's full one
             if ((flags & 96) == 96) return null;   // jumping and pounding at once (bit 7, aiming, since protocol 12)
             int classAndTeam = r.U8(), inHand = FromIndex(r.U8()), meleeChoice = FromIndex(r.U8()), slotByte = r.U8();
             if (classAndTeam >> 6 > (int)Team.Chaos) return null;   // unknown team
@@ -1221,9 +1245,11 @@ public static partial class Protocol
                 byslot[(int)realSlot] = inHand; byslot[(int)Loadouts.Other(realSlot)] = holstered; byslot[(int)Loadouts.Third(realSlot)] = thirdIndex;
                 p = p with { Slot = realSlot, Primary = byslot[(int)WeaponSlot.Ranged], Pistol = byslot[(int)WeaponSlot.Pistol], Second = byslot[(int)WeaponSlot.Second] };
             }
-            if (players.Take(i).Any(q => q.PlayerId == id)) return null;   // one record per player (a duplicate would break the client)
-            players[i] = p;
+            if (list.Any(q => q.PlayerId == id)) return null;   // one record per player (a duplicate would break the client)
+            list.Add(p);
         }
+        var players = list.ToArray();
+        n = players.Length;
         int state = r.U8();
         if (state > 63 || ((state >> 2) & 3) > (int)Team.Chaos) return null;   // unknown state bits or mode, or winner 3
         var match = new MatchView((MatchState)(state & 3), (Team)((state >> 2) & 3), r.U32(), r.U16(), r.U16(), (GameMode)((state >> 4) & 1), (state & 32) != 0);
@@ -1262,14 +1288,15 @@ public static partial class Protocol
         {
             int head = r.U8(), weapon = r.U8(), info = r.U8();
             var offset = new Vector3(r.I16(), r.I16(), r.I16()) / ShotEndScale;
-            int index = head & 15, hit = (head >> 4) & 3, age = head >> 6, stage = info & 7, surface = (info >> 3) & 15;
-            bool armoured = (info & 128) != 0;
+            int hit = (head >> 4) & 3, age = head >> 6, stage = info & 7;
+            if (ShotInfoFields(head, info) is not { } fields) return null;   // protocol 94: the index's fifth bit (Protocol.Lean.cs)
+            var (index, surface, armoured) = fields;
             if (index >= n || weapon == NoIndex) return null;                                       // no such player record, no weapon
             if ((ShotHit)hit != ShotHit.World && surface != UnknownSurface) return null;           // only world hits name a surface
             if (armoured && (ShotHit)hit is not (ShotHit.Body or ShotHit.Head)) return null;       // only player hits strike armour
             shots[k] = new ShotView(players[index].PlayerId, weapon, stage, (ShotHit)hit, surface == UnknownSurface ? -1 : surface, players[index].Position + offset, age, armoured);
         }
-        return new Snapshot(tick, last, lead, players, self, projectiles, match, kills, points, hits, shots, slack);
+        return new Snapshot(tick, last, lead, players, self, projectiles, match, kills, points, hits, shots, slack, Lean: leanCount);
     }
 
     /// <summary>Whether a shot can travel: a weapon index 0..254, a stage 0..7, a known hit kind and a finite end point.</summary>

@@ -143,6 +143,26 @@ public class WarfrontStageTests : IDisposable
     }
 
     [Fact]
+    public void Same_map_deploy_on_a_stage_built_for_the_other_army_prepares_a_new_stage()
+    {
+        // Chaos Warfront C1's restage (WarfrontStagePlan.CanLandHere), wired at the series-37 integration: an Orks run on a stage process started for Chaos does not land on it.
+        var stageArmy = WarfrontRunFiles.StageFaction;
+        try
+        {
+            WarfrontRunFiles.StageFaction = SmSim.Extras.Warfront.Faction.WarfrontFaction.Chaos;
+            var s = StartStage("wf_b1", 1);
+            s.Identify(0, 111, "Alpha");
+            s.Tick(1);
+            Assert.NotEqual(SmSim.Extras.Warfront.Faction.WarfrontFaction.Chaos, s.Campaign.Faction);
+            s.Send(0, new WarfrontClientCommand(WarfrontClientCommandKind.Deploy, Target: WarfrontTarget.Node(1)));   // lane B node 1: this map, but the other army's stage
+            s.Tick(2);
+            Assert.Equal(new[] { "wf_b1" }, _prebuilt);   // prepared again instead of landing at once
+            Assert.Contains(s.Heard, h => h.Tag == WarfrontWire.StageTag && WarfrontWire.TryDecode(h.Payload, out WarfrontStageWire g) && g.State == WarfrontStageState.Go && g.Map == "wf_b1");
+        }
+        finally { WarfrontRunFiles.StageFaction = stageArmy; }
+    }
+
+    [Fact]
     public void Deploy_to_another_map_prepares_says_go_and_the_next_stage_resumes_in_travel_and_lands()
     {
         Env("SM_WF_RESOLVE", "win");

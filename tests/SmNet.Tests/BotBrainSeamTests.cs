@@ -1,0 +1,289 @@
+using System.Numerics;
+using SmBots;
+using SmContent;
+using SmSim;
+using BotVector2 = SmBots.Vector2;
+
+namespace SmNet.Tests;
+
+/// <summary>
+/// T1 (Phase B, 2026-11-25): the engine-free Classic bot brain (src/SmBots) and its seams. Godot's Vector2 formulas bit for bit (values measured with GodotSharp
+/// 4.7.2), the command-line rules of the client, the tick-stable background work, and a brain on the flat ground with a fake world: the strategy, aim-height and
+/// goal-clamp seams, and two brains fed the same inputs giving the same input every tick (what the client's <c>--bot-shadow</c> checks in a real match).
+/// </summary>
+public class BotBrainSeamTests
+{
+    static int Bits(float f) => BitConverter.SingleToInt32Bits(f);
+
+    [Fact]
+    public void Vector2_matches_Godot_bit_for_bit()
+    {
+        // Measured with GodotSharp 4.7.2 (Godot.Vector2): (0.6, -0.8).Rotated(DegToRad(135)) and (3.3, -7.1).Normalized().
+        var r = new BotVector2(0.6f, -0.8f).Rotated(SmBots.Mathf.DegToRad(135f));
+        Assert.Equal(0x3E10D0C4, Bits(r.X));
+        Assert.Equal(0x3F7D6D55, Bits(r.Y));
+        var n = new BotVector2(3.3f, -7.1f).Normalized();
+        Assert.Equal(0x3ED7CD15, Bits(n.X));
+        Assert.Equal(unchecked((int)0xBF682651), Bits(n.Y));
+        Assert.Equal(BotVector2.Zero, BotVector2.Zero.Normalized());   // Godot: the zero vector stays zero
+        Assert.Equal(MathF.Sqrt(3f * 3f + 4f * 4f), new BotVector2(0f, 0f).DistanceTo(new BotVector2(3f, 4f)));
+        Assert.Equal(11f, new BotVector2(1f, 2f).Dot(new BotVector2(3f, 4f)));
+        Assert.Equal(90f * (3.1415927f / 180f), SmBots.Mathf.DegToRad(90f));
+    }
+
+    [Fact]
+    public void BotArgs_reads_flags_like_the_client()
+    {
+        var a = new BotArgs(["--bot", "--bot-accuracy", "0.5", "--bot-route", "A", "B", "--bot-preset", "--x", "--bot-range", "nope"]);
+        Assert.True(a.Flag("bot"));
+        Assert.False(a.Flag("bot-door-wait"));
+        Assert.Equal("0.5", a.Arg("bot-accuracy"));
+        Assert.Null(a.Arg("bot-preset"));                 // followed by another flag
+        Assert.Equal(["A", "B"], a.Args("bot-route", 5));
+        Assert.Empty(a.Args("missing", 1));
+        Assert.Equal(0.5f, a.Float("bot-accuracy"));
+        Assert.True(float.IsNaN(a.Float("bot-range")));
+        Assert.False(BotArgs.None.Flag("bot"));
+    }
+
+    [Fact]
+    public void BotWork_hands_results_on_at_a_poll_and_shares_a_key()
+    {
+        var work = new BotWork();
+        using var done = new ManualResetEventSlim();
+        var task = work.Run("lane|1|nav", () => { done.Set(); return 42; }, CancellationToken.None);
+        Assert.True(done.Wait(TimeSpan.FromSeconds(10)));
+        SpinWait.SpinUntil(() => false, 50);
+        Assert.False(task.IsCompleted);                    // done, but not handed on before the poll
+        Assert.Same(task, work.Run("lane|1|nav", () => 7, CancellationToken.None));   // the same key: the same job (a shadow brain shares it)
+        Assert.True(PollUntil(work, () => task.IsCompleted));
+        Assert.True(task.IsCompletedSuccessfully);
+        Assert.Equal(42, task.Result);
+        work.Clear();
+        Assert.NotSame(task, work.Run("lane|1|nav", () => 7, CancellationToken.None));   // a new map forgets the keys
+    }
+
+    [Fact]
+    public void BotWork_scopes_map_jobs_by_the_loaded_map_and_forgets_a_taken_search()
+    {
+        var work = new BotWork();
+        object map = new(), collision = new(), config = new(), otherLoad = new();
+        Assert.Equal(work.MapScope("mp_m09", map, collision, config), work.MapScope("mp_m09", map, collision, config));   // every brain on the loaded map: one scope
+        Assert.NotEqual(work.MapScope("mp_m09", map, collision, config), work.MapScope("mp_m09", otherLoad, collision, config));   // another load of the map: another
+        var search = work.Run("brain lane 1|1|cover 1", () => 1, CancellationToken.None);
+        var kept = work.Run("map x|nav", () => 2, CancellationToken.None);
+        Assert.Equal(2, work.Keys);
+        work.Forget(search);                               // taken: the key goes, the holder keeps its task
+        Assert.Equal(1, work.Keys);
+        work.Forget("map x|nav");
+        Assert.Equal(0, work.Keys);
+        Assert.True(PollUntil(work, () => search.IsCompleted && kept.IsCompleted));   // bounded: a bare .Result after a short loop blocked forever (series-37 hang)
+        Assert.Equal(1, search.Result);                    // a forgotten job still finishes at a poll
+        Assert.Equal(0, work.Running);
+    }
+
+    /// <summary>
+    /// Polls <paramref name="work"/> until <paramref name="done"/> holds or <paramref name="seconds"/> pass (false then). A held task completes only at a poll, so a test that
+    /// stopped polling after a fixed number of rounds and then read <c>.Result</c> of a job the loaded thread pool had not started yet blocked for ever (the series-37
+    /// integration hang in a full SmNet run); a wait through this fails instead.
+    /// </summary>
+    internal static bool PollUntil(BotWork work, Func<bool> done, double seconds = 60)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        while (true)
+        {
+            work.Poll();
+            if (done()) return true;
+            if (watch.Elapsed.TotalSeconds >= seconds) return false;
+            Thread.Sleep(5);
+        }
+    }
+
+    [Fact]
+    public void BotWork_hands_on_a_job_the_pool_finishes_late_at_a_later_poll_and_a_bounded_wait_fails_instead_of_hanging()
+    {
+        // The race behind the series-37 hang, forced: the job is still running after many polls (as on a starved thread pool), the forgotten key's task stays
+        // incomplete, and it completes at the first poll after the job ends.
+        var work = new BotWork();
+        using var release = new ManualResetEventSlim();
+        using var started = new ManualResetEventSlim();
+        var late = work.Run("brain lane 2|1|cover 1", () => { started.Set(); release.Wait(TimeSpan.FromSeconds(60)); return 5; }, CancellationToken.None);
+        work.Forget(late);
+        Assert.True(started.Wait(TimeSpan.FromSeconds(60)));
+        Assert.False(PollUntil(work, () => late.IsCompleted, seconds: 0.2));   // still running: the wait gives up, it does not block
+        Assert.False(late.IsCompleted);
+        Assert.Equal(1, work.Running);
+        release.Set();
+        SpinWait.SpinUntil(() => false, 50);
+        Assert.True(PollUntil(work, () => late.IsCompleted));
+        Assert.Equal(5, late.Result);
+        Assert.Equal(0, work.Running);
+    }
+
+    [Fact]
+    public void BotArgs_flags_are_taken_once_and_values_parse_finite()
+    {
+        var a = new BotArgs(["--bot-accuracy", "0.5", "--bot-range", "Infinity", "--BOT"]);
+        Assert.True(a.Flag("bot-accuracy"));
+        Assert.False(a.Flag("bot"));                       // ordinal, as Array.IndexOf was
+        Assert.Equal(0.5f, a.FiniteFloat("bot-accuracy"));
+        Assert.Null(a.FiniteFloat("bot-range"));           // infinity is not a value
+        Assert.Null(a.FiniteFloat("missing"));
+        Assert.Null(BotArgs.FiniteFloat(["1", "2"]));
+    }
+
+    /// <summary>A flat-ground world (no collision): the bot (player 1, Space Marines) and the given others; its own view.</summary>
+    sealed class FlatWorld : IBotWorldView
+    {
+        public PlayerState Me = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true), new SimConfig()) with { Team = Team.SpaceMarines };
+        public List<PlayerState> OthersList = [];
+        public double Now;
+        public float? AimHeight;
+        public int PlayerId => 1;
+        public PlayerState Predicted => Me;
+        public IReadOnlyList<PlayerState> Others => OthersList;
+        public double ConnectedFor => Now;
+        public SimConfig? Config { get; init; } = new SimConfig();
+        public CollisionWorld? Collision => null;
+        public MatchView Match => new(MatchState.Playing, Team.None, 1000, 0, 0);
+        public IReadOnlyList<ControlPointView> Points => [];
+        public SeizeGroundInfo? SeizeLayout => null;
+        public bool SeizeGround => false;
+        public string MapName => "";
+        public TimeSpan CurrentInterpolationDelay => TimeSpan.Zero;
+        public IEnumerable<ProjectileView> NewestProjectiles() => [];
+        public IReadOnlyList<ProjectileView> Projectiles() => [];
+        public float Yaw { get; set; }
+        public float Pitch { get; set; }
+        public float GrenadesOutFor => 0f;
+        public int OwnShotsFired => 0;
+        public ContentExtras MatchExtras => ContentExtras.None;
+        public StimSpec? StimOf(PlayerState s) => null;
+        public float AimHeightOf(PlayerState target) => AimHeight ?? ClassicBotBrain.BotTargetHeight;
+        public BotWork Work { get; } = new();
+    }
+
+    sealed class RecordingStrategy : IBotStrategy
+    {
+        public int Begins, Fights, Idles;
+        public PlayerInput? IdleInput;
+        public void Begin(ClassicBotBrain brain, PlayerState me) => Begins++;
+        public PlayerInput? BeforeFight(ClassicBotBrain brain, PlayerState me, uint tick, double phase) => null;
+        public void NoteFight(ClassicBotBrain brain, PlayerState me, PlayerState target) => Fights++;
+        public PlayerInput? FightMove(ClassicBotBrain brain, PlayerState me, PlayerState target, uint tick, float horizontal) => null;
+        public BotPost? Post(ClassicBotBrain brain, PlayerState me) => null;
+        public Vector3? PostReturn(ClassicBotBrain brain, PlayerState me) => null;
+        public PlayerInput? Idle(ClassicBotBrain brain, PlayerState me, uint tick) { Idles++; return IdleInput; }
+        public Vector3 ClampGoal(ClassicBotBrain brain, PlayerState me, Vector3 goal) => new(1f, 1f, 0f);
+    }
+
+    static ClassicBotBrain Brain(FlatWorld world, IBotStrategy? strategy = null) =>
+        new(world, new BotArgs(["--bot-accuracy", "1"]), new ClassicBotOptions(), BotLog.None, strategy: strategy);
+
+    static PlayerState Enemy(Vector3 at) => Combat.Respawned(new PlayerState(2, at, Vector3.Zero, 0f, true), new SimConfig()) with { Team = Team.Chaos };
+
+    [Fact]
+    public void The_strategy_seam_runs_at_its_points()
+    {
+        var world = new FlatWorld();
+        var strategy = new RecordingStrategy { IdleInput = new PlayerInput(0, 0f, 0f, 0.25f, InputButtons.None) };
+        var brain = Brain(world, strategy);
+        var idle = brain.Step(1);
+        Assert.Equal(1, strategy.Begins);
+        Assert.Equal(1, strategy.Idles);
+        Assert.Equal(0.25f, idle.Yaw);                       // the strategy's idle input is the bot's (no aim error at accuracy 1)
+        world.OthersList.Add(Enemy(new Vector3(0f, 10f, 0f)));
+        world.Now = 0.1;
+        brain.Step(2);
+        Assert.Equal(1, strategy.Fights);                    // an enemy on the flat ground is fought (no strategy idle)
+        Assert.Equal(1, strategy.Idles);
+        Assert.Equal(0f, world.Yaw, 4);                      // facing +y: yaw 0
+    }
+
+    [Fact]
+    public void The_aim_height_seam_sets_the_pitch()
+    {
+        float PitchWith(float? height)
+        {
+            var world = new FlatWorld { AimHeight = height };
+            world.OthersList.Add(Enemy(new Vector3(0f, 10f, 0f)));
+            Brain(world).Step(1);
+            return world.Pitch;
+        }
+        float chest = PitchWith(null), high = PitchWith(3f);
+        var c = new SimConfig();
+        Assert.Equal(MathF.Atan2(ClassicBotBrain.BotTargetHeight - c.EyeHeight, 10f), chest, 4);
+        Assert.Equal(MathF.Atan2(3f - c.EyeHeight, 10f), high, 4);
+    }
+
+    [Fact]
+    public void Steering_goes_through_the_goal_clamp()
+    {
+        var world = new FlatWorld();
+        var brain = Brain(world, new RecordingStrategy());
+        var (direction, _, _, _) = brain.BotSteer(world.Me, new Vector3(0f, 50f, 0f), "test");
+        // No graph: the straight walk, toward the clamped goal (1, 1), not the asked one (0, 50).
+        Assert.Equal(MathF.Sqrt(0.5f), direction.X, 4);
+        Assert.Equal(MathF.Sqrt(0.5f), direction.Y, 4);
+    }
+
+    [Fact]
+    public void Two_brains_on_the_same_inputs_give_the_same_input_every_tick()
+    {
+        // The shadow comparison's property, engine-free: same world, same args, same seeds (by player id), so every tick's input and view agree.
+        var a = new FlatWorld(); var b = new FlatWorld();
+        var brainA = new ClassicBotBrain(a, BotArgs.None, new ClassicBotOptions(), BotLog.None);
+        var brainB = new ClassicBotBrain(b, BotArgs.None, new ClassicBotOptions(), BotLog.None);
+        for (uint tick = 1; tick <= 600; tick++)
+        {
+            var at = new Vector3(8f * MathF.Sin(tick * 0.05f), 6f + 20f * MathF.Cos(tick * 0.013f), 0f);
+            foreach (var w in new[] { a, b })
+            {
+                w.Now = tick / 30.0;
+                w.OthersList.Clear();
+                if (tick % 200 < 150) w.OthersList.Add(Enemy(at));
+            }
+            b.Yaw = a.Yaw; b.Pitch = a.Pitch;
+            var ia = brainA.Hold(brainA.Step(tick));
+            var ib = brainB.Hold(brainB.Step(tick));
+            Assert.Equal(ia, ib);
+            Assert.Equal(Bits(a.Yaw), Bits(b.Yaw));
+            Assert.Equal(Bits(a.Pitch), Bits(b.Pitch));
+        }
+    }
+
+    [Fact]
+    public void A_seeded_preset_draw_repeats_and_a_server_brain_has_no_test_aids()
+    {
+        var world = new FlatWorld();
+        var brain = new ClassicBotBrain(world, BotArgs.None, new ClassicBotOptions { PresetSeed = 5 }, BotLog.None);
+        Assert.Null(brain.Preset);
+        Assert.False(brain.CommittedMove(world.Me));
+        Assert.Equal("", brain.Note);
+
+        // The draw itself: on a Classic PvP map the same seed gives the same preset match after match; a different seed walks the presets differently.
+        string Picks(int seed, byte playerClass)
+        {
+            var w = new FlatWorld { Config = BotLoadoutsTests.Make() };
+            var b = new ClassicBotBrain(w, BotArgs.None, new ClassicBotOptions { PresetSeed = seed }, BotLog.None);
+            var picks = new List<string>();
+            for (int match = 0; match < 12; match++)
+            {
+                var revised = b.BotPresetOnMap("mp_test", new ClientOptions { RequestedClass = playerClass });
+                Assert.NotNull(b.Preset);
+                Assert.NotEqual(Protocol.DefaultChoice, revised.RequestedPrimary);   // the preset's weapons are asked for
+                picks.Add($"{revised.RequestedPrimary}/{revised.RequestedPistol}/{revised.RequestedMelee}/{revised.RequestedEquipment}/{revised.RequestedPerk1}/{revised.RequestedPerk2}");
+            }
+            return string.Join(" ", picks);
+        }
+        Assert.Equal(Picks(5, 0), Picks(5, 0));
+        Assert.True(Picks(5, 0).Split(' ').Distinct().Count() > 1);   // the 12 draws are not all the same preset (3 tactical presets)
+        Assert.NotEqual(Picks(5, 0), Picks(6, 0));
+        // Not on a non-Classic map: the options are kept and no preset is drawn.
+        var flat = new FlatWorld { Config = BotLoadoutsTests.Make() };
+        var none = new ClassicBotBrain(flat, BotArgs.None, new ClassicBotOptions { PresetSeed = 5 }, BotLog.None);
+        var kept = new ClientOptions { RequestedClass = 0 };
+        Assert.Same(kept, none.BotPresetOnMap("tfw_war", kept));
+        Assert.Null(none.Preset);
+    }
+}

@@ -172,6 +172,12 @@ public sealed partial class GameClient
     readonly uint _nonce;
     readonly SortedDictionary<uint, (PlayerInput Input, PlayerState State)> _history = new();
     readonly List<(uint Tick, Dictionary<int, PlayerState> Players, Dictionary<int, ProjectileView> Projectiles)> _snapshots = new();
+    /// <summary>Protocol 94: the lean records held through the snapshots they are missing from (<see cref="LeanHold"/>).</summary>
+    readonly LeanHold _leanHold = new();
+    /// <summary>Protocol 94: the held lean records put back into the newest snapshot (diagnostics and tests; 0 outside a crowded Warfront snapshot).</summary>
+    public int LeanHeldIn { get; private set; }
+    /// <summary>Protocol 94: whether any snapshot of this connection carried lean records (a crowded Warfront snapshot; never in Classic or Musou Mode).</summary>
+    public bool LeanSeen { get; private set; }
     /// <summary>Detonations received and not yet handed out by <see cref="TakeDetonations"/>, with the server tick they arrived at.</summary>
     readonly List<(uint Tick, ProjectileView Blast)> _pendingDetonations = new();
     /// <summary>Projectile ids whose detonation was already queued (a detonation stays in a few snapshots), oldest first.</summary>
@@ -434,11 +440,14 @@ public sealed partial class GameClient
         // The raw input is stored and sent (the server drops the attack buttons of a countdown tick itself); only the prediction drops them, by tick (protocol 25).
         SelfEvents events;
         LastBodies = BodiesFor(input);
+        var predictedInput = Match.Predicted(_latestSnapshotTick, input);
+        if (ExtrasPredictInput is { } executionInput) predictedInput = executionInput(predictedInput, Tick);   // EXTRAS-HOOK: executions: a locked executor steps with no stick and no buttons
         using (PlayerCollision.Use(ClashBodies(Predicted, input, LastBodies)))   // feel/charge-clash: the shove ignores its victim, as on the server
-            Predicted = Combat.StepPlayer(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out events, Collision, lockView);
+            Predicted = Combat.StepPlayer(Predicted, predictedInput, _config, out events, Collision, lockView);
         // anim/melee-interaction: the charge's contact, stop and turn, as the server resolves them with the same view and bodies (ChargeLock.Predict).
         Predicted = PredictChargeContact(PreviousPredicted, Predicted, input, view, LastBodies);
         Predicted = DevTopUp(Predicted);   // protocol 80: the developer tools' top-up as the server applies it (nothing unless the server announced them)
+        if (ExtrasPin is { } executionPin) Predicted = executionPin(Predicted, Tick);   // EXTRAS-HOOK: executions: a locked executor pinned as the server pins it
         if (events != default)
         {
             _ownEvents.Add((Tick, events));
@@ -582,7 +591,10 @@ public sealed partial class GameClient
         _latestSnapshotAt = _clock.Now;
         NoteInterpolation(s.ServerTick, _latestSnapshotAt);   // net/responsive: the adaptive interpolation delay
         NoteSnapshotLoss(s.ServerTick, _latestSnapshotAt);   // net/responsive: the lead's loss term
-        _snapshots.Add((s.ServerTick, s.Players.ToDictionary(p => p.PlayerId), projectiles.ToDictionary(q => q.Id)));
+        var players = s.Players.ToDictionary(p => p.PlayerId);
+        LeanSeen |= s.Lean > 0;
+        LeanHeldIn = _leanHold.Apply(s.ServerTick, s.Players, s.Lean, players, _config.TickRate);   // protocol 94: a Warfront AI Marine missing from this snapshot keeps its last record a while (LeanHold); Classic sends no lean records, so nothing
+        _snapshots.Add((s.ServerTick, players, projectiles.ToDictionary(q => q.Id)));
         if (_snapshots.Count > 64) _snapshots.RemoveAt(0);
         var matchBefore = Match;
         Match = s.Match ?? default;
@@ -667,11 +679,14 @@ public sealed partial class GameClient
             twoBefore = beforeLast;
             beforeLast = state;
             var replayBodies = BodiesFor(input);
+            var replayInput = Match.Predicted(s.ServerTick, input);
+            if (ExtrasPredictInput is { } replayExecutionInput) replayInput = replayExecutionInput(replayInput, tick);   // EXTRAS-HOOK: executions: the replay locks as the first prediction did
             using (PlayerCollision.Use(ClashBodies(state, input, replayBodies)))   // sim/player-collision: the same bodies as when it was first predicted; feel/charge-clash: less the victim
-                state = Combat.StepSelf(state, Match.Predicted(s.ServerTick, input), _config, out _, out _, Collision,
+                state = Combat.StepSelf(state, replayInput, _config, out _, out _, Collision,
                     input.MeleeTarget > 0 ? LockViewAt(input.ViewTick, state) : null);   // the stored input is raw: the lock follows the newest snapshot (protocol 25); feel/melee-lock: the view at its view tick, only with a lock
             state = PredictChargeContact(beforeLast, state, input, null, replayBodies);   // anim/melee-interaction
             state = DevTopUp(state);   // protocol 80
+            if (ExtrasPin is { } replayPin) state = replayPin(state, tick);   // EXTRAS-HOOK: executions: the replay pinned as the first prediction was
             _history[tick] = (input, state);
         }
         LastCorrection = state.Position - Predicted.Position;
@@ -871,7 +886,10 @@ public sealed partial class GameClient
             if (id == PlayerId) continue;
             if (!p1.TryGetValue(id, out var b)) { result.Add(a); continue; }
             // A respawn (the countdown's, a round's, a death's) is a jump, not a run: shown at the old place until the pair ends, not streaked across the map.
-            if (Vector3.Distance(a.Position, b.Position) > ViewSmoothing.TeleportDistance * Math.Max(1.0, t1 - t0)) { result.Add(a); continue; }            result.Add(a with { Position = Vector3.Lerp(a.Position, b.Position, alpha), Velocity = Vector3.Lerp(a.Velocity, b.Velocity, alpha), Yaw = LerpAngle(a.Yaw, b.Yaw, alpha) });
+            if (Vector3.Distance(a.Position, b.Position) > ViewSmoothing.TeleportDistance * Math.Max(1.0, t1 - t0)) { result.Add(a); continue; }
+            // sim/hammer-180 review: across a strike change into or out of a Dir 180 strike the yaw stays the older snapshot's, as its strike is (Hammer180Draw.HoldsYaw).
+            float yaw = Hammer180Draw.HoldsYaw(_config, a, b) ? a.Yaw : LerpAngle(a.Yaw, b.Yaw, alpha);
+            result.Add(a with { Position = Vector3.Lerp(a.Position, b.Position, alpha), Velocity = Vector3.Lerp(a.Velocity, b.Velocity, alpha), Yaw = yaw });
         }
         return (renderTick, result);
 

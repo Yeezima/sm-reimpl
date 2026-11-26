@@ -106,34 +106,34 @@ public sealed partial class UiSelfTest
             // A free key.
             await Arm(controls, GameAction.Reload, 0);
             Check("controls: a click on an entry waits for the new input", controls.Capturing && controls.BindButton(GameAction.Reload, 0)?.Text.StartsWith("PRESS", StringComparison.Ordinal) == true);
-            await SendKey(Key.Q);
-            Check("controls: a key rebinds the entry", !controls.Capturing && controls.Working.Get(KB, GameAction.Reload, 0) == "Key:Q" && controls.BindButton(GameAction.Reload, 0)?.Text == "Q", controls.Status);
-            Check("controls: the new binding is in use at once (the Godot InputMap)", ControlsInput.Bindings.Get(KB, GameAction.Reload, 0) == "Key:Q"
-                && InputMap.ActionGetEvents("sm_reload").OfType<InputEventKey>().Any(k => k.PhysicalKeycode == Key.Q) && !InputMap.ActionGetEvents("sm_reload").OfType<InputEventKey>().Any(k => k.PhysicalKeycode == Key.R));
-            Check("controls: the change is saved beside the profile", File.Exists(file) && BindingSet.Load(dir, out _).Get(KB, GameAction.Reload, 0) == "Key:Q");
-            Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.Q, Keycode = Key.Q, Pressed = true });
-            await Until(() => Input.IsPhysicalKeyPressed(Key.Q), 5, 2);
+            await SendKey(Key.K);
+            Check("controls: a key rebinds the entry", !controls.Capturing && controls.Working.Get(KB, GameAction.Reload, 0) == "Key:K" && controls.BindButton(GameAction.Reload, 0)?.Text == "K", controls.Status);
+            Check("controls: the new binding is in use at once (the Godot InputMap)", ControlsInput.Bindings.Get(KB, GameAction.Reload, 0) == "Key:K"
+                && InputMap.ActionGetEvents("sm_reload").OfType<InputEventKey>().Any(k => k.PhysicalKeycode == Key.K) && !InputMap.ActionGetEvents("sm_reload").OfType<InputEventKey>().Any(k => k.PhysicalKeycode == Key.R));
+            Check("controls: the change is saved beside the profile", File.Exists(file) && BindingSet.Load(dir, out _).Get(KB, GameAction.Reload, 0) == "Key:K");
+            Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.K, Keycode = Key.K, Pressed = true });
+            await Until(() => Input.IsPhysicalKeyPressed(Key.K), 5, 2);
             bool answers = ControlsInput.Held(GameAction.Reload);
-            Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.Q, Keycode = Key.Q, Pressed = false });
-            await Until(() => !Input.IsPhysicalKeyPressed(Key.Q), 5, 2);
+            Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.K, Keycode = Key.K, Pressed = false });
+            await Until(() => !Input.IsPhysicalKeyPressed(Key.K), 5, 2);
             Check("controls: the engine action follows the new key", answers && !ControlsInput.Held(GameAction.Reload));
 
-            // A conflict: Q is Reload's now. Cancel keeps both, Swap trades, Replace unbinds the other.
+            // A conflict: K is Reload's now. Cancel keeps both, Swap trades, Replace unbinds the other.
             await Arm(controls, GameAction.Grenade, 0);
-            await SendKey(Key.Q);
+            await SendKey(Key.K);
             await ControlsDialogShown(controls);
             Check("controls: a used key asks Swap, Replace or Cancel", ControlsDialog(controls) is { } d && FindButton(d, b => b.Text.Equals("Swap", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(d, b => b.Text.Equals("Replace", StringComparison.OrdinalIgnoreCase)) is not null
                 && FindButton(d, b => b.Text.Equals("Cancel", StringComparison.OrdinalIgnoreCase)) is not null && controls.Status.Contains("already used", StringComparison.OrdinalIgnoreCase), controls.Status);
             await AnswerControlsDialog(controls, "Cancel");
-            Check("controls: Cancel changes nothing", controls.Working.Get(KB, GameAction.Grenade, 0) == "Key:G" && controls.Working.Get(KB, GameAction.Reload, 0) == "Key:Q");
+            Check("controls: Cancel changes nothing", controls.Working.Get(KB, GameAction.Grenade, 0) == "Key:G" && controls.Working.Get(KB, GameAction.Reload, 0) == "Key:K");
             await Arm(controls, GameAction.Grenade, 0);
-            await SendKey(Key.Q);
+            await SendKey(Key.K);
             await AnswerControlsDialog(controls, "Swap");
-            Check("controls: Swap trades the two inputs", controls.Working.Get(KB, GameAction.Grenade, 0) == "Key:Q" && controls.Working.Get(KB, GameAction.Reload, 0) == "Key:G", $"{controls.Working.Get(KB, GameAction.Grenade, 0)} / {controls.Working.Get(KB, GameAction.Reload, 0)}");
+            Check("controls: Swap trades the two inputs", controls.Working.Get(KB, GameAction.Grenade, 0) == "Key:K" && controls.Working.Get(KB, GameAction.Reload, 0) == "Key:G", $"{controls.Working.Get(KB, GameAction.Grenade, 0)} / {controls.Working.Get(KB, GameAction.Reload, 0)}");
             await Arm(controls, GameAction.Aim, 0);
-            await SendKey(Key.Q);
+            await SendKey(Key.K);
             await AnswerControlsDialog(controls, "Replace");
-            Check("controls: Replace takes the key and leaves the other action unbound", controls.Working.Get(KB, GameAction.Aim, 0) == "Key:Q" && controls.Working.Get(KB, GameAction.Grenade, 0) is null
+            Check("controls: Replace takes the key and leaves the other action unbound", controls.Working.Get(KB, GameAction.Aim, 0) == "Key:K" && controls.Working.Get(KB, GameAction.Grenade, 0) is null
                 && controls.BindButton(GameAction.Grenade, 0)?.Text == "-");
 
             // Esc cancels; F1 and Esc cannot be bound; a mouse button and the wheel can.

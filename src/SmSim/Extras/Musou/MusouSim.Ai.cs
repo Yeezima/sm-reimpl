@@ -107,6 +107,7 @@ public sealed partial class MusouSim
         SpawnedStormboy(i); SpawnedBigShoota(i);   // expansion S3 (MusouSim.Stormboy.cs, MusouSim.BigShoota.cs)
         SpawnedMek(i);   // expansion S4 (MusouSim.Mek.cs)
         SpawnedMovement(i);   // MusouSim.Movement.cs: the eased heading and push, a Stormboy's stand at his place
+        ExecutionsSpawned(i);   // EXECUTIONS-HOOK: a reused slot drops an execution's hold (X4)
         _prefer[i] = false;
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
@@ -173,6 +174,7 @@ public sealed partial class MusouSim
                 if (_stateTicks[i] >= Ticks(Rules.SpawnSeconds)) SetState(i, MusouEnemyState.Seek);
                 continue;
             }
+            bool execHeld = false; ExecutionsHeldStep(i, ref execHeld); if (execHeld) continue;   // EXECUTIONS-HOOK: an Ork held for a Warfront execution stands (X4; Extras/Executions/Orks)
             if (state == MusouEnemyState.Knocked) { StepKnocked(i, targets, near); continue; }   // Campaign/MusouSim.Knock.cs: only a war's fodder falls
             if (state == MusouEnemyState.Airborne) { StepAirborne(i); continue; }   // a Stormboy's hop (MusouSim.Stormboy.cs)
             if (_type[i] == MusouEnemyType.ScrapMek) { StepMek(i, targets, near); continue; }   // he runs, hides and builds (MusouSim.Mek.cs)
@@ -339,7 +341,15 @@ public sealed partial class MusouSim
         _openPack.Clear();
         Array.Clear(_packMembers);
         _lastPack = 0;
+        ExecutionsReset();   // EXECUTIONS-HOOK: a cleared pool holds nothing (X4)
     }
+
+    /// <summary>Executions X4 (Extras/Executions/Orks/MusouSim.Executions.cs): sets <paramref name="held"/> for an Ork held for a Warfront execution (it stands; its step is skipped). No-op while none is held.</summary>
+    partial void ExecutionsHeldStep(int i, ref bool held);
+    /// <summary>Executions X4: slot <paramref name="i"/> was taken by a new spawn (its hold, if any, is dropped).</summary>
+    partial void ExecutionsSpawned(int i);
+    /// <summary>Executions X4: the pool was cleared (every hold is dropped).</summary>
+    partial void ExecutionsReset();
 
     void Grow(int n)
     {
@@ -391,7 +401,7 @@ public sealed partial class MusouSim
             _target[i] = TargetKey(targets[flank].Id);
             return flank;
         }
-        if (War is not null && MusouTargetRules.Choose(_type[i], _position[i], targets, current) is var preferred and >= 0)   // expansion S1: Musou Mode's target preference by kind
+        if (War is not null && MusouTargetRules.Choose(RuleKind(_type[i]), _position[i], targets, current) is var preferred and >= 0)   // expansion S1: Musou Mode's target preference by kind
         {
             if (preferred != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
             _prefer[i] = preferred != best;   // a choice other than the nearest is walked to directly (Approach); the nearest keeps the flow field

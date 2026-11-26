@@ -18,6 +18,7 @@ public sealed partial class GameServer
         LogTfwCoop();   // Musou Mode co-op: late joins in the log
         WarfrontSend();   // WARFRONT-HOOK
         WeatherSend();   // weather (Extras/Weather): the state to a client that has not heard it, on a change and every two seconds
+        if (World.Config.Extras.HasFlag(ContentExtras.Executions)) ExecutionsSend();   // EXECUTIONS-HOOK: envelope tag 50 (Start, End, the Classic offer, Warfront's overshield list), only under the executions flag
     }
 
     /// <summary>At the end of the constructor (only with added content): Musou's set-up, or on the war's map the war's.</summary>
@@ -27,6 +28,7 @@ public sealed partial class GameServer
         CreateTfw();
         WarfrontCreated();   // WARFRONT-HOOK
         WeatherCreated();   // weather (Extras/Weather): Classic PvP in the extended profile (W3): the host's choice, None unless asked
+        if (World.Config.Extras.HasFlag(ContentExtras.Executions)) ExecutionsCreated();   // EXECUTIONS-HOOK: the executions' server set-up (X3), only under the executions flag
     }
 
     /// <summary>A client's command (message kind 17): the weather tag (43) under <c>ContentExtras.Weather</c>, every other tag only under <c>ContentExtras.CommandUsers</c> (Musou Mode's).</summary>
@@ -66,6 +68,21 @@ public sealed partial class GameServer
     partial void WarfrontCommand(int player, byte tag, byte[] payload, ref bool handled);
     partial void WarfrontPlayerCap(ref int cap);
     partial void WarfrontRestartDue(ref bool due, ref int code);
+    partial void WarfrontSnapshotRecords(int self, System.Numerics.Vector3 viewer, int points, ref PlayerState[] records, ref int lean);
+    partial void WarfrontScoreRank(int id, ref int rank);
+
+    /// <summary>A recipient's snapshot records (protocol 94): Warfront orders them and sends its AI Marines lean.</summary>
+    partial void ExtrasSnapshotRecords(int self, System.Numerics.Vector3 viewer, int points, ref PlayerState[] records, ref int lean) => WarfrontSnapshotRecords(self, viewer, points, ref records, ref lean);   // WARFRONT-HOOK
+
+    /// <summary>A scoreboard row's rank (protocol 94): Warfront's drop pod Marines last.</summary>
+    partial void ExtrasScoreRank(int id, ref int rank) => WarfrontScoreRank(id, ref rank);   // WARFRONT-HOOK
+
+    // ---- Executions (docs/added-content.md section 13): each call above is marked // EXECUTIONS-HOOK and gated on ContentExtras.Executions; X3 implements them in Extras/Executions/GameServer.Executions.cs. ----
+
+    /// <summary>Once a server tick (only with the executions flag): the tag-50 sections (<c>SmNet.Extras.Executions.ExecutionWire</c>).</summary>
+    partial void ExecutionsSend();
+    /// <summary>At the end of the constructor (only with the executions flag).</summary>
+    partial void ExecutionsCreated();
 
         partial void ExtrasRestartDue(ref bool due, ref int code) => WarfrontRestartDue(ref due, ref code);   // WARFRONT-HOOK
 }

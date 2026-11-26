@@ -260,6 +260,7 @@ public partial class NetworkView
             MusouStalkerConfirm(gun.Name, material == true);   // sound/stalker-hit-confirm: the stalker's confirm on the shooter
             MusouBolterFirstHit(gun.Name, emitter.Position);   // musou/audio-pass: a bolter rifle's wet smack, then the explosion, on the first Ork the shot hits (once a shot, as the hit sound)
         }
+        StreakWarfrontHit(e, at, own, me, shown, camera);   // gore-streak: Warfront's blood streak on every health hit (Extras/Gore/NetworkView.WarfrontStreak.cs; nothing in Musou Mode alone)
         if (predicted && e.Value is 1 or 2) return;   // the shot's impact was drawn at the shot (a kill's gore is the death's, elsewhere)
         var source = MusouGoreSourceOf(e.Player);
         _musouGoreHits[(int)source]++;
@@ -273,7 +274,7 @@ public partial class NetworkView
         if (GoreOff) BloodSplashAt(end, dir, 0.0);   // the gore draws the blood (dark, from the same hit); the faithful red glow only when the gore is off
         if (OrkBloodOn)   // gore-original: every shooter's hit plays its weapon's own impact for the Ork's flesh (NetworkView.OrkBlood.cs)
         {
-            if (e.Value is 1 or 2 && e.Player != 0) OrkBloodHit(own ? me : MusouPlayerState(e.Player), e.Value == 2, _musouTypeOf.TryGetValue(e.Enemy, out var shotType) && shotType == MusouEnemyType.ChaosMarine, end, dir, at, MusouGoreFxPriority(source));
+            if (e.Value is 1 or 2 && e.Player != 0) OrkBloodHit(own ? me : MusouPlayerState(e.Player), e.Value == 2, _musouTypeOf.TryGetValue(e.Enemy, out var shotType) && !GoreOrk(shotType), end, dir, at, MusouGoreFxPriority(source));
             return;
         }
         if (!own || e.Value == 3 || _fx is null || _catalogue is null || Loadouts.InHand(_config!, me) is not { } weapon) return;

@@ -20,7 +20,7 @@ namespace SmClient;
 /// boy_ardboy, Weirdboy his own elite_boy_weirdboy and staff on their rig (WeirdboyLooks; else the Boy's look), Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at the sim's BossScale, 4.5 since the late batch of 2026-11-06 (else boy_melee_pro, else the Boy, at the same; the owner, 2026-11-01: "always a large orc, never small", and 2026-11-02: 3x).
 /// </para>
 /// </summary>
-public sealed class MusouLooks
+public sealed partial class MusouLooks
 {
     /// <summary>The clip indices of a look (<see cref="Look.Clips"/>).</summary>
     public const int Run = 0, Idle = 1, Attack = 2, Stagger = 3, Death = 4, Sprint = 5, DeathAlt1 = 6, DeathAlt2 = 7, ClipCount = 8;   // Sprint: the charge (2026-11-09; the run where a look has none); DeathAlt1/2: the boy rig's other deaths, an Ork's own pick (2026-11-16, MusouOrkVariety; null or the idle where a look has none)
@@ -111,7 +111,7 @@ public sealed class MusouLooks
     public const float SquigPlaceholderScale = 0.4f;
     readonly StormboyLooks? _stormboy;
     /// <summary>Whether the Stormboy is drawn with his own campaign model (false: a Boy, with the placeholder jump pack the view adds).</summary>
-    public bool StormboyOwnLook => _looks[(int)MusouEnemyType.Stormboy]?.Name.StartsWith("Stormboy:", StringComparison.Ordinal) == true;
+    public bool StormboyOwnLook => WarfrontOwnsLooks || _looks[(int)MusouEnemyType.Stormboy]?.Name.StartsWith("Stormboy:", StringComparison.Ordinal) == true;
     int _next;
     bool _chaosTried;
 
@@ -136,12 +136,26 @@ public sealed class MusouLooks
     }
 
     /// <summary>The look of a kind (null: not built yet; the crowd then draws the Boy's, or nothing).</summary>
-    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob or MusouEnemyType.BombSquig or MusouEnemyType.BigShootaNob || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
+    public Look? For(MusouEnemyType type) { Look? over = null; WarfrontLookFor(type, ref over); return WarfrontOwnsLooks ? over : over ?? OrkLookFor(type); }   // WARFRONT-HOOK
+
+    /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the look a kind is drawn with in place of the Ork one (null keeps it). No-op without Warfront and the Chaos faction.</summary>
+    partial void WarfrontLookFor(MusouEnemyType type, ref Look? look);
+
+    /// <summary>
+    /// Chaos Warfront C3: Warfront's table alone decides the looks (a Chaos battle, or a Warfront battle whose army the Hub has not told yet): a null from <see cref="WarfrontLookFor"/> draws nothing,
+    /// never an Ork. False everywhere else (Musou Mode, an Orks battle): the Ork looks as before. Set each frame by the Warfront view (client/Extras/Warfront/Chaos/).
+    /// </summary>
+    public bool WarfrontOwnsLooks;
+
+    /// <summary>Chaos Warfront C3: a Chaos battle: no Ork look is built (<see cref="Step"/> waits; the reads already started stay unused). False everywhere else.</summary>
+    public bool WarfrontSkipOrks;
+
+    Look? OrkLookFor(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob or MusouEnemyType.BombSquig or MusouEnemyType.BigShootaNob || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
 
     /// <summary>Builds at most one look a call (main thread) once its files are read; returns the one built, or null.</summary>
     public Look? Step()
     {
-        if (Done) return null;
+        if (Done || WarfrontSkipOrks) return null;
         if (_next < Plan.Length)
         {
             var w = Plan[_next];

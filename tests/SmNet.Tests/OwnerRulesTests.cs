@@ -501,7 +501,7 @@ public class OwnerRulesTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_21_carries_the_raise_and_a_ten_second_hold_in_the_own_record_and_weapon_up_in_slim_ones_within_the_budget()
     {
-        Assert.Equal(91, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         Assert.Equal(1195, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21: ready ticks in 2 bytes, 1198; 20: 1197)
         Assert.True(Protocol.MaxSnapshotBytes <= Protocol.SnapshotBudget);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, ReadyTicks = 300, RaiseTicks = 6 };
@@ -520,9 +520,9 @@ public class OwnerRulesTests(ITestOutputHelper output)
         Assert.Equal(slim, Protocol.Slim(other));
         Assert.Equal(0, Protocol.Slim(other with { ReadyTicks = 0, RaiseTicks = 0 }).ReadyTicks);
         Assert.Equal(1, Protocol.Slim(other with { ReadyTicks = 0, RaiseTicks = 2 }).ReadyTicks);
-        // The AltFire bit (64) is dropped when an input batch is read.
+        // The old AltFire bit (64) is InputButtons.Execute since executions X1: carried by an input batch (the faithful simulation never reads it, the server drops it without ContentExtras.Executions).
         var batch = Protocol.Write(new InputBatch([new PlayerInput(1, 0, 0, 0, InputButtons.Fire | (InputButtons)64)], 1, 0));
-        Assert.Equal(InputButtons.Fire, Assert.IsType<InputBatch>(Protocol.Read(batch)).Inputs[0].Buttons);
+        Assert.Equal(InputButtons.Fire | InputButtons.Execute, Assert.IsType<InputBatch>(Protocol.Read(batch)).Inputs[0].Buttons);
     }
 
     [Theory]

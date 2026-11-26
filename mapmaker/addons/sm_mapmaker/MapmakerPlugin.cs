@@ -92,10 +92,14 @@ public partial class MapmakerPlugin : EditorPlugin
         SceneSaved -= OnSceneSaved;
         FreeDetachedNodes(); _nodes.Clear(); _stash.Clear();
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
-        if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo = null; }
+        // the gizmo plugin's handle is released here, on the main thread: left to the finalizer thread (any later GC, e.g. the material test's) its release removes the
+        // gizmos from the scene's nodes off the main thread (Godot's thread guard: "can't call remove_gizmo()", M5 review)
+        if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo.Dispose(); _gizmo = null; }
         Thumbs?.QueueFree(); Thumbs = null;
         MapHost.Shutdown();
         if (MapHost.Plugin == this) MapHost.Plugin = null;
+        // No forced GC here (M5 review): it handed the gizmo plugin's teardown to the finalizer thread (16 thread-guard errors at exit). The material handles are released
+        // explicitly instead (MapmakerDock._ExitTree -> ReleaseMaterialViews); MaterialTest keeps its own collection.
     }
 
     static ISm1Source? SafeInstalled()
@@ -117,6 +121,7 @@ public partial class MapmakerPlugin : EditorPlugin
         else if (GroupsTest.Wanted) _ = new GroupsTest(this).Run();
         else if (GridTest.Wanted) _ = new GridTest(this).Run();
         else if (ClassicTest.Wanted) _ = new ClassicTest(this).Run();
+        else if (EditModeTest.Wanted) _ = new EditModeTest(this).Run();
         else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
     }
 
@@ -593,7 +598,7 @@ public partial class MapmakerPlugin : EditorPlugin
             _nodes[o.Id] = node;
             _contentKeys.Remove(o.Id);
         }
-        string key = $"{o.Asset}|{o.Prefab}|{o.Piece}|{string.Join(",", o.Overrides.Select(x => $"{x.Part}:{x.Visible}:{x.Transform}"))}|{(o.Prefab is null ? 0 : _lastPrefabStamp)}";
+        string key = $"{o.Asset}|{o.Prefab}|{o.Piece}|{string.Join(",", o.Overrides.Select(x => $"{x.Part}:{x.Visible}:{x.Transform}"))}|{(o.Prefab is null ? 0 : _lastPrefabStamp)}|{MeshKey(o.Mesh)}";
         node.Name = Sanitize($"{o.Name}_{o.Id}");
         if (node.GetParent() != parentNode)
         {
@@ -608,7 +613,7 @@ public partial class MapmakerPlugin : EditorPlugin
         {
             var notes = new List<string>();
             Node3D? content; Aabb bounds;
-            if (o.Piece is { } piece) content = PieceViews.Build(piece, out bounds);
+            if (o.Piece is { } piece) content = PieceViews.Build(piece, o.Mesh, out bounds, o.Transform.Scale);   // the edited shape, or the stock one (Edit mode, docs/mapmaker.md)
             else
             {
                 var objParts = parts.GetValueOrDefault(o.Id) ?? new List<ResolvedPart>();
@@ -787,6 +792,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } place && MapHost.Tool == Tool.Place && MapHost.Armed is not null
             && OverViewport(place.Position) && !ReadyToPlace()) { GetViewport().SetInputAsHandled(); return; }
         if (MapHost.Root is null) return;
+        if (EditModeInput(@event)) return;   // Edit mode (Tab) takes the view's clicks and keys first: components, G / R / S, the component gizmo
         GroupDoubleClick(@event);
         if (GhostWheelInput(@event) || BoxSelectInput(@event)) return;
         if (@event is InputEventKey { Pressed: true } key)

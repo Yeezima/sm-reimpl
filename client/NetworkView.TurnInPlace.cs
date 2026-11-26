@@ -57,6 +57,8 @@ public partial class NetworkView
         public TurnProfile? LeftProfile, RightProfile;
         public TurnClip? Left, Right;
         public float EnterRadians;
+        /// <summary>Install transitions batch 3: each side's threshold (radians; the same as <see cref="EnterRadians"/> but for the brace's -60 / +77) and the reach of the grid's clips each way (degrees: 90 / 90, the brace's 60 / 77).</summary>
+        public float EnterLeft, EnterRight, ReachLeft = AimOffsetRange, ReachRight = AimOffsetRange;
     }
 
     void SetUpTurns()
@@ -79,7 +81,8 @@ public partial class NetworkView
             return null;
         }
         _turnData = load.Result;
-        _turnNote = string.Join(", ", _turnData.Sets.Select(set => $"{set.Class} " + string.Join("/", new[] { set.Relaxed, set.Ready }.OfType<TurnPosture>().Select(p => $"{p.Name} {p.EnterDegrees:F0} deg")) + (set.RelaxedStart is not null || set.ReadyStart is not null ? " + run start" : "")));
+        _turnNote = string.Join(", ", _turnData.Sets.Select(set => $"{set.Class} " + string.Join("/", new[] { set.Relaxed, set.Ready }.OfType<TurnPosture>().Select(p => $"{p.Name} {p.EnterDegrees:F0} deg")) + (set.RelaxedStart is not null || set.ReadyStart is not null ? " + run start" : "")))
+            + (_turnData.Brace is { } brace ? $", brace turn {brace.LeftEnter:F0}/{brace.RightEnter:F0} deg {brace.Left?.Clip ?? "no clip"} {brace.Left?.YawDegrees:F1} deg end {brace.Left?.EndFraction:F4}" : ", no brace turn");
         GD.Print("turns: " + _turnNote);
         foreach (var n in _turnData.Notes) GD.Print("  turns note: " + n);
         return _turnData;
@@ -114,7 +117,11 @@ public partial class NetworkView
             {
                 Posture = posture, Set = new CharacterViewer.BlendSet($"turn:{posture.Graph}:{columns[0].Pitches[0].Clip}", clips), Grid = grid, Weights = new float[clips.Length],
                 EnterRadians = posture.EnterDegrees * MathF.PI / 180f,
+                EnterLeft = posture.LeftEnter * MathF.PI / 180f, EnterRight = posture.RightEnter * MathF.PI / 180f,
             };
+            // Install transitions batch 3: the brace's grid reaches 60 degrees left and 77 right (the other postures' grids are +-90 or one twisted column: unchanged).
+            if (posture.EnterLeftDegrees is not null && !posture.Idle.ProceduralTwist && columns.Count > 1)
+            { rig.ReachLeft = -columns[0].HorizontalDegrees; rig.ReachRight = columns[^1].HorizontalDegrees; }
             if (posture.Left is { } l && posture.Right is { } r && RigHasClip(l.Clip) && RigHasClip(r.Clip))
             {
                 rig.Left = l; rig.Right = r;
@@ -137,13 +144,12 @@ public partial class NetworkView
         || FallLanding(s.PlayerId);
 
     /// <summary>Whether this marine stands in a way that keeps its body planted: on the ground, not moving or blending out of a move, no action clip or jump pose.</summary>
-    bool TurnStanding(PlayerState s, LocoTrack t, float? throwTime)
-    {
-        if (TurnInAction(s, throwTime)) return false;
+    /// <param name="braced">Install transitions batch 3 (review): the marine stands in the brace posture: the gait flags are not looked at (the brace pose returns before the
+    /// locomotion, so a flag set by a run into the brace stayed set for the whole stance and kept the body rigid).</param>
+    bool TurnStanding(PlayerState s, LocoTrack t, float? throwTime, bool braced = false) =>
         // Only the blend the marine is drawn in counts: the relaxed run's flag stays set while the weapon is up (the ready run has its own), and the sprint needs no flag (its speed is far above standing).
-        if (HipReady(s) ? t.HipGaitMoving : t.GaitMoving) return false;
-        return s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y <= RunThreshold * RunThreshold;
-    }
+        FootPinRules.PlantedStanding(braced, TurnInAction(s, throwTime), HipReady(s) ? t.HipGaitMoving : t.GaitMoving,
+            MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y), RunThreshold);
 
     /// <summary>
     /// Steps the marine's body heading for this frame (called by <c>Place</c> before it poses the character) and returns the yaw to draw it at: the aim's when turns are off,
@@ -171,9 +177,16 @@ public partial class NetworkView
             float yaw = ChargeTurn(t.Body.Valid ? t.Body.Yaw : aimYaw, aimYaw, dt);
             t.Body.Snap(yaw); t.Stand = null; t.StandRig = null; t.PrevStanding = t.WasStanding = false; character.CancelSettle(); return yaw;
         }
-        var posture = TurnPostureOf(s, data);
+        // Install transitions batch 3: a braced heavy bolter stands in the brace graph's idle and turns with its clips (BraceTurnPosture); a turn of the other posture under way ends where the body is.
+        var bracePosture = BraceTurnPosture(s, data);
+        var posture = bracePosture ?? TurnPostureOf(s, data);
         var rig = posture is null ? null : TurnRigOf(posture);
-        bool standing = TurnStanding(s, t, throwTime);
+        var bt = BraceOf(s.PlayerId);
+        var braceFrame = BraceTurnFrame.For(bracePosture is not null, bt.TurnBraced);
+        if (braceFrame.DropTurn) { bt.TurnBraced = bracePosture is not null; t.Body.DropTurn(); }
+        // Fable review (low 1): the gait flags go false while braced, so the exit's first frame (this runs before BracePose poses the locomotion) does not read a run's stale flag.
+        if (braceFrame.ClearGait) { t.GaitMoving = false; t.HipGaitMoving = false; }
+        bool standing = TurnStanding(s, t, throwTime, braced: bracePosture is not null);
         bool canTwist = rig is not null && standing;
         // anim/melee-interaction (NetworkView.MeleeInteraction.cs): a body in a hit reaction turns so the clip's side points at its attacker.
         if (ReactionFacingYaw(s, t.Body.Valid ? t.Body.Yaw : aimYaw, dt) is float facing)
@@ -185,7 +198,8 @@ public partial class NetworkView
         if (standing && !t.WasStanding && !character.Settling) character.BeginSettle(posture?.StopBlend ?? (s.Aiming ? AimStopBlend : TurnAnimations.DefaultStopBlend), SettleStepSeconds);
         else if (!standing && character.Settling && TurnInAction(s, throwTime)) character.CancelSettle();
         t.PrevStanding = t.WasStanding; t.WasStanding = standing;
-        t.Body.Step(aimYaw, dt, canTwist, rig?.EnterRadians ?? 0f, rig?.LeftProfile, rig?.RightProfile, posture?.TurnBlend ?? TurnAnimations.DefaultBlend, BodyMaxTwist, BodyFollowRate);
+        t.Body.Step(aimYaw, dt, canTwist, rig?.EnterLeft ?? 0f, rig?.EnterRight ?? 0f, rig?.LeftProfile, rig?.RightProfile, posture?.TurnBlend ?? TurnAnimations.DefaultBlend, BodyMaxTwist, BodyFollowRate,
+            dampSeconds: braceFrame.DampSeconds);   // batch 3 (review): the brace graph tests the damped aim angle
         // Animation pass 1: a falling marine stands on the aim-offset idle (the graph's Dropping state) without being planted: the body follows the aim (above), the idle follows the twist.
         // Animation pass 3: also while the fall's legs fade out after the touchdown or its landing plays (FallLanding): the idle stayed the aim-offset idle in the air and is it again
         // once standing, so the plain idle in between flipped the stance twice in a few frames (the transition probe: the hand 46 cm per frame per frame at every soft landing).
@@ -265,19 +279,55 @@ public partial class NetworkView
     /// <summary>The aim-offset idle of <paramref name="rig"/> (and the turn layer when a turn is made); <see cref="TurnStandPlace"/> and the run start's wait for its clip use it.</summary>
     bool IdlePlace(CharacterViewer character, PlayerState s, HipTrack hip, bool ready, float fadeSeconds, TurnPosture posture, TurnRig rig)
     {
+        if (!PlantedPose(character, s, fadeSeconds, posture, rig)) return false;
+        hip.Kind = ready ? PoseKind.Hip : PoseKind.Normal;
+        return true;
+    }
+
+    /// <summary>The planted pose of <see cref="IdlePlace"/> (the grid by the twist and the pitch, the spine twist past the grid's reach, the turn layer); the brace's stance uses it too.</summary>
+    bool PlantedPose(CharacterViewer character, PlayerState s, float fadeSeconds, TurnPosture posture, TurnRig rig)
+    {
         var t = LocoOf(s.PlayerId);
         float twist = t.Body.Twist(t.AimYaw);   // positive: the aim is to the left of the body
-        float horizontal = Math.Clamp(-twist * 180f / MathF.PI, -AimOffsetRange, AimOffsetRange);   // the graph's angle: positive right
+        float horizontal = Math.Clamp(-twist * 180f / MathF.PI, -rig.ReachLeft, rig.ReachRight);   // the graph's angle: positive right
         rig.Grid.Weights(posture.Idle.ProceduralTwist ? 0f : horizontal, s.Pitch * 180f / MathF.PI, rig.Weights);
         if (!character.BlendStance(rig.Set, rig.Weights, 0f, fadeSeconds)) return false;
-        // Review S4: the grid's clips end at 90 degrees, so a body that lags the aim by more (a flick before the turn clip has swung it round) keeps the end pose and the spine twists the rest,
-        // up to BodyMaxTwist (135 degrees, kept: the turn clip's own root rotation, and a 100 degree cap would let the body drag at the follow rate more often).
-        character.SetSpineTwist(FootPinRules.SpineTwist(twist, posture.Idle.ProceduralTwist, AimOffsetRange * MathF.PI / 180f, BodyMaxTwist));
+        // Review S4: the grid's clips end at 90 degrees (the brace's at 60 left, 77 right), so a body that lags the aim by more (a flick before the turn clip has swung it round) keeps the end
+        // pose and the spine twists the rest, up to BodyMaxTwist (135 degrees, kept: the turn clip's own root rotation, and a 100 degree cap would let the body drag at the follow rate more often).
+        character.SetSpineTwist(FootPinRules.SpineTwist(twist, posture.Idle.ProceduralTwist, rig.ReachLeft * MathF.PI / 180f, rig.ReachRight * MathF.PI / 180f, BodyMaxTwist));
         var body = t.Body;
         if (body.LayerSide != TurnSide.None && body.LayerWeight > 0f && (body.LayerSide == TurnSide.Left ? rig.Left : rig.Right) is { } clip)
             character.SetTurnLayer(clip.Clip, body.TurnTime, body.LayerWeight, clip.LegMask);
-        hip.Kind = ready ? PoseKind.Hip : PoseKind.Normal;
         return true;
+    }
+
+    /// <summary>
+    /// <c>--no-brace-turn</c> (test aid, install transitions batch 3; also <c>--no-extra-transitions</c>): the braced heavy bolter stands in the pitch-only braced idle again and its body
+    /// takes the heavy bolter's navigation turn rules, as before.
+    /// </summary>
+    static readonly bool NoBraceTurn = NoExtraTransitions || OS.GetCmdlineUserArgs().Contains("--no-brace-turn");
+
+    /// <summary>
+    /// Install transitions batch 3: the brace graph's standing posture (<see cref="TurnAnimations.Brace"/>) for a marine braced (<see cref="BracePhase.Braced"/>) with a bracing weapon in hand,
+    /// whose braced pose shows (<see cref="BracePose"/>), else null. Aim mode keeps it (the brace graph's Brace Idle Behavior runs under its aim). The entry and the exit keep their whole-body
+    /// and leg clips (no turn: the graph's turn states sit only in the braced idle).
+    /// </summary>
+    TurnPosture? BraceTurnPosture(PlayerState s, TurnAnimations data)
+    {
+        if (NoBraceTurn || NoBraceVent || data.Brace is not { } brace || !s.Alive || s.Brace != BracePhase.Braced || _config is null) return null;
+        if (Loadouts.InHand(_config, s)?.Brace is null || BraceData()?.Brace?.Idle is null) return null;
+        return TurnRigOf(brace) is { Left: not null, Right: not null } ? brace : null;
+    }
+
+    /// <summary>
+    /// From <see cref="BracePose"/> while braced: the brace graph's idle by the aim against the planted body and the pitch, with the turn clip on the legs (<see cref="PlantedPose"/>).
+    /// False when the marine is not in the brace posture this frame (the pitch-only braced idle then shows).
+    /// </summary>
+    bool BraceStandPlace(CharacterViewer character, PlayerState s, float fadeSeconds)
+    {
+        var t = LocoOf(s.PlayerId);
+        if (t.Stand is not { } posture || t.StandRig is not { } rig || TurnData()?.Brace is not { } brace || !ReferenceEquals(posture, brace)) return false;
+        return PlantedPose(character, s, fadeSeconds, posture, rig);
     }
 
     /// <summary>The F1 line about the turn in place.</summary>

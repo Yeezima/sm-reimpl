@@ -78,7 +78,7 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
             case "extract-sm1": ExtractSm1(op); break;
             case "import-sm1-map": ImportSm1Map(op); break;
             case "refresh-from-classic": RefreshFromClassic(op); break;
-            default: throw new MapException("bad-op", $"Unknown operation '{name}'.");
+            default: if (!RunEdit(name, op)) throw new MapException("bad-op", $"Unknown operation '{name}'."); break;
         }
     }
 
@@ -140,7 +140,13 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
         if (op.ContainsKey("side")) node["side"] = Json.ReqStr(op, "side", "set-piece", "bad-op"); else if (p.Side is not null) node["side"] = p.Side;
         if (op.ContainsKey("shape")) node["shape"] = Json.ReqStr(op, "shape", "set-piece", "bad-op"); else if (p.Shape is not null) node["shape"] = p.Shape;
         var next = PieceSpec.FromNode(node, "piece", "bad-op");
-        Replace(o with { Piece = next, Name = o.Name == p.DefaultName ? next.DefaultName : o.Name });
+        var mesh = o.Mesh;
+        if (mesh is not null && MeshTopology.For(next) != mesh.Topology)
+        {
+            mesh = null;   // a box wall made round (or back) has another topology: its edited shape cannot carry over
+            Warnings.Add($"'{o.Name}' ({id}) changed shape, so its edited shape was reset to the stock {next.DefaultName.ToLowerInvariant()}.");
+        }
+        Replace(o with { Piece = next, Name = o.Name == p.DefaultName ? next.DefaultName : o.Name, Mesh = mesh });
     }
 
     void Transform(JsonObject op)

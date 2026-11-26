@@ -38,7 +38,7 @@ public partial class NetworkView
     /// <summary>Hook for added content: a body that keeps its normal field of view in melee (Musou: the Dreadnought).</summary>
     partial void ExtrasMeleeFovExcluded(PlayerState me, ref bool excluded);
 
-    static bool InMelee(PlayerState me) => me.MeleeStep > 0 || me.Rush != RushPhase.None || JumpPack.Pounding(me.Jump);
+    static bool InMelee(PlayerState me) => MeleeFov.Widens(me.MeleeStep, me.Rush, me.Jump);   // the 2026-11-15 rules, independent of the camera's melee mode (NetworkView.MeleeOrbit.cs)
 
     /// <summary>The factor on the data's fields of view for this frame (the option's scale, widened in melee).</summary>
     float MeleeFovScale(float configured, float aspect) => OldMeleeFov ? FovMath.Scale(configured, aspect) : _meleeFov.Scale(configured, aspect);

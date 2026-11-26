@@ -85,7 +85,7 @@ public partial class AppearanceTestView : Node3D
             else if (!set.Customizable) look = look with { PredefinedSet = set.Name };
             else look = look with { PredefinedSet = null, Pieces = new Dictionary<string, string>(set.Items.Where(kv => CustomizationCatalog.ArmourSlots.Contains(kv.Key))) };
         }
-        if (_args.GetValueOrDefault("preset") is { } presetName)
+        if (_args.GetValueOrDefault("preset") is { } presetName && !presetName.Equals(TestRgbPreset, StringComparison.OrdinalIgnoreCase))
         {
             if (raceCatalog.Presets.FirstOrDefault(p => p.Name.Equals(presetName, StringComparison.OrdinalIgnoreCase)) is { } preset) look = ProfileWire.ApplyPreset(look, preset, catalog);
             else notes.Add($"--preset '{presetName}' is not a {race} preset");
@@ -102,8 +102,78 @@ public partial class AppearanceTestView : Node3D
         return look;
     }
 
+    // armour-pieces-1125 test aid: --batch <file>, one look per line "name|race|preset|set|slot=piece,...|angles" (empty fields: none / the defaults), all
+    // shot in one run (the evidence stills of every built-mask piece without a Godot start per look). '#' starts a comment line.
+    readonly Queue<string[]> _batch = new();
+    AppearanceAssets? _batchAssets;
+    CustomizationCatalog? _batchCatalog;
+
+    bool StartNextBatchLook()
+    {
+        if (_character is not null) { RemoveChild(_character); _character.QueueFree(); _character = null; }
+        if (_batch.Count == 0) return false;
+        var f = _batch.Dequeue();
+        string Field(int i) => i < f.Length ? f[i].Trim() : "";
+        _name = Field(0);
+        _args["race"] = Field(1).Length > 0 ? Field(1) : "space_marine";
+        foreach (var (key, idx) in new[] { ("preset", 2), ("set", 3), ("piece", 4) })
+            if (Field(idx).Length > 0) _args[key] = Field(idx); else _args.Remove(key);
+        _shots = (Field(5).Length > 0 ? Field(5) : "0").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => F(x, 0f)).ToArray();
+        _nextShot = 0;
+        var notes = new List<string>();
+        try
+        {
+            string race = Field(1).StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine;
+            string classKey = ClassKey(_batchCatalog!, race, _args.GetValueOrDefault("class"));
+            var look = AppearanceResolver.Resolve(ProfileLook(_batchCatalog!, race, notes), classKey, _batchCatalog!, _batchAssets!.ResolveOptionsExact(null));
+            if (string.Equals(_args.GetValueOrDefault("preset"), TestRgbPreset, StringComparison.OrdinalIgnoreCase)) look = TestRgb(look);
+            GD.Print($"batch look {_name}: [{string.Join(", ", look.Pieces.Select(p => p.Slot + "=" + p.Name))}], predefined {look.PredefinedSet ?? "-"}");
+            _batchAssets.Prefetch(look);
+            var model = _batchAssets.Build(look);
+            _character = new CharacterViewer(model, "SM_NAV_IdleL_S_Relaxed_LE", gameSpaceRoot: true) { Name = "Marine" };
+            AddChild(_character);
+            _character.Pose("SM_NAV_IdleL_S_Relaxed_LE", 0.4f, 0f);
+            _character.RotationDegrees = new Vector3(0, _shots[0], 0);
+        }
+        catch (Exception ex) { GD.PrintErr($"batch look {_name}: {ex.Message}"); }
+        foreach (var n in notes.Distinct()) GD.Print("  note: " + n);
+        _waitFrames = 8;
+        return true;
+    }
+
+    /// <summary>
+    /// armour-pieces-1125 round 3 test aid: the batch preset "test_rgb" paints every slot primary pure red, secondary pure green, tertiary pure blue (pattern on),
+    /// so a still shows directly which region of each piece (regular or built mask) carries which channel.
+    /// </summary>
+    const string TestRgbPreset = "test_rgb";
+
+    static ResolvedAppearance TestRgb(ResolvedAppearance look)
+    {
+        float[] spec = [0.5f, 0.5f, 0.5f];
+        var paint = CustomizationCatalog.ArmourSlots.ToDictionary(s => s, _ => new ResolvedPaint(new ResolvedColour("test_red", [1f, 0f, 0f], spec),
+            new ResolvedColour("test_green", [0f, 1f, 0f], spec), new ResolvedColour("test_blue", [0f, 0f, 1f], spec), true), StringComparer.Ordinal);
+        return look with { Paint = paint };
+    }
+
     public override void _Ready()
     {
+        if (_args.GetValueOrDefault("batch") is { } batchFile)
+        {
+            AddEnvironment();
+            _outDir = _args.GetValueOrDefault("out") ?? System.IO.Path.Combine(GameInstall.DataRoot, "cache", "cust-t6");
+            var repo = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+            if (SmFormats.InstallPaths.IsWithin(System.IO.Path.GetFullPath(_outDir), repo) || SmFormats.InstallPaths.IsWithin(System.IO.Path.GetFullPath(_outDir), _gameDir))
+            { GD.PrintErr("appearance test: --out is inside the repository or the game folder; refused"); _quit = true; return; }
+            foreach (var line in System.IO.File.ReadAllLines(batchFile))
+                if (line.Trim() is { Length: > 0 } l && !l.StartsWith('#')) _batch.Enqueue(l.Split('|'));
+            var bnotes = new List<string>();
+            _batchAssets = AppearanceAssets.Shared(_gameDir, bnotes);
+            _batchCatalog = CustomizationCatalog.Load(_gameDir, bnotes);
+            GD.Print($"appearance test: batch of {_batch.Count} looks");
+            _quit = true;
+            StartNextBatchLook();
+            return;
+        }
         var notes = new List<string>();
         _name = _args.GetValueOrDefault("name") ?? "look";
         _outDir = _args.GetValueOrDefault("out") ?? System.IO.Path.Combine(GameInstall.DataRoot, "cache", "cust-t6");
@@ -126,7 +196,7 @@ public partial class AppearanceTestView : Node3D
             // --list-heads: every head piece of the catalogue with its helmet packages and whether the lens recolour has rectangles for them (check every helmet one by one with --piece head=<name>).
             if (_args.ContainsKey("list-heads"))
                 foreach (var race0 in new[] { CustomizationCatalog.SpaceMarine, CustomizationCatalog.Chaos })
-                    foreach (var head in catalog.Race(race0)!.PiecesFor("head"))
+                    foreach (var head in catalog.Race(race0)!.OfferedPiecesFor("head"))
                         GD.Print($"head piece: {race0} {head.Name}: packages [{string.Join(", ", head.Packages)}]; lens rectangles {string.Join("+", head.Packages.Select(p => LensRegions.For(p).Count))}");
             string race = _args.GetValueOrDefault("race") is { } r ? (r.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine)
                 : _args.GetValueOrDefault("class") is { } cl && cl.StartsWith("csm", StringComparison.OrdinalIgnoreCase) || _args.GetValueOrDefault("class") is "raptor" or "havoc" ? CustomizationCatalog.Chaos
@@ -237,6 +307,8 @@ public partial class AppearanceTestView : Node3D
             "shoulder-r" => (new Vector3(0.5f, 1.8f, 0), 1.1f, 30f, new Vector3(1f, 0.1f, -0.35f)),
             "shoulder-l" => (new Vector3(-0.5f, 1.8f, 0), 1.1f, 30f, new Vector3(-1f, 0.1f, -0.35f)),
             "torso" => (new Vector3(0, 1.2f, 0), 2.0f, 35f, front),
+            // armour-pieces-1125: the batch's full-body framing sits higher and further back so tall helmets, horns and backpacks are not cut at the top.
+            _ when _args.ContainsKey("batch") => (new Vector3(0, 1.05f, 0), 5.0f, 35f, front),
             _ => (new Vector3(0, 0.95f, 0), 4.2f, 35f, front),
         };
         // --cam-target x,y,z and --cam-dir x,y,z (Godot space, from the target towards the camera) override the framing.
@@ -263,7 +335,11 @@ public partial class AppearanceTestView : Node3D
 
     public override void _Process(double delta)
     {
-        if (_character is null) { if (_quit) GetTree().Quit(1); return; }
+        if (_character is null)
+        {
+            if (_batchCatalog is not null && _batch.Count > 0) { StartNextBatchLook(); return; }
+            if (_quit) GetTree().Quit(_batchCatalog is null ? 1 : 0); return;
+        }
         if (_turn != 0f) _character.RotationDegrees += new Vector3(0, _turn * (float)delta, 0);
         if (_waitFrames > 0) { _waitFrames--; return; }
         if (_shots.Length == 0) { if (_quit) GetTree().Quit(0); return; }
@@ -275,7 +351,12 @@ public partial class AppearanceTestView : Node3D
         System.IO.Directory.CreateDirectory(_outDir);
         var err = GetViewport().GetTexture().GetImage().SavePng(path);
         GD.Print(err == Error.Ok ? $"screenshot -> {path}" : $"screenshot failed: {err}");
-        if (++_nextShot >= _shots.Length) { _shots = []; GetTree().Quit(err == Error.Ok ? 0 : 1); return; }
+        if (++_nextShot >= _shots.Length)
+        {
+            _shots = [];
+            if (_batchCatalog is not null && StartNextBatchLook()) return;   // armour-pieces-1125 batch: the next look
+            GetTree().Quit(err == Error.Ok ? 0 : 1); return;
+        }
         _character.RotationDegrees = new Vector3(0, _shots[_nextShot], 0);
         _waitFrames = 3;
     }

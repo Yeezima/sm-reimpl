@@ -59,6 +59,7 @@ public partial class MapmakerPlugin
     {
         MapHost.LibraryChanged += FreeGhost;
         MapHost.Sm1Changed += FreeGhost;
+        DocChanged += OnEditDocChanged;
     }
 
     /// <summary>Drops everything the viewport tools hold (called when the plugin leaves).</summary>
@@ -69,6 +70,10 @@ public partial class MapmakerPlugin
         _overlay = null; _boxPending = false; _boxActive = false; _dblPendingAt = 0;
         MapHost.LibraryChanged -= FreeGhost;
         MapHost.Sm1Changed -= FreeGhost;
+        DocChanged -= OnEditDocChanged;
+        if (EditMode) SetEditMode(false);
+        UpdateEditLayer();
+        RemoveModeBar();
     }
 
     int _slow;
@@ -76,7 +81,8 @@ public partial class MapmakerPlugin
     public override void _Process(double delta)
     {
         UpdateGhost(delta);
-        if (++_slow % 60 == 0) { SyncRootMeta(); PruneStash(); }
+        UpdateEditLayer();   // Edit mode's gizmo and live dimensions follow the camera every frame
+        if (++_slow % 60 == 0) { SyncRootMeta(); PruneStash(); InstallModeBar(); }
     }
 
     // ---- box select --------------------------------------------------------------------------------------------------------------------------------------

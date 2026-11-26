@@ -82,8 +82,8 @@ public class ControlBindingsTests
     public void A_free_input_binds_and_clear_empties_the_slot()
     {
         var s = Fresh();
-        Assert.True(s.Assign(BindDevice.Keyboard, GameAction.Reload, 1, "Key:Q"));
-        Assert.Equal("Key:Q", s.Get(BindDevice.Keyboard, GameAction.Reload, 1));
+        Assert.True(s.Assign(BindDevice.Keyboard, GameAction.Reload, 1, "Key:K"));
+        Assert.Equal("Key:K", s.Get(BindDevice.Keyboard, GameAction.Reload, 1));
         Assert.False(s.IsDefault(BindDevice.Keyboard));
         s.Clear(BindDevice.Keyboard, GameAction.Reload, 1);
         Assert.Null(s.Get(BindDevice.Keyboard, GameAction.Reload, 1));
@@ -269,6 +269,50 @@ public class ControlBindingsTests
         Assert.Equal("Key:Q", s.Get(BindDevice.Keyboard, GameAction.Reload, 0));
         Assert.Equal("Mouse:Left", s.Get(BindDevice.Keyboard, GameAction.Fire, 0));
         Assert.True(s.IsDefault(BindDevice.Controller));
+    }
+
+    // ---- executions X1 (owner 2026-11-25: "Q, gamepad unbound") ----
+
+    [Fact]
+    public void Execute_is_q_on_the_keyboard_unbound_on_the_pad_and_extended_only()
+    {
+        var s = Fresh();
+        Assert.Equal("Key:Q", s.Get(BindDevice.Keyboard, GameAction.Execute, 0));
+        Assert.Null(s.Get(BindDevice.Keyboard, GameAction.Execute, 1));
+        Assert.Null(s.Get(BindDevice.Controller, GameAction.Execute, 0));
+        var info = ControlActions.Info(GameAction.Execute);
+        Assert.Equal(InputButtons.Execute, info.Buttons);
+        Assert.True(info.ExtendedOnly && info.Keyboard && info.Controller && info.NeedsCapture);
+        Assert.DoesNotContain(ControlActions.For(BindDevice.Keyboard, extended: false), a => a.Action == GameAction.Execute);
+        Assert.Equal(GameAction.Execute, Enum.GetValues<GameAction>().Last());   // appended last: the saved numbers of every older action stay
+        Assert.Equal(InputButtons.Execute, Sample(s, BindDevice.Keyboard, ["Key:Q"]).Buttons);
+        Assert.NotEqual(InputButtons.Melee, InputButtons.Execute);   // its own action, never a melee input
+    }
+
+    /// <summary>A controls.json saved before executions (no Execute entry) loads exactly as it was saved; Execute takes Q only where the file left it free.</summary>
+    [Fact]
+    public void An_old_controls_file_loads_unchanged()
+    {
+        var old = Fresh();
+        old.Assign(BindDevice.Keyboard, GameAction.Melee, 1, "Key:B");
+        old.Assign(BindDevice.Controller, GameAction.Jump, 0, "Pad:RightShoulder", ConflictChoice.Swap);
+        var json = System.Text.Json.Nodes.JsonNode.Parse(old.ToJson())!.AsObject();
+        json["keyboard"]!.AsObject().Remove("Execute");
+        json["controller"]!.AsObject().Remove("Execute");
+        var loaded = BindingSet.FromJson(json.ToJsonString(), out var notes);
+        Assert.Empty(notes);
+        foreach (var device in new[] { BindDevice.Keyboard, BindDevice.Controller })
+            foreach (var info in ControlActions.All.Where(a => a.Action != GameAction.Execute))
+                for (int i = 0; i < BindingSet.Slots(device); i++)
+                    Assert.Equal(old.Get(device, info.Action, i), loaded.Get(device, info.Action, i));
+        Assert.Equal("Key:Q", loaded.Get(BindDevice.Keyboard, GameAction.Execute, 0));
+        Assert.Null(loaded.Get(BindDevice.Controller, GameAction.Execute, 0));
+
+        // An old file that bound Q itself keeps it there; Execute is left unbound (with a note), never the other way round.
+        var taken = BindingSet.FromJson("""{ "version": 1, "keyboard": { "Grenade": ["Key:Q", null], "Reload": ["Key:R", null] } }""", out var takenNotes);
+        Assert.Equal("Key:Q", taken.Get(BindDevice.Keyboard, GameAction.Grenade, 0));
+        Assert.Null(taken.Get(BindDevice.Keyboard, GameAction.Execute, 0));
+        Assert.Single(takenNotes);
     }
 
     // ---- a remapped action drives the same input bits ----

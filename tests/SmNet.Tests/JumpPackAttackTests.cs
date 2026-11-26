@@ -245,7 +245,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         Assert.All(speeds, v => Assert.Equal(leftSpeed, v, 3));   // the speed it left with, held
         // Longer in the air than the clip had left (the rule ends it by time only on the ground): 8 m is about 0.9 s.
         Assert.True(airTicks * Dt > RushTests.Spec.Rush.End - frozenAt * Dt, $"{airTicks} ticks in the air");
-        Assert.True(s.Position.Y - left.Value.Position.Y > 4f, $"carried {s.Position.Y - left.Value.Position.Y:F2} m");   // 4.5 m at the halved 5 m/s (protocol 89: 9 m; LedgeChargeAirTests)
+        Assert.True(s.Position.Y - left.Value.Position.Y > 4f, $"carried {s.Position.Y - left.Value.Position.Y:F2} m");   // about 0.71 x 9 = 6.4 m under protocol 92's 2 x gravity (protocol 89: 9 m; protocol 90-91's 4 x: 4.5 m; LedgeChargeAirTests)
         // feel/melee-charge-2 (protocol 42, the owner's request): landed after an 8 m fall, the charge has ended (no resumed clip, no second shoulder bash);
         // the speed is kept (at most sprint speed) for the slowdown; the spacing lock stays.
         Assert.Equal((RushPhase.None, 0), (s.Rush, s.RushTicks));
@@ -294,7 +294,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void The_landing_rule_is_the_fall_speed_of_half_a_metre()
     {
-        var Config = JumpPackAttackTests.Config with { LedgeChargeHalfAir = false };   // the normal-gravity rule (a Classic ledge charge falls under 4 x: LedgeChargeAirTests)
+        var Config = JumpPackAttackTests.Config with { LedgeChargeHalfAir = false };   // the normal-gravity rule (a Classic ledge charge falls under 2 x: LedgeChargeAirTests)
         // √(2 g h) with h = 0.5 m and the config's gravity (20): 4.47 m/s at the landing tick's start.
         PlayerState Falling(float vz, RushPhase phase) => new(1, default, new Vector3(3f, 0f, -vz), 0f, false) { Rush = phase, RushTicks = 4 };
         float edge = MathF.Sqrt(2f * Config.Gravity * RushSpec.DefaultLandEndDrop);
@@ -787,7 +787,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_30_carries_the_dash_attacks_phases_and_the_slash_and_a_full_snapshot_stays_within_1200_bytes()
     {
-        Assert.Equal(91, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         Assert.Equal(1195, Protocol.MaxSnapshotBytes);
         foreach (var phase in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
         {
@@ -805,7 +805,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         var orphan = (byte[])slim.Clone(); orphan[^31] |= 128;   // the slash bit without the pounding flag
         Assert.Null(Protocol.Read(orphan));
         // Sixteen players at their largest with the new values: the budget holds.
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, false)
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
             Cooldown = 1, ReloadLeft = 1, SinceDamage = 1, RespawnLeft = 1, SwitchLeft = 1, Pitch = 1, Rush = RushPhase.DashCollision, RushTicks = 255, RushLock = 255,

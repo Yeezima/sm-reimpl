@@ -220,7 +220,7 @@ public class WarfrontDedicatedSupervisorTests : IDisposable
         var log = new List<string>();
         using var stop = new ManualResetEventSlim();
         var task = Task.Run(() => WarfrontSupervisor.Loop(_dir, launcher, true, Fast(), stop, log.Add));
-        while (launcher.Children.Count == 0) Thread.Sleep(5);   // under load a fixed sleep could stop the loop before the child started (flake seen in a full run)
+        Assert.True(SpinWait.SpinUntil(() => launcher.Children.Count > 0, TimeSpan.FromSeconds(60)));   // under load a fixed sleep could stop the loop before the child started (flake seen in a full run); bounded, so it fails instead of hanging
         stop.Set();
         Assert.True(task.Wait(TimeSpan.FromSeconds(10)));
         Assert.Equal(0, task.Result);
@@ -237,7 +237,7 @@ public class WarfrontDedicatedSupervisorTests : IDisposable
         var log = new List<string>();
         using var stop = new ManualResetEventSlim();
         var task = Task.Run(() => WarfrontSupervisor.Loop(_dir, launcher, true, Fast(), stop, log.Add));
-        while (launcher.Children.Count == 0) Thread.Sleep(5);
+        Assert.True(SpinWait.SpinUntil(() => launcher.Children.Count > 0, TimeSpan.FromSeconds(60)));
         launcher.Children[0].ObeysStop = false;
         stop.Set();
         Assert.True(task.Wait(TimeSpan.FromSeconds(10)));
@@ -254,7 +254,7 @@ public class WarfrontDedicatedSupervisorTests : IDisposable
         using var stop = new ManualResetEventSlim();
         var timing = Fast() with { Backoff = [TimeSpan.FromSeconds(30)] };
         var task = Task.Run(() => WarfrontSupervisor.Loop(_dir, launcher, true, timing, stop, log.Add));
-        while (!log.Any(l => l.Contains("restart 1 "))) Thread.Sleep(5);
+        Assert.True(SpinWait.SpinUntil(() => log.Any(l => l.Contains("restart 1 ")), TimeSpan.FromSeconds(60)));
         stop.Set();
         Assert.True(task.Wait(TimeSpan.FromSeconds(10)));
         Assert.Equal(0, task.Result);

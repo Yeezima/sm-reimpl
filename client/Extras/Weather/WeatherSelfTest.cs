@@ -31,7 +31,7 @@ public sealed partial class WeatherSelfTest : Node
         return WeatherWire.Encode(WeatherWire.Of(d));
     }
 
-    static float AlphaOf(CpuParticles3D? p) => (p?.Mesh as PrimitiveMesh)?.Material switch
+    static float AlphaOf(GeometryInstance3D? p) => (p is WeatherField f ? f.Material : (p as CpuParticles3D)?.Mesh is PrimitiveMesh pm ? pm.Material : null) switch
     {
         StandardMaterial3D m => m.AlbedoColor.A,
         ShaderMaterial sm => sm.GetShaderParameter("tint").AsColor().A,   // the weather finish: the rain streaks are a shader
@@ -156,12 +156,12 @@ public sealed partial class WeatherSelfTest : Node
         anchor.AddChild(rig);
         rig.Update(WeatherClock.At(WeatherId.Rain, 130), 1f, new Vector3(3f, 2f, 1f));
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-        var rain = rig.GetNodeOrNull<CpuParticles3D>("Rain");
+        var rain = rig.GetNodeOrNull<WeatherField>("Rain");
         var hiss = rig.GetNodeOrNull<AudioStreamPlayer>("RainHiss");
         Check("rain: particles are emitting and follow the camera", rig.Raining && rain is { Emitting: true } && rig.GlobalPosition.IsEqualApprox(new Vector3(3f, 2f, 1f)));
         Check("rain: the hiss plays at most -22 dB", hiss is { Playing: true } && hiss.VolumeDb <= WeatherRig.LoudestDb + 0.01f, hiss?.VolumeDb.ToString() ?? "no player");
         Check("rain: the particle count follows the graphics settings", rain is not null && rain.Amount >= 120 && rain.Amount <= (int)(WeatherRig.RainNearCount * 1.2f), rain?.Amount.ToString() ?? "");
-        var farRain = rig.GetNodeOrNull<CpuParticles3D>("RainFar"); var splash = rig.GetNodeOrNull<CpuParticles3D>("Splash"); var mist = rig.GetNodeOrNull<CpuParticles3D>("RainMist");
+        var farRain = rig.GetNodeOrNull<WeatherField>("RainFar"); var splash = rig.GetNodeOrNull<CpuParticles3D>("Splash"); var mist = rig.GetNodeOrNull<CpuParticles3D>("RainMist");
         int total = (rain?.Amount ?? 0) + (farRain?.Amount ?? 0) + (splash?.Amount ?? 0) + (mist?.Amount ?? 0);
         Check("rain: a far layer, ground splashes and low mist beside the near layer, in a sane total", farRain is { Emitting: true } && splash is { Emitting: true } && mist is { Emitting: true } && total <= (int)((WeatherRig.RainNearCount + WeatherRig.RainFarCount + WeatherRig.SplashCount + WeatherRig.MistCount) * 1.2f) + 4, $"total {total}: {rain?.Amount} + {farRain?.Amount} + {splash?.Amount} + {mist?.Amount}");
         Check("rain: the near layer is denser than the far one and the splashes lie on the ground under the camera", rain is not null && farRain is not null && rain.Amount > farRain.Amount && splash is not null && Math.Abs(splash.GlobalPosition.Y - (2f - 1.8f)) < 0.2f, splash?.GlobalPosition.ToString() ?? "");
@@ -202,8 +202,8 @@ public sealed partial class WeatherSelfTest : Node
         var squall = new WeatherRig(); anchor.AddChild(squall);
         var sqStart = WeatherClock.At(WeatherId.AshSquall, 0.2);
         squall.Update(sqStart, sqStart.Intensity, Vector3.Zero);   // the weather finish: no near-empty opening
-        var dense = squall.GetNodeOrNull<CpuParticles3D>("AshSquall");
-        Check("ash squall start: the dense ash blows at once along the wind, the wind blows, no text yet", dense is { Emitting: true } && dense.Direction.X > 0.3f && squall.WindBlowing && !squall.WarningShown && WeatherPlan.AshShare(sqStart) > 0.99f, dense?.Direction.ToString() ?? "no ash");
+        var dense = squall.GetNodeOrNull<WeatherField>("AshSquall");
+        Check("ash squall start: the dense ash blows at once along the wind, the wind blows, no text yet", dense is { Emitting: true } && dense.Velocity.X > 0.3f && squall.WindBlowing && !squall.WarningShown && WeatherPlan.AshShare(sqStart) > 0.99f, dense?.Velocity.ToString() ?? "no ash");
         var sqWarn = WeatherClock.At(WeatherId.AshSquall, 60 + 45 - 20);   // 20 s before the buildup ends
         squall.Update(sqWarn, sqWarn.Intensity, Vector3.Zero);
         Check("ash squall late buildup: the ash still falls and the intensifying text shows", squall.AshFalling && squall.WarningShown);
@@ -223,8 +223,38 @@ public sealed partial class WeatherSelfTest : Node
         var embers = new WeatherRig(); anchor.AddChild(embers);
         var ew = WeatherClock.At(WeatherId.EmberWind, 150);
         embers.Update(ew, ew.Intensity, Vector3.Zero);
-        var em = embers.GetNodeOrNull<CpuParticles3D>("Embers");
+        var em = embers.GetNodeOrNull<WeatherField>("Embers");
         Check("ember wind: sparse embers rise on the wind (at most the sparse count), nothing else", embers.Embering && em is { Amount: <= WeatherRig.EmberCount * 2 } && !embers.Raining && !embers.AshFalling && embers.GlowAlpha == 0f, em?.Amount.ToString() ?? "");
+        // weather fidelity (owner 2026-11-25): the embers keep their rain-motion shader and look (no sprite, no tier, no light factor); the others take the sprite and tier shaders, which compile in every renderer
+        string emberCode = WeatherField.ShaderCode(WeatherField.Kind.Ember);
+        em?.UseSprite(null); em?.SetTier(true, 1f);
+        Check("fidelity: the ember shader is the rain-motion one (no sprite, no depth read) and the ember layer takes no tier", !emberCode.Contains("sprite") && !emberCode.Contains("depth_tex") && em is { High: false }, "");
+        Check("fidelity: the ember tint is the rain-motion tint (1, 0.62, 0.25), not lit by the grade", em is not null && em.Material.GetShaderParameter("tint").AsColor() is var et && Mathf.IsEqualApprox(et.R, 1f) && Mathf.IsEqualApprox(et.G, 0.62f) && Mathf.IsEqualApprox(et.B, 0.25f), em?.Material.GetShaderParameter("tint").AsColor().ToString() ?? "");
+        string streakLow = WeatherField.ShaderCode(WeatherField.Kind.Streak), streakHigh = WeatherField.ShaderCode(WeatherField.Kind.Streak, true), dotHigh = WeatherField.ShaderCode(WeatherField.Kind.Dot, true);
+        Check("fidelity: the Medium/Compatibility streak reads no depth; the High streak and flake do", !streakLow.Contains("hint_depth_texture") && streakHigh.Contains("hint_depth_texture") && dotHigh.Contains("hint_depth_texture") && streakLow.Contains("uniform sampler2D sprite"), "");
+        Check("fidelity: the grade's light stays within its bounds and is 1 with no weather", Mathf.IsEqualApprox(WeatherRig.GradeLight(SmClient.Customizer.Model.LightingGrade.Identity), 1f)
+            && WeatherRig.GradeLight(WeatherGrade.For(WeatherId.Thunderstorm, 1f)) is >= WeatherRig.LightMin and < 1f
+            && WeatherRig.GradeLight(WeatherGrade.For(WeatherId.AshSquall, 1f)) is >= WeatherRig.LightMin and < 1f, $"storm {WeatherRig.GradeLight(WeatherGrade.For(WeatherId.Thunderstorm, 1f)):F2} ash {WeatherRig.GradeLight(WeatherGrade.For(WeatherId.AshSquall, 1f)):F2}");
+        // tune (review): the layers follow the map's light at the camera: a dark interior (dim ambient, the sun shut out) is darker than an open street, the sun counts only under open sky, and the factor stays in bounds
+        float street = WeatherRig.MapLight(0.25f, 1f, 1f), interior = WeatherRig.MapLight(0.21f, 1.2f, 0f), half = WeatherRig.MapLight(0.25f, 1f, 0.5f);
+        Check("fidelity tune: the map's light is lower in a covered, dim place than on an open street, and in bounds", interior < half && half < street && interior >= WeatherRig.MapLightMin && street <= WeatherRig.MapLightMax
+            && WeatherRig.MapLight(float.NaN, float.PositiveInfinity, float.NaN) is >= WeatherRig.MapLightMin and <= WeatherRig.MapLightMax, $"street {street:F2} half {half:F2} interior {interior:F2}");
+        Check("fidelity tune 2/3: grit and dust are darker in shade than in sun, the dust keeps more of its light than the grit, both at least 0.65 at the light's floor", WeatherRig.GritLight(WeatherRig.MapLightMin) >= 0.65f && WeatherRig.GritLight(0.5f) < WeatherRig.GritLight(0.86f)
+            && WeatherRig.VolumeLight(0.5f) > WeatherRig.GritLight(0.5f) && WeatherRig.VolumeLight(WeatherRig.MapLightMin) >= 0.7f, $"grit shade {WeatherRig.GritLight(0.5f):F2} sun {WeatherRig.GritLight(0.86f):F2} dust shade {WeatherRig.VolumeLight(0.5f):F2}");
+        {
+            string repo = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+            string install = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-wx-fake-install");
+            bool refusedRepo = WeatherSprites.TrySetDump(System.IO.Path.Combine(repo, "dump"), repo, install) is not null && WeatherSprites.DumpDir is null;
+            bool refusedInstall = WeatherSprites.TrySetDump(System.IO.Path.Combine(install, "data", "x"), repo, install) is not null && WeatherSprites.DumpDir is null;
+            bool accepted = WeatherSprites.TrySetDump(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-wx-dump"), repo, install) is null && WeatherSprites.DumpDir is not null;
+            string gitTree = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-wx-gittree-" + System.Environment.ProcessId);
+            System.IO.Directory.CreateDirectory(System.IO.Path.Combine(gitTree, ".git"));
+            bool refusedGit = WeatherSprites.TrySetDump(System.IO.Path.Combine(gitTree, "sub", "dump"), repo, install) is not null && WeatherSprites.DumpDir is null;
+            try { System.IO.Directory.Delete(gitTree, true); } catch (System.IO.IOException) { } catch (System.UnauthorizedAccessException) { }
+            Check("fidelity tune 3: the sprite dump refuses a folder inside any Git work tree outside the repository too", refusedGit, gitTree);
+            WeatherSprites.TrySetDump(null, repo, install);
+            Check("fidelity tune: the sprite dump refuses the repository and the game install, accepts a private folder", refusedRepo && refusedInstall && accepted && WeatherSprites.DumpDir is null, $"{refusedRepo} {refusedInstall} {accepted}");
+        }
         embers.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
         squall.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
         storm.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
@@ -239,17 +269,32 @@ public sealed partial class WeatherSelfTest : Node
         Check("dev script: stray quotes are dropped, every word kept", string.Join("|", DevToolsPanel.SplitScript("\"weather:rain, wxslide:20:3 ,weather:clear\"")) == "weather:rain|wxslide:20:3|weather:clear", string.Join("|", DevToolsPanel.SplitScript("\"weather:rain, wxslide:20:3 ,weather:clear\"")));
         Check("skies: drawn in this renderer only when it is not Compatibility", WeatherRig.SkyDrawn == (RenderingServer.GetCurrentRenderingMethod() != "gl_compatibility"));
 
-        // the weather finish: rain coverage at speed (the emitters lead the camera), Low Fog's ground fog, the preset skies and Clear's removal
+        // the weather finish: rain coverage at speed, Low Fog's ground fog, the preset skies and Clear's removal. Rain motion (series 37): the rain is a field wrapped round the camera, so the drops round it are as many wherever it jumps to
         {
             var fast = new WeatherRig(); anchor.AddChild(fast);
-            fast.ForceLeadVelocity(new Vector3(20f, 0f, 0f));
-            fast.Update(WeatherClock.At(WeatherId.Rain, 130), 1f, Vector3.Zero);
-            var off = fast.RainEmitterOffset;
-            Check("rain at 20 m/s sideways: the near emitter leads the camera by the drop's fall time", Math.Abs(off.X - 20f * WeatherRig.NearLeadSeconds) < 0.01f && Math.Abs(off.Y - WeatherRig.NearHeightM) < 0.01f, off.ToString());
-            fast.ForceLeadVelocity(new Vector3(100f, 0f, 0f));
-            fast.Update(WeatherClock.At(WeatherId.Rain, 130), 1f, Vector3.Zero);
-            Check("rain lead is capped", fast.RainEmitterOffset.X <= WeatherRig.LeadMaxSpeed * WeatherRig.NearLeadSeconds + 0.01f, fast.RainEmitterOffset.ToString());
-            fast.ForceLeadVelocity(null);
+            var rainAt = WeatherClock.At(WeatherId.Rain, 130);
+            fast.Update(rainAt, 1f, Vector3.Zero);
+            var nfield = fast.GetNodeOrNull<WeatherField>("Rain");
+            Check("rain motion repair: a field switched on fades in (hidden at first, not popped in)", nfield is { Emitting: true, Visible: false, Level: 0f });
+            fast.SettleFields();
+            int rest = fast.DensityAround().Near, lo = int.MaxValue, hi = 0;
+            foreach (var at in new[] { new Vector3(3.3f, 0f, 0f), new Vector3(9.1f, -5.5f, 0.4f), new Vector3(9.1f, -17f, 2f), new Vector3(30f, 12f, -7f), new Vector3(-41f, 18f, 63f), new Vector3(-41.5f, 1.2f, 63f) })   // sideways at 20 m/s, a fall at 33 m/s, a jump-pack lift-off, far jumps
+            {
+                fast.Update(rainAt, 1f, at);
+                int n = fast.DensityAround().Near;
+                lo = Math.Min(lo, n); hi = Math.Max(hi, n);
+            }
+            Check("rain motion: the near drops within 8 m of the camera stay as many wherever and however fast it moves (within 30 % of standing)", rest > 40 && lo >= rest * 0.7f && hi <= rest * 1.3f, $"{rest}: {lo}..{hi}");
+            Check("rain motion: the rain field sits round the camera (13 m over it, 11 m under it), not ahead of it", fast.GetNodeOrNull<WeatherField>("Rain") is { } nf && nf.Position.IsEqualApprox(new Vector3(0f, WeatherRig.NearCentreM, 0f)) && Math.Abs(nf.Box.Y * 0.5f + WeatherRig.NearCentreM - 13f) < 0.01f);
+            if (nfield is not null)
+            {
+                nfield.Emitting = false; nfield.Advance(0.1);
+                bool fadingOut = nfield.Visible && nfield.Level > 0.7f && nfield.Level < 0.9f && fast.FieldsFading && fast.Active;
+                nfield.Advance(0.25); nfield.Advance(0.25);
+                Check("rain motion repair: a field switched off fades over 0.5 s (still drawn, the rig kept), then hides", fadingOut && !nfield.Visible && nfield.Level == 0f, $"{nfield.Level}");
+                nfield.Emitting = true; nfield.Settle();
+            }
+            fast.Update(rainAt, 1f, Vector3.Zero);
             float alphaFull = fast.RainAlpha;
             var rainLull = WeatherClock.At(WeatherId.Rain, 45);   // the opening's end: the lull
             fast.Update(rainLull, rainLull.Intensity, Vector3.Zero);
@@ -258,8 +303,12 @@ public sealed partial class WeatherSelfTest : Node
             Check("rain lull: the hiss follows the rain's amplitude (within 7 dB of full)", hissP is { Playing: true } && hissP.VolumeDb > WeatherRig.LoudestDb - 7f, hissP?.VolumeDb.ToString() ?? "");
             fast.Update(WeatherClock.At(WeatherId.Rain, 130), 1f, Vector3.Zero);
             Check("rain: an overcast sky of its own blends in (not all at once)", fast.SkyLook == WeatherId.Rain && fast.SkyCover > 0f && fast.SkyCover < WeatherRig.RainSkyFull, fast.SkyCover.ToString());
+            float nearAlphaRaining = fast.RainAlpha, farAlphaRaining = AlphaOf(fast.GetNodeOrNull<WeatherField>("RainFar"));
+            var nearVelRaining = fast.GetNodeOrNull<WeatherField>("Rain")?.Velocity ?? Vector3.Zero;
             fast.Update(WeatherClock.At(WeatherId.Clear, 10), 1f, Vector3.Zero);
             Check("clear, entered from rain: no rain, no splashes, the hiss fading (0.5 s), the sky fading out", !fast.Raining && (hissP is { Playing: false } || fast.BedsFading) && !fast.Splashing && WeatherRig.SkyTarget(WeatherId.Clear, 1f) == 0f);
+            Check("rain motion repair 2: the rain fading out keeps its last tint and fall (no step to a fainter look, no snapped lean)", fast.RainAlpha == nearAlphaRaining && AlphaOf(fast.GetNodeOrNull<WeatherField>("RainFar")) == farAlphaRaining
+                && (fast.GetNodeOrNull<WeatherField>("Rain")?.Velocity ?? Vector3.One) == nearVelRaining && fast.FieldsFading, $"{nearAlphaRaining} -> {fast.RainAlpha}");
             fast.QueueFree();
 
             var fog = new WeatherRig(); anchor.AddChild(fog);
@@ -285,7 +334,7 @@ public sealed partial class WeatherSelfTest : Node
         var sh = new WeatherRig(); anchor.AddChild(sh);
         var shStorm = WeatherClock.At(WeatherId.Thunderstorm, 135);
         sh.Update(shStorm, 1f, Vector3.Zero);
-        var shRain = sh.GetNodeOrNull<CpuParticles3D>("Rain"); var shFar = sh.GetNodeOrNull<CpuParticles3D>("RainFar"); var shSplash = sh.GetNodeOrNull<CpuParticles3D>("Splash"); var shMist = sh.GetNodeOrNull<CpuParticles3D>("RainMist");
+        var shRain = sh.GetNodeOrNull<WeatherField>("Rain"); var shFar = sh.GetNodeOrNull<WeatherField>("RainFar"); var shSplash = sh.GetNodeOrNull<CpuParticles3D>("Splash"); var shMist = sh.GetNodeOrNull<CpuParticles3D>("RainMist");
         var shHiss = sh.GetNodeOrNull<AudioStreamPlayer>("RainHiss"); var shWind = sh.GetNodeOrNull<AudioStreamPlayer>("WindBed");
         float hissOpen = shHiss?.VolumeDb ?? 0f, windOpen = shWind?.VolumeDb ?? 0f;
         var nearAlphaOpen = AlphaOf(shRain);
@@ -297,7 +346,7 @@ public sealed partial class WeatherSelfTest : Node
         sh.SetShelter(1f, false);
         sh.Update(shStorm, 1f, Vector3.Zero);
         Check("sheltered: the near rain, splashes and mist have stopped", shRain is { Emitting: false } && shSplash is { Emitting: false } && shMist is { Emitting: false } && !sh.Splashing);
-        Check("sheltered: the far layer keeps raining outside a hole round the player, fainter", shFar is { Emitting: true, EmissionShape: CpuParticles3D.EmissionShapeEnum.Ring } && sh.FarHoleOn && Math.Abs(shFar.EmissionRingInnerRadius - WeatherShelterMix.FarHoleRadiusM) < 0.01f);
+        Check("sheltered: the far layer keeps raining outside a hole round the player, fainter", shFar is { Emitting: true } && sh.FarHoleOn && Math.Abs(shFar.HoleM - (WeatherShelterMix.FarHoleRadiusM + WeatherField.HoleSoftM)) < 0.01f && shFar.HoleNowM < WeatherShelterMix.FarHoleRadiusM - 1f, $"hole now {shFar?.HoleNowM}");   // repair: the hole eases open over 0.5 s (not yet, in the same frame)
         Check("sheltered: the weather bus is low-passed to the muffled cutoff", Math.Abs(sh.BusCutoffHz - WeatherShelterMix.MuffledHz) < 30f && AudioServer.GetBusIndex(WeatherRig.BusName) >= 0, $"{sh.BusCutoffHz}");
         Check("sheltered: rain and wind are quieter than in the open, never above their caps; the hiss and wind play on the weather bus",
             shHiss is { Playing: true } && shHiss.VolumeDb < hissOpen - 1f && shHiss.VolumeDb <= WeatherRig.LoudestDb && shHiss.Bus == WeatherRig.BusName && shWind is { Playing: true } && shWind.VolumeDb < windOpen - 1f && shWind.VolumeDb <= WeatherRig.WindLoudestDb && shWind.Bus == WeatherRig.BusName, $"{hissOpen}->{shHiss?.VolumeDb} {windOpen}->{shWind?.VolumeDb}");
@@ -308,12 +357,12 @@ public sealed partial class WeatherSelfTest : Node
         sh.SetShelter(0f, false);
         sh.Update(shStorm, 1f, Vector3.Zero);
         Check("back in the open: the near layers fall again, the hole closes, the bus is unfiltered, the sounds are back",
-            shRain is { Emitting: true } && shSplash is { Emitting: true } && !sh.FarHoleOn && shFar is { EmissionShape: CpuParticles3D.EmissionShapeEnum.Box } && sh.BusCutoffHz >= WeatherShelterMix.OpenHz - 1f && Math.Abs((shHiss?.VolumeDb ?? 0f) - hissOpen) < 0.01f, $"{sh.BusCutoffHz}");
+            shRain is { Emitting: true } && shSplash is { Emitting: true } && !sh.FarHoleOn && shFar is { HoleM: 0f } && sh.BusCutoffHz >= WeatherShelterMix.OpenHz - 1f && Math.Abs((shHiss?.VolumeDb ?? 0f) - hissOpen) < 0.01f, $"{sh.BusCutoffHz}");
         // ash and embers: none under cover
         var shAsh = new WeatherRig(); anchor.AddChild(shAsh);
         var ashPeak = WeatherClock.At(WeatherId.AshSquall, 60 + 45 + 40);
         shAsh.Update(ashPeak, ashPeak.Intensity, Vector3.Zero);
-        var shAshMain = shAsh.GetNodeOrNull<CpuParticles3D>("AshSquall");
+        var shAshMain = shAsh.GetNodeOrNull<WeatherField>("AshSquall");
         bool ashOpen = shAshMain is { Emitting: true };
         shAsh.SetShelter(1f, true);
         shAsh.Update(ashPeak, ashPeak.Intensity, Vector3.Zero);
@@ -336,7 +385,7 @@ public sealed partial class WeatherSelfTest : Node
         // W4: trim. The counts step down on long frames, stay at or above every floor and at or below the preset's own count, and come back.
         var tr = new WeatherRig(); anchor.AddChild(tr);
         tr.Update(shStorm, 1f, Vector3.Zero);
-        var trRain = tr.GetNodeOrNull<CpuParticles3D>("Rain"); var trFar = tr.GetNodeOrNull<CpuParticles3D>("RainFar"); var trSplash = tr.GetNodeOrNull<CpuParticles3D>("Splash"); var trMist = tr.GetNodeOrNull<CpuParticles3D>("RainMist");
+        var trRain = tr.GetNodeOrNull<WeatherField>("Rain"); var trFar = tr.GetNodeOrNull<WeatherField>("RainFar"); var trSplash = tr.GetNodeOrNull<CpuParticles3D>("Splash"); var trMist = tr.GetNodeOrNull<CpuParticles3D>("RainMist");
         int full = tr.ParticleTotal; int changes = 0; tr.TrimChanged += (_, _) => changes++;
         for (int f = 0; f < 600 && tr.Trim.Level < WeatherTrim.MaxLevel; f++) tr.StepTrim(0.05);   // 50 ms frames
         Check("trim: long frames step the counts down to the lowest level, one change per step", tr.Trim.Level == WeatherTrim.MaxLevel && changes == WeatherTrim.MaxLevel && tr.ParticleTotal < full * 0.6f, $"{full} -> {tr.ParticleTotal} in {changes} steps");

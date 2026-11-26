@@ -262,6 +262,18 @@ public sealed partial class TfwBattle
     public int FinalFieldSquadsMax => TfwBattleRules.FinalFieldSquads * GuardScale;
     public int GarrisonCapNow => TfwArmyRules.GarrisonCap * GuardScale;
     public int ReinforceMenNow => TfwArmyRules.ReinforceMen * GuardScale;
+    /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the multiplier of the enemy's numbers (Chaos: pressure, not headcount); 1 outside it. Not applied yet: C2 wires it into the crowds.</summary>
+    partial void WarfrontEnemyScale(ref float scale);
+    public float EnemyScale { get { float s = 1f; WarfrontEnemyScale(ref s); return s; } }   // WARFRONT-HOOK
+    /// <summary>A cap of enemies alive under <see cref="EnemyScale"/>: <paramref name="count"/> itself at 1 (every battle but a Chaos one), else rounded, at least 1.</summary>
+    int Scaled(int count) { float s = EnemyScale; return s == 1f ? count : Math.Max(1, (int)MathF.Round(count * s)); }
+    /// <summary>The crowds' and swarms' cap of this battle now (<see cref="TfwBattleRules.AliveCap"/> under <see cref="EnemyScale"/>).</summary>
+    public int AliveCapNow => Scaled(TfwBattleRules.AliveCap(_humansNow));
+    /// <summary>The armies' real units at most (<see cref="TfwArmyRules.NearOrksMost"/> under <see cref="EnemyScale"/>).</summary>
+    public int NearOrksMostNow => Scaled(TfwArmyRules.NearOrksMost);
+    /// <summary>Warfront's Chaos faction (C0 seam): whether the Ork-only spawners of <paramref name="kind"/> (the Weirdboyz, the Scrap Meks) run in this battle; the Squigs keep <c>World.WarfrontSquigs</c>. Always on outside it.</summary>
+    partial void WarfrontOrkKind(MusouEnemyType kind, ref bool on);
+    bool OrkKindOn(MusouEnemyType kind) { bool on = true; WarfrontOrkKind(kind, ref on); return on; }   // WARFRONT-HOOK
     /// <summary>Most real Guard squads the armies hold: the squads' 40 less the field's own (28 as before outside Warfront).</summary>
     public int NearSquadsCap => Math.Min(TfwArmyRules.NearSquadsMost, GuardSim.MaxSquads - (_final || WarfrontFinalField ? FinalFieldSquadsMax : FieldSquadsMax));
     bool WarfrontFinalField { get { bool f = false; WarfrontFinalFieldHook(ref f); return f; } }   // WARFRONT-HOOK
@@ -355,6 +367,7 @@ public sealed partial class TfwBattle
 
     /// <summary>Warfront: the battle's own opening (the defence); <paramref name="handled"/> true skips <see cref="Start"/>'s.</summary>
     partial void WarfrontStart(ref bool handled);
+    partial void WarfrontNoCapture(ref IReadOnlySet<int>? ids);
 
     /// <summary>The secured positions as places for the Orks to retake (<see cref="MusouTarget.Goal"/>), written from <paramref name="into"/>'s start; the number written.</summary>
     public int AppendGoals(Span<MusouTarget> into)
@@ -584,7 +597,7 @@ public sealed partial class TfwBattle
             for (int k = 0; k < n; k++)
             {
                 var e = _roomBuffer[k];
-                if (e.Id == 0 || !e.Alive || TfwBattleRules.Big(e.Type) || MusouTargetRules.ClassOf(e.Type) != MusouTargetClass.Ordinary || _armyIds.Contains(e.Id)) continue;
+                if (e.Id == 0 || !e.Alive || TfwBattleRules.Big(e.Type) || MusouTargetRules.ClassOf(_enemies.RuleKind(e.Type)) != MusouTargetClass.Ordinary || _armyIds.Contains(e.Id)) continue;
                 float d = Vector3.DistanceSquared(e.Position, near);
                 if (d > far) { far = d; best = k; }
             }
@@ -726,10 +739,12 @@ public sealed partial class TfwBattle
     /// <summary>The feet that can capture: every one of <paramref name="players"/> but the allied pair (by <see cref="SetPlayerIds"/>' ids; without them, all).</summary>
     ReadOnlySpan<Vector3> Capturers(ReadOnlySpan<Vector3> players)
     {
-        if (_allyIds.Count == 0 || _stormIds.Count != players.Length) return players;
+        IReadOnlySet<int>? noCapture = null;
+        WarfrontNoCapture(ref noCapture);   // WARFRONT-HOOK: Warfront's retainers never capture (owner 2026-11-25; Warfront/Battle/TfwBattle.Warfront.cs)
+        if ((_allyIds.Count == 0 && noCapture is not { Count: > 0 }) || _stormIds.Count != players.Length) return players;
         if (_capturerFeet.Length < players.Length) _capturerFeet = new Vector3[players.Length * 2];
         int n = 0;
-        for (int k = 0; k < players.Length; k++) if (!_allyIds.Contains(_stormIds[k])) _capturerFeet[n++] = players[k];
+        for (int k = 0; k < players.Length; k++) if (!_allyIds.Contains(_stormIds[k]) && noCapture?.Contains(_stormIds[k]) != true) _capturerFeet[n++] = players[k];
         return _capturerFeet.AsSpan(0, n);
     }
 
@@ -938,7 +953,7 @@ public sealed partial class TfwBattle
     /// </summary>
     void StepArrivals()
     {
-        int cap = TfwBattleRules.AliveCap(_humansNow);
+        int cap = AliveCapNow;   // EnemyScale: the Chaos army's share (1 otherwise)
         _trickled.RemoveAll(_notTrickling);
         int counted = Counted() - _trickled.Count;   // the crowds' cap counts the crowds and swarms; the trickle has its own
         for (int k = 0; k <= Positions; k++)
@@ -971,13 +986,13 @@ public sealed partial class TfwBattle
     void StepTrickle()
     {
         if (!Trickle) return;
-        int cap = TfwBattleRules.TrickleCap(_humansNow);
+        int cap = Scaled(TfwBattleRules.TrickleCap(_humansNow)), total = Scaled(TfwBattleRules.TrickleTotalMax);   // EnemyScale (1 but against Chaos)
         for (int k = 0; k <= Positions; k++)
         {
             if (!SourceActive(k)) { _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds); continue; }
             if (--_trickleTicks[k] > 0) continue;
             _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds);
-            if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax || PoolUsed >= TfwBattleRules.CrowdPoolRoom) continue;
+            if (_trickled.Count >= cap || Counted() >= total || PoolUsed >= TfwBattleRules.CrowdPoolRoom) continue;
             var type = Fodder(_picked++);
             var at = SourceSpot(k);
             ushort id = _enemies.SpawnLeashed(type, at, FaceCentre(at), Health(type), MusterGroupFirst + k, TfwBattleRules.CrowdAggro);

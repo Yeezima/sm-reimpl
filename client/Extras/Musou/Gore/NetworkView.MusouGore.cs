@@ -110,15 +110,29 @@ public partial class NetworkView
     {
         burstDrawn = false;
         if (GoreOff || _gameSpace is null) return false;
-        if (OrkBloodOn) return OrkBloodDeath(d, camera, out burstDrawn);   // gore-original: the original's own Ork blood (NetworkView.OrkBlood.cs)
         bool lascannon = MusouKillerHasLascannon(d.Killer);
         float metres = Num.Vector3.Distance(d.Position, new Num.Vector3(camera.X, camera.Y, camera.Z));
-        var plan = MusouGoreRules.Plan(d.Cause, d.Type, d.Killer, lascannon, metres, 1f, d.Id, d.Tick);
+        var plan = MusouGorePlan(d, lascannon, metres, 1f, out bool vetoed);   // the rules' plan, then Warfront's table, before anything is decided (C0 review finding 2)
+        if (vetoed) return false;   // Warfront's table says this death makes no gore (nothing queued, the body stays), on either path
+        if (OrkBloodOn) return OrkBloodDeath(d, camera, out burstDrawn);   // gore-original: the original's own Ork blood (NetworkView.OrkBlood.cs)
         if (plan.Class == GoreClass.None) return false;
         GoreView();
         if (plan.Lod != GoreLod.None) { _goreQueue.Add(new GoreWork(d, lascannon, metres)); burstDrawn = true; }
         if (plan.Gibbed) _goreGibbed++;
         return plan.Gibbed;
+    }
+
+    /// <summary>
+    /// A death's burst: <see cref="MusouGoreRules.Plan"/>, then Warfront's table (<see cref="WarfrontGorePlan"/>; the Chaos faction's rows). <paramref name="vetoed"/>: the table turned a burst the rules
+    /// gave into none (without Warfront, or for an Ork, never). One place for the register (which decides gib and queue) and the frame (which spawns), so both read the same plan.
+    /// </summary>
+    static GoreBurst MusouGorePlan(in MusouDeathShown d, bool lascannon, float metres, float load, out bool vetoed)
+    {
+        var plan = MusouGoreRules.Plan(d.Cause, d.Type, d.Killer, lascannon, metres, load, d.Id, d.Tick);
+        var rules = plan.Class;
+        WarfrontGorePlan(d, ref plan);   // WARFRONT-HOOK
+        vetoed = rules != GoreClass.None && plan.Class == GoreClass.None;
+        return plan;
     }
 
     static bool MusouWorldDeath(IReadOnlyList<MusouEvent> events, ushort enemy)
@@ -127,7 +141,15 @@ public partial class NetworkView
         return false;
     }
 
-    static float GoreChestHeight(MusouEnemyType type) => MusouBossOrks.Is(type) ? GoreChestHeight(MusouBossOrks.BaseOf(type)) * MusouBossOrks.BodyScale : type switch   // a Boss Ork: its base's, 3x
+    static float GoreChestHeight(MusouEnemyType type) { float h = OrkGoreChestHeight(type); WarfrontGoreChest(type, ref h); return h; }   // WARFRONT-HOOK
+
+    /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the gore table's rows for a kind drawn as Chaos: its chest height, whether it bleeds as an Ork (the Ork blood and the dark gore), and its death's burst. No-op without Warfront and the Chaos faction.</summary>
+    static partial void WarfrontGoreChest(MusouEnemyType type, ref float height);
+    static partial void WarfrontGoreOrk(MusouEnemyType type, ref bool ork);
+    static partial void WarfrontGorePlan(in MusouDeathShown death, ref GoreBurst plan);
+    static bool GoreOrk(MusouEnemyType type) { bool ork = type != MusouEnemyType.ChaosMarine; WarfrontGoreOrk(type, ref ork); return ork; }   // WARFRONT-HOOK
+
+    static float OrkGoreChestHeight(MusouEnemyType type) => MusouBossOrks.Is(type) ? OrkGoreChestHeight(MusouBossOrks.BaseOf(type)) * MusouBossOrks.BodyScale : type switch   // a Boss Ork: its base's, 3x
     {
         MusouEnemyType.Gretchin => 0.7f,
         MusouEnemyType.Nob => 1.4f,
@@ -188,11 +210,11 @@ public partial class NetworkView
         foreach (var w in _goreBatch)
         {
             var d = w.Death;
-            var plan = MusouGoreRules.Plan(d.Cause, d.Type, d.Killer, w.Lascannon, w.Metres, load, d.Id, d.Tick);
+            var plan = MusouGorePlan(d, w.Lascannon, w.Metres, load, out _);   // the same plan the register read (Warfront's table included)
             if (plan.Class == GoreClass.None) continue;
             _goreDeaths++;
             if (plan.Class == GoreClass.Explosion) _goreExplosions++;
-            view.Field.Spawn(plan, new Num.Vector3(d.Position.X, d.Position.Y, d.Position.Z + GoreChestHeight(d.Type)), d.Push, d.Position.Z, d.Type != MusouEnemyType.ChaosMarine);
+            view.Field.Spawn(plan, new Num.Vector3(d.Position.X, d.Position.Y, d.Position.Z + GoreChestHeight(d.Type)), d.Push, d.Position.Z, GoreOrk(d.Type));
         }
         watch.Stop();
         view.Frame(delta);

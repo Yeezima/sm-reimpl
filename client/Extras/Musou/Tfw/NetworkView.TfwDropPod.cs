@@ -219,25 +219,34 @@ public sealed partial class NetworkView
     /// </summary>
     void TfwPodShouts(TfwPodShow pod, double tick, int rate)
     {
-        double spawn = pod.Record.Tick + (TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds) * rate;
-        if (tick < spawn) return;
-        if (pod.Shouts is null)
-        {
-            var ids = new List<int>();
-            foreach (var (id, s) in _barkPlayers)
-                if (TfwContracts.IsPuppet(id) && s.Alive && System.Numerics.Vector3.Distance(s.Position with { Z = pod.Record.At.Z }, pod.Record.At) <= 8f) ids.Add(id);
-            ids.Sort();
-            if (ids.Count == 0) { if (tick > spawn + 2 * rate) pod.Shouts = []; return; }   // none seen within 2 s: no cry
-            pod.Shouts = new();
-            for (int k = 0; k < ids.Count && k < TfwDropPodRules.Marines; k++) pod.Shouts.Add((ids[k], spawn + TfwDropPodRules.ShoutDelay((uint)pod.Record.Tick, k) * rate, false));
-        }
+        // Phase B T2b review fix: the slots come from the pod's record alone (TfwPodCry), not from the Marines this snapshot carries; each slot's speaker is chosen when it begins.
+        pod.Shouts ??= [.. TfwPodCry.SlotTicks(pod.Record.Tick, rate).Select(at => (0, at, false))];
+        if (pod.Shouts.Count == 0 || tick < pod.Shouts[0].Tick) return;
         for (int k = 0; k < pod.Shouts.Count; k++)
         {
-            var (id, at, done) = pod.Shouts[k];
+            var (_, at, done) = pod.Shouts[k];
             if (done || tick < at) continue;
-            pod.Shouts[k] = (id, at, true);
-            if (_barkPlayers.TryGetValue(id, out var marine) && marine.Alive) BarkSay(id, marine, BarkMoment.Key, (long)pod.Record.Tick * 8 + k, own: false, emperorOnly: true);
+            var cried = pod.Shouts.Where(x => x.Done && x.Id > 0).Select(x => x.Id).ToHashSet();
+            var inSight = _barkPlayers.Where(e => TfwContracts.IsPuppet(e.Key) && !TfwPodNotPodMarine(e.Key) && e.Value.Alive && System.Numerics.Vector3.Distance(e.Value.Position with { Z = pod.Record.At.Z }, pod.Record.At) <= 8f).Select(e => e.Key);
+            int? speaker = TfwPodCry.Speaker(inSight, cried);
+            pod.Shouts[k] = (speaker ?? 0, at, true);
+            long seed = (long)pod.Record.Tick * 8 + k;
+            if (speaker is { } id) BarkSay(id, _barkPlayers[id], BarkMoment.Key, seed, own: false, emperorOnly: true);
+            else if (_client?.LeanSeen == true) TfwPodVoice(pod, k, seed);   // a crowded Warfront snapshot may carry none of them now: the cry comes from the pod
         }
+    }
+
+    /// <summary>Whether puppet <paramref name="id"/> is not one of a pod's Marines (Warfront: its retainers, who shout as players do). False outside Warfront.</summary>
+    bool TfwPodNotPodMarine(int id) { bool not = false; WarfrontNotPodMarine(id, ref not); return not; }   // WARFRONT-HOOK
+    partial void WarfrontNotPodMarine(int id, ref bool not);
+    /// <summary>A pod slot's cry with none of the pod's Marines in sight (only after crowded snapshots, <c>GameClient.LeanSeen</c>): a loyalist's take played from the pod's door (a speaker of its own, a negative id).</summary>
+    void TfwPodVoice(TfwPodShow pod, int slot, long seed)
+    {
+        if (_barkPlayers.Values.FirstOrDefault(IsLoyalist) is not { PlayerId: not 0 } loyalist) return;
+        int id = -(int)(((uint)pod.Record.Tick % 100_000u) * TfwDropPodRules.Marines + (uint)slot + 1u);
+        var at = pod.Record.At;
+        BarkSay(id, loyalist with { PlayerId = id, Position = at, Alive = true }, BarkMoment.Key, seed, own: false, emperorOnly: true);
+        if (_barkSpeakers.TryGetValue(id, out var sp) && sp.Player is AudioStreamPlayer3D p3 && IsInstanceValid(p3)) p3.GlobalPosition = ToGodot(at) + Vector3.Up;
     }
 
     /// <summary>The touchdown: the trail ends, the install's landing fire and the dust, a crater, the install's sounds, the shake.</summary>

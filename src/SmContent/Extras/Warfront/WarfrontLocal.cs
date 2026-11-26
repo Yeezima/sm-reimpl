@@ -1,5 +1,6 @@
 using System.Globalization;
 using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Faction;
 using SmSim.Extras.Warfront.Results;
 
 namespace SmContent.Extras.Warfront;
@@ -64,7 +65,7 @@ public sealed record WarfrontRunInfo(WarfrontRunKind Kind, string Line, Warfront
 public static class WarfrontLocal
 {
     public const string RowText = "Warfront";
-    public const string RowTooltip = "A campaign of three fronts: your squad against the Ork fortress, alone on this PC or with up to 4 friends";
+    public const string RowTooltip = "A campaign of three fronts: your squad against the Orks or Chaos, alone on this PC or with up to 4 friends";
     public const string PageTitle = "Warfront";
     /// <summary>The strip under the page's title (where the page is).</summary>
     public const string PageHeading = "Campaign alone or together";
@@ -74,6 +75,21 @@ public static class WarfrontLocal
     public const string StopServerRowText = "Stop Warfront server";
     /// <summary>The Host panel's explainer on the Warfront profile (replaces the Classic mode and bot talk): what hosting a Warfront campaign is, and how friends get in.</summary>
     public const string HostExplainer = "Host a Warfront campaign for you and up to 3 friends: you fight the three fronts together as Space Marines with your squads. Friends join by address; there are no bots to add, and no mode or map to pick.";
+
+    /// <summary>
+    /// The Host panel's explainer for the FACTION row's choice (Chaos Warfront C3): the players are always Space Marines; the enemy is the Orks, Chaos, or the two by turns. Ours.
+    /// </summary>
+    public static string HostExplainerFor(WarfrontFactionSetting faction) =>
+        "Host a Warfront campaign for you and up to 3 friends: you fight the three fronts together as Space Marines with your squads, " + faction switch
+        {
+            WarfrontFactionSetting.Orks => "against the Orks.",
+            WarfrontFactionSetting.Chaos => "against the forces of Chaos.",
+            _ => "against the Orks or Chaos, by turns with each new campaign.",
+        } + " Friends join by address; there are no bots to add, and no mode or map to pick.";
+
+    /// <summary>The local page's FACTION plate (Chaos Warfront C3, owner 2026-11-25: "Add a fraction row"): its words for each choice, the setting's order.</summary>
+    public static readonly string[] FactionPlateTexts = ["Faction: Alternate", "Faction: Orks", "Faction: Chaos"];
+    public const string FactionPlateTooltip = "The enemy of your next new campaign on this PC: ALTERNATE switches between the Orks and Chaos with each new campaign, starting with the Orks. A campaign keeps its enemy to the end.";
     public const string CoopNote = "Up to 4 players fight together as Space Marines and their squads. New campaign and Continue play on this PC alone; host for friends (LAN / Internet) and they join by address.";
 
     public const string ConfirmTitle = "START A NEW CAMPAIGN?";
@@ -99,17 +115,21 @@ public static class WarfrontLocal
         return ready ? WarfrontPress.Join : WarfrontPress.Wait;
     }
 
-    /// <summary>The arguments after the ones <c>ServerLaunch.Arguments</c> adds (<c>--port</c>, <c>--bind 127.0.0.1</c>, <c>--content warfront</c>, ...): one human, and a new campaign when asked.</summary>
-    public static IReadOnlyList<string> ExtraArgs(bool newCampaign)
+    /// <summary>
+    /// The arguments after the ones <c>ServerLaunch.Arguments</c> adds (<c>--port</c>, <c>--bind 127.0.0.1</c>, <c>--content warfront</c>, ...): one human, a new campaign when asked, and (Chaos Warfront C1) the faction
+    /// setting when one is forced (<paramref name="faction"/>: Alternate, the server's default, adds nothing, so the launch of every earlier build is unchanged).
+    /// </summary>
+    public static IReadOnlyList<string> ExtraArgs(bool newCampaign, WarfrontFactionSetting faction = WarfrontFactionSetting.Alternate)
     {
         var a = new List<string> { "--warfront-max-humans", MaxHumans.ToString(CultureInfo.InvariantCulture) };
         if (newCampaign) a.Add("--warfront-new");
+        if (faction != WarfrontFactionSetting.Alternate) { a.Add("--warfront-faction"); a.Add(WarfrontFactionPolicy.Key(faction)); }
         return a;
     }
 
-    /// <summary>The host options of the local campaign: this PC only (always), the Warfront profile, no bots, the developer tools on (F6; weather and the rest).</summary>
-    public static HostOptions Options(int port, string gameDir, bool newCampaign) =>
-        new(ServerLaunch.ModeAnnihilation, port, LocalOnly: true, gameDir, AllowCustomEmblems: false, Content: SmSim.ContentProfiles.Warfront, Bots: 0, DevTools: true, ExtraArgs: ExtraArgs(newCampaign));   // owner 2026-11-21: the full developer tools (F6), like Classic's This PC only; ServerLaunch adds --dev-tools only for LocalOnly and the server still wants a loopback bind and requester
+    /// <summary>The host options of the local campaign: this PC only (always), the Warfront profile, no bots, the developer tools on (F6; weather and the rest), the faction setting of the next new run.</summary>
+    public static HostOptions Options(int port, string gameDir, bool newCampaign, WarfrontFactionSetting faction = WarfrontFactionSetting.Alternate) =>
+        new(ServerLaunch.ModeAnnihilation, port, LocalOnly: true, gameDir, AllowCustomEmblems: false, Content: SmSim.ContentProfiles.Warfront, Bots: 0, DevTools: true, ExtraArgs: ExtraArgs(newCampaign, faction));   // owner 2026-11-21: the full developer tools (F6), like Classic's This PC only; ServerLaunch adds --dev-tools only for LocalOnly and the server still wants a loopback bind and requester
 
     /// <summary>The private run folder (<c>%LOCALAPPDATA%\sm-reimpl\warfront</c>, or <c>SM_WF_DIR</c>, the test aid the server reads too).</summary>
     public static string RunDir()

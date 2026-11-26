@@ -14,7 +14,31 @@ namespace SmContent;
 /// <param name="ChallengeText">The armour challenge that unlocks it ("Group: description"), or null. Not applied (<c>UnlockMode.All</c>).</param>
 /// <param name="SetNames">The names of the customizable armour sets the piece belongs to (several sets share pieces).</param>
 public sealed record ArmourPiece(string Name, string Race, string Slot, IReadOnlyList<string> Packages, string DisplayName, string Description,
-    int Level, string HelmetOverride, string? ChallengeText, IReadOnlyList<string> SetNames);
+    int Level, string HelmetOverride, string? ChallengeText, IReadOnlyList<string> SetNames)
+{
+    /// <summary>
+    /// The piece is offered only because a predefined set (DLC or campaign reward) wears it (armour-pieces-1125, ours): it follows the customizable pieces in
+    /// <see cref="RaceCatalog.PiecesFor"/> and <see cref="SetNames"/> names the predefined sets. Its textures may have no paint mask (the client builds one).
+    /// </summary>
+    public bool FromPredefinedSet { get; init; }
+
+    /// <summary>armour-pieces-1125 Series A: the owner's group of a further piece ("mp", "librarian", "campaign"; <see cref="Customization.ExtraArmourPieces"/>), else null.</summary>
+    public string? ExtraGroup { get; init; }
+
+    /// <summary>
+    /// armour-pieces-1125 (ours): its baked materials get a built paint mask when it is worn on its own (the predefined sets' pieces and the Series A pieces
+    /// without the game's masks). The renderer reads this from <see cref="Customization.ResolvedPiece.BuiltMasks"/>; nothing process-wide is registered.
+    /// </summary>
+    public bool BuiltMasks { get; init; }
+
+    /// <summary>
+    /// armour-pieces-1125 repair (finding 6, ours): a Series A piece this install lacks (its wargear file or a package is missing). It keeps its place in the
+    /// slot's list so every later index names the same piece on every install (a code from a full install resolves the same on a server or client without
+    /// the campaign packages: there the slot falls back to the class's default piece, and the code is kept, not reset). Never offered in the customizer
+    /// (<see cref="RaceCatalog.OfferedPiecesFor"/>); no packages.
+    /// </summary>
+    public bool Reserved { get; init; }
+}
 
 /// <summary>
 /// An armour set (<c>mp_armor_set</c> entry). A customizable set contributes its pieces to the mix-and-match lists; a predefined one is a fixed
@@ -79,8 +103,13 @@ public sealed record CustomizerCamera(string Tab, float HorizontalAngle, float V
 public sealed record RaceCatalog(string Race, IReadOnlyDictionary<string, IReadOnlyList<ArmourPiece>> Pieces, IReadOnlyList<ArmourSet> Sets,
     IReadOnlyList<ShoulderDecal> Decals, IReadOnlyList<PaintPreset> Presets, ArmourSet? DefaultSet, string DefaultScheme)
 {
-    /// <summary>The offered pieces of a slot (union of the customizable sets, ordinal by name); empty for an unknown slot.</summary>
+    /// <summary>
+    /// The offered pieces of a slot: the union of the customizable sets (ordinal by name), then the predefined sets' other pieces (ordinal by name;
+    /// <see cref="ArmourPiece.FromPredefinedSet"/>, unless <see cref="CustomizationCatalog.PredefinedPiecesOffered"/> is off); empty for an unknown slot.
+    /// </summary>
     public IReadOnlyList<ArmourPiece> PiecesFor(string slot) => Pieces.TryGetValue(slot, out var p) ? p : [];
+    /// <summary>The pieces of <see cref="PiecesFor"/> the customizer offers: without the <see cref="ArmourPiece.Reserved"/> places of pieces this install lacks.</summary>
+    public IEnumerable<ArmourPiece> OfferedPiecesFor(string slot) => PiecesFor(slot).Where(p => !p.Reserved);
     public IEnumerable<ArmourSet> CustomizableSets => Sets.Where(s => s.Customizable);
     public IEnumerable<ArmourSet> PredefinedSets => Sets.Where(s => !s.Customizable);
     public ArmourSet? Set(string name) => Sets.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
@@ -96,6 +125,63 @@ public sealed class CustomizationCatalog
 {
     public const string SpaceMarine = "space_marine", Chaos = "chaos";
     public const string ArmourSetPackage = "data/packages/mp_armor_set.oppc";
+
+    /// <summary>
+    /// The one switch for armour-pieces-1125 (owner 2026-11-25: "usable as discrete individual armor pieces", in every profile including Faithful): true, the
+    /// predefined sets' pieces are offered per slot after the customizable ones; false restores the original library (customizable sets only). Set it once at
+    /// start-up, before a catalogue is built; server and clients must agree (the piece indices of a code depend on it).
+    /// </summary>
+    public static bool PredefinedPiecesOffered { get => LocalPredefinedPieces.Value ?? _predefinedPieces ?? !SwitchOn(NoPredefinedPiecesSwitch, NoPredefinedPiecesVariable); set => _predefinedPieces = value; }
+    static bool? _predefinedPieces;
+
+    /// <summary>
+    /// The restore switches of the piece library (the 92 % gate's finding 4), read like the other process-wide restore switches: on this process's command line
+    /// (server and client: the client's user arguments are part of it) or as the environment variable = 1 (the server sets it, so its stage and rotation children
+    /// inherit it). Server and clients must agree: the switches shrink the appearance codes' piece ranges.
+    /// </summary>
+    public const string NoPredefinedPiecesSwitch = "--no-predefined-pieces", NoExtraPiecesSwitch = "--no-extra-pieces";
+    public const string NoPredefinedPiecesVariable = "SM_NO_PREDEFINED_PIECES", NoExtraPiecesVariable = "SM_NO_EXTRA_PIECES";
+
+    static bool SwitchOn(string flag, string variable) => SwitchOn(flag, variable, Environment.GetCommandLineArgs(), Environment.GetEnvironmentVariable);
+
+    /// <summary>Whether a restore switch is on: <paramref name="flag"/> among <paramref name="args"/>, or <paramref name="variable"/> = 1 (tests pass their own).</summary>
+    internal static bool SwitchOn(string flag, string variable, IReadOnlyList<string> args, Func<string, string?> env) => env(variable) == "1" || args.Contains(flag);
+
+    /// <summary>The server's switches (already parsed from its command line) as environment variables for its children; a log line when any is on, else null.</summary>
+    public static string? ApplyPieceSwitches(bool noPredefined, bool noExtra)
+    {
+        if (noPredefined) Environment.SetEnvironmentVariable(NoPredefinedPiecesVariable, "1");
+        if (noExtra) Environment.SetEnvironmentVariable(NoExtraPiecesVariable, "1");
+        return !PredefinedPiecesOffered ? $"appearances: the original piece library ({NoPredefinedPiecesSwitch}: no predefined sets' or further pieces)"
+            : !ExtraPiecesOffered ? $"appearances: no further armour pieces ({NoExtraPiecesSwitch})" : null;
+    }
+    static readonly AsyncLocal<bool?> LocalPredefinedPieces = new();
+
+    /// <summary>Test aid: <see cref="PredefinedPiecesOffered"/> as <paramref name="value"/> for the calling flow only (other threads keep the global value) until disposed.</summary>
+    internal static IDisposable OverridePredefinedPieces(bool value)
+    {
+        var before = LocalPredefinedPieces.Value;
+        LocalPredefinedPieces.Value = value;
+        return new Restore(() => LocalPredefinedPieces.Value = before);
+    }
+
+    sealed class Restore(Action undo) : IDisposable { public void Dispose() => undo(); }
+
+    /// <summary>
+    /// armour-pieces-1125 Series A (owner's pick of 2026-11-25): true (default), the further pieces of <see cref="Customization.ExtraArmourPieces"/> follow the
+    /// predefined sets' pieces; false leaves them out. Only with <see cref="PredefinedPiecesOffered"/>. Set once at start-up; server and clients must agree.
+    /// </summary>
+    public static bool ExtraPiecesOffered { get => LocalExtraPieces.Value ?? _extraPieces ?? !SwitchOn(NoExtraPiecesSwitch, NoExtraPiecesVariable); set => _extraPieces = value; }
+    static bool? _extraPieces;
+    static readonly AsyncLocal<bool?> LocalExtraPieces = new();
+
+    /// <summary>Test aid: <see cref="ExtraPiecesOffered"/> as <paramref name="value"/> for the calling flow only until disposed.</summary>
+    internal static IDisposable OverrideExtraPieces(bool value)
+    {
+        var before = LocalExtraPieces.Value;
+        LocalExtraPieces.Value = value;
+        return new Restore(() => LocalExtraPieces.Value = before);
+    }
 
     /// <summary>The nine armour slots of the data.</summary>
     public static readonly IReadOnlyList<string> ArmourSlots = ["head", "torso", "leftshoulder", "rightshoulder", "leftarm", "rightarm", "leftleg", "rightleg", "backpack"];
@@ -198,9 +284,10 @@ public sealed class CustomizationCatalog
         }
         foreach (var set in sets.Values) names.UnionWith(ItemNames(set));
         names.UnionWith(OverrideNames(global));
+        names.UnionWith(Customization.ExtraArmourPieces.WargearNames);
         var wargear = CatalogData.ReadWargear(gameDir, names, notes);
         var locale = CatalogData.ReadLocale(gameDir, language, notes);
-        return Build(global, sets, wargear.GetValueOrDefault, paint ?? PaintSchemes.Load(gameDir, notes), locale, notes)
+        return Build(global, sets, wargear.GetValueOrDefault, paint ?? PaintSchemes.Load(gameDir, notes), locale, notes, InstallPackage(gameDir))
             .WithInstallItems(CatalogData.ReadWargearSlots(gameDir));
     }
 
@@ -216,9 +303,13 @@ public sealed class CustomizationCatalog
         var sets = ReadSets(Path.Combine(gameDir, ArmourSetPackage), notes);
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var set in sets.Values) names.UnionWith(ItemNames(set));
+        names.UnionWith(Customization.ExtraArmourPieces.WargearNames);
         var wargear = CatalogData.ReadWargear(gameDir, names, notes);
-        return Build(global, sets, wargear.GetValueOrDefault, PaintSchemes.Load(gameDir, notes, readDefaults: false), null, []);
+        return Build(global, sets, wargear.GetValueOrDefault, PaintSchemes.Load(gameDir, notes, readDefaults: false), null, [], InstallPackage(gameDir));
     }
+
+    /// <summary>Whether a visual package file is in the install (<c>data/packages/&lt;name&gt;.oppc</c>).</summary>
+    static Func<string, bool> InstallPackage(string gameDir) => p => CharacterModel.PackagePath(gameDir, p) is { } path && File.Exists(path);
 
     /// <summary>
     /// The sizes of a race's lists an <see cref="AppearanceCode"/> indexes (the wire's meaning of its indices): predefined set = index into
@@ -236,8 +327,9 @@ public sealed class CustomizationCatalog
     public static IReadOnlyList<ArmourSet> CodeSets(RaceCatalog race) => race.Sets;
 
     /// <summary>The catalogue from already-read data (testable without an install). <paramref name="armourSets"/>: <c>mp_armor_set</c> entries by name.</summary>
+    /// <param name="packageExists">Whether a visual package is in the install (armour-pieces-1125: the campaign armour pieces are offered only then); null offers none.</param>
     public static CustomizationCatalog Build(BafDocument global, IReadOnlyDictionary<string, BafDocument> armourSets, Func<string, BafDocument?> wargear,
-        PaintSchemes paint, LocaleTable? locale, List<string> notes)
+        PaintSchemes paint, LocaleTable? locale, List<string> notes, Func<string, bool>? packageExists = null)
     {
         var challenges = UnlockChallenges.Read(global, locale);
         var perks = PerkCatalog.Build(global, wargear, locale, notes);
@@ -255,6 +347,32 @@ public sealed class CustomizationCatalog
                     if (a.AsTable().String("visual_package") is { Length: > 0 } p) packages.Add(p);
             return new ArmourPiece(name, race, meta.Slot, packages, CatalogData.Text(locale, meta.NameId) ?? name, CatalogData.Text(locale, meta.DescriptionId) ?? "",
                 meta.Level, meta.HelmetOverride, challenges.For(name), setNames ?? []);
+        }
+
+        // armour-pieces-1125 Series A: a further piece from its wargear file (silently none when the install lacks it) or, for campaign armour, from its
+        // packages (none unless every package is in the install: packageExists null, as for synthetic data, offers none).
+        // A piece the install lacks keeps its place as a reserved entry (finding 6 of the armour-pieces-1125 gate): the indices after it stay the same on
+        // every install.
+        ArmourPiece ExtraPiece(Customization.ExtraPieceSpec spec)
+        {
+            bool masks = Customization.ExtraArmourPieces.NeedsBuiltMasks(spec);
+            ArmourPiece Reserve() => new(spec.Name, spec.Race, spec.Slot, [], Customization.ExtraArmourPieces.DisplayNames.GetValueOrDefault(spec.Name, spec.Packages is null
+                ? spec.Name : Customization.ExtraArmourPieces.DisplayName(spec)), "", 1, spec.HelmetOverride, null, [spec.SetLabel ?? spec.Group])
+                { FromPredefinedSet = true, ExtraGroup = spec.Group, Reserved = true };
+            // Round 5: a hidden piece (owner: the co-op elite Berserker's helmet and backpack) keeps its place but is never offered.
+            if (spec.Hidden) return Reserve();
+            if (spec.Packages is { } packages)
+            {
+                if (packageExists is null || !packages.All(packageExists)) return Reserve();
+                return new ArmourPiece(spec.Name, spec.Race, spec.Slot, packages, Customization.ExtraArmourPieces.DisplayName(spec), "", 1, spec.HelmetOverride, null,
+                    [spec.SetLabel ?? spec.Group]) { FromPredefinedSet = true, ExtraGroup = spec.Group, BuiltMasks = masks };
+            }
+            if (wargear(spec.Name) is null || Piece(spec.Name, spec.Race) is not { } p || p.Slot != spec.Slot) return Reserve();
+            return p with
+            {
+                DisplayName = Customization.ExtraArmourPieces.DisplayNames.GetValueOrDefault(spec.Name, p.DisplayName), Level = Math.Max(1, p.Level),
+                FromPredefinedSet = true, ExtraGroup = spec.Group, BuiltMasks = masks,
+            };
         }
 
         // Sets, with the slot of each item from its wargear file.
@@ -295,6 +413,28 @@ public sealed class CustomizationCatalog
                     .OrderBy(g => g.Key, StringComparer.Ordinal);
                 foreach (var g in wanted)
                     if (Piece(g.Key, race, g.Select(s => s.Name).Order(StringComparer.Ordinal).ToList()) is { } piece) pieces[slot].Add(piece);
+                // armour-pieces-1125 (owner 2026-11-25, every profile; ours): the predefined sets' pieces join the slot's library too, AFTER the customizable
+                // ones, so an appearance code's existing piece indices keep their meaning (old codes and mixed builds resolve as before).
+                if (!PredefinedPiecesOffered) continue;
+                var known = pieces[slot].Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var extra = sets.Where(s => !s.Customizable && s.Items.ContainsKey(slot) && !known.Contains(s.Items[slot]))
+                    .GroupBy(s => s.Items[slot], StringComparer.OrdinalIgnoreCase).OrderBy(g => g.Key, StringComparer.Ordinal);
+                foreach (var g in extra)
+                {
+                    var setNames = g.Select(s => s.Name).Order(StringComparer.Ordinal).ToList();
+                    if (Piece(g.Key, race, setNames) is { } piece)
+                        pieces[slot].Add(piece with { FromPredefinedSet = true, BuiltMasks = true });   // its baked materials get built masks when worn alone
+                    else   // round 3 (gate finding): a missing wargear file keeps the piece's place, so later indices mean the same on every install
+                        pieces[slot].Add(new ArmourPiece(g.Key, race, slot, [], g.Key, "", 1, "no_override", null, setNames) { FromPredefinedSet = true, Reserved = true });
+                }
+                // armour-pieces-1125 Series A (owner's pick of 2026-11-25; ours): the further pieces, appended in ExtraArmourPieces' order (only ever appended).
+                if (!ExtraPiecesOffered) continue;
+                known.UnionWith(pieces[slot].Select(p => p.Name));
+                foreach (var spec in Customization.ExtraArmourPieces.All.Where(s => s.Race == race && s.Slot == slot && !known.Contains(s.Name)))
+                {
+                    pieces[slot].Add(ExtraPiece(spec));
+                    known.Add(spec.Name);
+                }
             }
             var decals = paint.Decals.Where(d => d.VisibleInCustomizer && string.Equals(d.Race, race, StringComparison.Ordinal)).OrderBy(d => d.Name, StringComparer.Ordinal)
                 .Select(d => { var (family, variant) = DecalFamily(d.Name); return new ShoulderDecal(d.Name, CatalogData.Text(locale, d.NameId) ?? d.Name, race, family, variant, d.IsBlank, d); }).ToList();

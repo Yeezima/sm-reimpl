@@ -30,6 +30,9 @@ public partial class NetworkView
     readonly List<float> _musouFrames = new();
     readonly List<MusouDeathShown> _musouDeaths = new();   // deaths not yet given a body (kept while the crowd is being made; at most MaxBodies)
 
+    /// <summary>Executions X5 (client/Extras/Executions/ExecutionProxy.cs): this frame's crowd deaths as they are handed out (Warfront: an executed Ork gibbed or thrown; nothing elsewhere).</summary>
+    partial void ExecutionsDeathsHanded(IReadOnlyList<MusouDeathShown> deaths);
+
     /// <summary>Enemy deaths the client has been told of (a test aid's count).</summary>
     internal long MusouDeathsSeen { get; private set; }
     /// <summary>Deaths far and out of view given no body (musou/perf-pass; the log's count).</summary>
@@ -142,6 +145,7 @@ public partial class NetworkView
         MusouDeathsTake(camera);   // this frame's share of the deaths waiting (NetworkView.MusouDeathSpread.cs)
         _musouDeathsHanded.Clear();
         _musouDeathsHanded.AddRange(_musouDeaths);   // their yells and falls (NetworkView.MusouSounds.cs)
+        ExecutionsDeathsHanded(_musouDeaths);   // EXECUTIONS-HOOK: an executed Ork's death this frame (gibbed or thrown: its proxy steps aside; client/Extras/Executions/ExecutionProxy.cs)
         foreach (var d in _musouDeaths)
         {
             float metres = new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera);
@@ -190,7 +194,7 @@ public partial class NetworkView
     void MusouRagdollsBuild()
     {
         if (_musouRagdolls is { } dolls) { dolls.BuildStep(); MusouRagdollsPrewarm(dolls); return; }
-        if (_musouRagdollsTried || CmdFlag("no-musou-ragdolls") || _musouLooks?.For(MusouEnemyType.Boy) is not { } boy) return;
+        if (_musouRagdollsTried || CmdFlag("no-musou-ragdolls") || _musouLooks is { WarfrontOwnsLooks: true } || _musouLooks?.For(MusouEnemyType.Boy) is not { } boy) return;   // Chaos Warfront C3: never the Ork boy's pool while Warfront owns the looks (a Chaos battle, or a Warfront battle whose army is not told yet)
         _musouRagdollsTried = true;
         if (OrkRagdollDefinition(boy.Assets) is not { } def || boy.Clips[MusouLooks.Run] is not { } clip) { GD.Print("musou: no ragdolls (no Ork ragdoll to be had); blast deaths tumble"); return; }
         EnsureRagdollWorld();

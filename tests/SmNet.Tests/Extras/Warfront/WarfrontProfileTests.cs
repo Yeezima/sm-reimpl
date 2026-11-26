@@ -10,13 +10,13 @@ public class WarfrontProfileTests
 
     // Captured on the tree before W1 (claude/warfront 5428594e, the W0 baseline): the switch must not move any of them.
     const uint MusouSimVersion = 63, ExtrasWireVersion = 2;   // main's numbers since 2026-11-19 (were 61 and 80 on the Warfront branch)
-    const ushort ProtocolVersion = 91;
+    const ushort ProtocolVersion = 94;
 
     [Fact]
     public void The_profile_is_musou_and_warfront_and_not_in_extended()
     {
         Assert.Equal(32u, (uint)ContentExtras.Warfront);
-        Assert.Equal(ContentExtras.Musou | ContentExtras.Warfront, ContentProfiles.WarfrontProfile);
+        Assert.Equal(ContentExtras.Musou | ContentExtras.Warfront | ContentExtras.Executions, ContentProfiles.WarfrontProfile);   // executions X1 (2026-11-25): the profile carries the executions flag
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Warfront));
         Assert.Equal("warfront", ContentProfiles.Name(ContentProfiles.WarfrontProfile));
         Assert.Contains("warfront", ContentProfiles.Expected);
@@ -28,7 +28,7 @@ public class WarfrontProfileTests
     public void The_profile_parses(string text)
     {
         Assert.True(ContentProfiles.TryParse(text, out var extras, out string error), error);
-        Assert.Equal(ContentExtras.Musou | ContentExtras.Warfront, extras);
+        Assert.Equal(ContentExtras.Musou | ContentExtras.Warfront | ContentExtras.Executions, extras);   // executions X1 (2026-11-25)
         Assert.Contains("warfront", ContentProfiles.Describe(extras));
     }
 
@@ -68,7 +68,7 @@ public class WarfrontProfileTests
     [Fact]
     public void The_rules_version_is_one_and_the_other_versions_are_untouched()
     {
-        Assert.Equal(22u, WarfrontRules.Version);
+        Assert.Equal(30u, WarfrontRules.Version);
         Assert.Equal(ExtrasWireVersion, ContentExtras.WireVersion);
         Assert.Equal(ProtocolVersion, Protocol.Version);
         Assert.Equal(MusouSimVersion, SmSim.Extras.Musou.MusouSim.Version);

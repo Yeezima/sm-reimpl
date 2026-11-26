@@ -75,7 +75,9 @@ public class WarfrontRunLoaderTests : IDisposable
         Assert.Equal(a.Cards, b.Cards);
         Assert.Equal(a.Squad.Select(r => r.Name), b.Squad.Select(r => r.Name));
         Assert.Equal(4200, b.Xp);
-        Assert.Equal("Cassian", Assert.Single(b.Squad).Name);
+        Assert.Empty(b.Squad);                 // the retired Retainer card and its retainer are dropped (owner 2026-11-23, card 2) ...
+        Assert.Empty(b.Cards);
+        Assert.Equal(0, b.PicksTaken);         // ... and its pick is given back (owner "Give picks back")
         Assert.Equal(first.Campaign.StateHash(), second.Campaign.StateHash());
         Assert.Equal(bytes, File.ReadAllBytes(RunPath));   // the file is byte-equal after the second loader's rewrite
     }
@@ -195,5 +197,27 @@ public class WarfrontRunLoaderTests : IDisposable
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(_dir, WarfrontRunLoader.NoticeFile)));
         return doc.RootElement.Clone();
+    }
+
+    [Fact]
+    public void A_run_older_than_version_6_is_kept_once_under_records_with_its_squads_before_the_rewrite()
+    {
+        // T0 review (2026-11-25): the retainer conversion keeps a one-time safety copy of the old run and its squads file
+        WriteProgressedRun();
+        var node = JsonNode.Parse(File.ReadAllText(RunPath))!.AsObject();
+        node["Version"] = 5;
+        File.WriteAllText(RunPath, node.ToJsonString());
+        File.WriteAllText(Path.Combine(_dir, "squads.json"), "{\"old\":true}");
+        string old = File.ReadAllText(RunPath);
+        var first = WarfrontRunLoader.Load(_dir, null, Io(), () => Now);
+        Assert.Equal(WarfrontLoadState.Loaded, first.State);
+        var kept = Path.Combine(Records, "20261122T030405Z-before-v6.json");
+        Assert.Equal(old, File.ReadAllText(kept));
+        Assert.Equal("{\"old\":true}", File.ReadAllText(Path.Combine(Records, "20261122T030405Z-before-v6-squads.json")));
+        Assert.Equal(0, first.Campaign.Player(111)!.PicksTaken);   // its Retainer card's pick given back (owner "Give picks back")
+        // the rewrite is at the current version: a second load keeps no second copy
+        var second = WarfrontRunLoader.Load(_dir, null, Io(), () => Now.AddMinutes(1));
+        Assert.Equal(WarfrontLoadState.Loaded, second.State);
+        Assert.Equal(2, Directory.GetFiles(Records).Length);
     }
 }

@@ -24,6 +24,8 @@ public sealed partial class TfwHud : Control
         /// <summary>The roaming Boss Orks alive now (2026-11-06; the M panel's line).</summary>
         public int BossOrks;
         public bool Alive = true;
+        /// <summary>The won battle's "HOLD P FOR A FREE PICKUP" line (Musou); false in Warfront, whose win leaves for the hub by itself (X4b review, 2026-11-26).</summary>
+        public bool FreePickup = true;
         /// <summary>The station's prompt ("" away from one).</summary>
         public string Station = "";
         public float PickupHold;
@@ -80,7 +82,7 @@ public sealed partial class TfwHud : Control
         if (_textFor is { } was && was == war && _aliveFor == Data.Alive) return;
         _textFor = war;
         _aliveFor = Data.Alive;
-        _prompt = TfwHudModel.Prompt(war, Data.Alive);
+        _prompt = TfwHudModel.Prompt(war, Data.Alive, Data.FreePickup);
         _pickupText = TfwHudModel.PickupKeyText(war);
         _redeployText = TfwHudModel.RedeployText(war, Data.Alive, PadHost.Active);
     }

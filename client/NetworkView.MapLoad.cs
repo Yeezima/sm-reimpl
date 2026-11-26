@@ -214,7 +214,6 @@ public partial class NetworkView
         }
         _ragdollMs = watch.ElapsedMilliseconds;
         PrepareNavigation(map, world); MemStep("navigation");
-        _mapCentre = map.Spawns.Count > 0 ? new Vector2(map.Spawns.Average(sp => sp.Position.X), map.Spawns.Average(sp => sp.Position.Y)) : null;
         long collisionMs = _collisionMs = watch.ElapsedMilliseconds;
         if (Lean) return LeanMapLoaded(name, hash, world, collisionMs, watch);   // perf/lean-bots: collision, navigation and the jump ground only (NetworkView.Lean.cs)
         _gameSpace?.GetNodeOrNull("MapCollision")?.QueueFree();

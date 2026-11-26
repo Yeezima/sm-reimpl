@@ -26,6 +26,10 @@ public sealed record OpResult(bool Ok, IReadOnlyList<string> Created, IReadOnlyL
     public IReadOnlyList<string> CreatedPrefabs { get; init; } = [];
     /// <summary>Asset ids imported by the batch.</summary>
     public IReadOnlyList<string> CreatedAssets { get; init; } = [];
+    /// <summary>Material ids made by the batch (material-add).</summary>
+    public IReadOnlyList<string> CreatedMaterials { get; init; } = [];
+    /// <summary>Image ids (SHA-256) added by the batch (image-add).</summary>
+    public IReadOnlyList<string> CreatedImages { get; init; } = [];
     /// <summary>For duplicate: every copied object (old id, new id), including the copied descendants.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Mapping { get; init; } = [];
     /// <summary>The report of the last refresh-from-classic in the batch (added, removed, changed, deleted, skipped); null otherwise.</summary>
@@ -45,6 +49,8 @@ public sealed record OpResult(bool Ok, IReadOnlyList<string> Created, IReadOnlyL
         };
         if (CreatedPrefabs.Count > 0) o["createdPrefabs"] = Strings(CreatedPrefabs);
         if (CreatedAssets.Count > 0) o["createdAssets"] = Strings(CreatedAssets);
+        if (CreatedMaterials.Count > 0) o["createdMaterials"] = Strings(CreatedMaterials);
+        if (CreatedImages.Count > 0) o["createdImages"] = Strings(CreatedImages);
         if (Mapping.Count > 0)
         {
             var m = new JsonObject();
