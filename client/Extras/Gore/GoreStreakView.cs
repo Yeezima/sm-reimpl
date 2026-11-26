@@ -18,7 +18,7 @@ namespace SmClient;
 /// hit holds it back). One pass: a translucent red mixed over the ground (pinkish where thin, deeper red in the dense streaks; owner 2026-11-26), times the level's ambient and sun
 /// light so it never glows on a dark map; never additive or white. Drawn at <see cref="ClassicBloodRules.RibbonRenderPriority"/> plus one, above the power weapons' flash.
 /// <para>Instance (streak slot x 6 + band): transform = the plane frame (X exit axis, Y across leaning up, Z normal) x metres per table unit; CUSTOM = (start on the view clock incl.
-/// pre-age, seed, bend, width multiplier); COLOR = (band / 8, entry share, on, shown: 0 for the prewarm).</para>
+/// pre-age, seed, bend, width multiplier); COLOR = (band / 8, entry share, on, the fan share: 0 for the prewarm).</para>
 /// </summary>
 public partial class GoreStreakView : Node3D
 {
@@ -125,7 +125,7 @@ void vertex() {
             alpha = 1.0 - smoothstep({{F(GoreStreakRules.EntryFadeFrom)}}, {{F(GoreStreakRules.EntryFadeTo)}}, age);
         } else {
             float gb = B_EARLY[band] + (1.0 - B_EARLY[band]) * g;
-            deg = B_ANG[band] * fan + ja; len = ex * B_REACH[band] * jr * (0.35 + 0.65 * gb); w *= sqrt(gb);
+            deg = B_ANG[band] * fan * COLOR.a + ja; len = ex * B_REACH[band] * jr * (0.35 + 0.65 * gb); w *= sqrt(gb);   // COLOR.a: the source's fan share (GoreStreakRules.FanShareOf; 0 for the prewarm: not shown)
             if (band == 1) alpha = 1.0 - {{F(GoreStreakRules.UpperFade)}} * smoothstep({{F(GoreStreakRules.Keys[2].T)}}, {{F(GoreStreakRules.Keys[4].T)}}, age);
             if (gb <= 0.0) { len = 0.0; alpha = 0.0; }
         }
@@ -142,7 +142,7 @@ void vertex() {
         v_depth = -view.z;
         POSITION = PROJECTION_MATRIX * view;   // written in both branches: once a shader writes POSITION, Godot takes it for every vertex
         v_uvs.z = s; v_hw = w;
-        v_k = vec4(mix(K_OPAC[i], K_OPAC[b], u) * fade * alpha * COLOR.a, mix(K_FILL[i], K_FILL[b], u) * fade, mix(K_GRIT[i], K_GRIT[b], u), mix(K_OUT[i], K_OUT[b], u));
+        v_k = vec4(mix(K_OPAC[i], K_OPAC[b], u) * fade * alpha * step(0.01, COLOR.a), mix(K_FILL[i], K_FILL[b], u) * fade, mix(K_GRIT[i], K_GRIT[b], u), mix(K_OUT[i], K_OUT[b], u));
         v_r = vec4(mix(K_ROOT[i], K_ROOT[b], u), h01(seed, 50.0 + float(band)), h01(seed, 54.0 + float(band)), mix(K_HAZE[i], K_HAZE[b], u));
         v_dp = mix(K_DEPTH[i], K_DEPTH[b], u);
     }
@@ -173,7 +173,7 @@ void fragment() {
     keep = max(keep, max(held, tip));
     float ff = mix({{F(GoreStreakRules.FlowFloor)}}, {{F(GoreStreakRules.HazeFlowFloor)}}, v_r.w);   // the late haze evener (no breaking into specks)
     float a = v_k.x * body * along * outer * keep * (ff + (1.0 - ff) * flow) * (1.0 + {{F(GoreStreakRules.GrainGain)}} * (1.0 - {{F(GoreStreakRules.HazeGrainCut)}} * v_r.w) * (grain - 0.5));
-    a = min({{F(GoreStreakRules.AlphaMax)}}, a * {{F(GoreStreakRules.AlphaGain)}});
+    a = min({{F(GoreStreakRules.AlphaMax)}}, a * {{F(GoreStreakRules.AlphaGain)}} * (srgb_out ? {{F(GoreStreakRules.CompatAlphaGain)}} : 1.0));   // GoreStreakRules.CompatAlphaGain
     float dens = smoothstep(0.35, 0.95, flow * body) * v_dp;
     if (probe >= 0.0) { a = (av < 1.0 && u > 0.1 && u < 0.9) ? probe : 0.0; dens = 0.5; }
     a *= smoothstep(near_from, near_to, v_depth);
@@ -410,7 +410,7 @@ void fragment() {
         {
             int i = slot * NB + b;
             _mm.SetInstanceTransform(i, placement);
-            _mm.SetInstanceColor(i, new Color(b / 8f, s.EntryShare, GoreStreakRules.BandOn((GoreStreakRules.Band)b, s.Fourth) ? 1f : 0f, 1f));   // r: band / 8; g: entry share; b: on (0 retires it); a: shown
+            _mm.SetInstanceColor(i, new Color(b / 8f, s.EntryShare, GoreStreakRules.BandOn((GoreStreakRules.Band)b, s.Fourth) ? 1f : 0f, Math.Max(0.05f, s.FanShare)));   // r: band / 8; g: entry share; b: on (0 retires it); a: the fan share (shown; 0 only for the prewarm)
             _mm.SetInstanceCustomData(i, custom);
         }
         Spawned++;

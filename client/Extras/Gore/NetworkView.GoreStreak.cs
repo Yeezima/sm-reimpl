@@ -68,7 +68,7 @@ public partial class NetworkView
             if (tc.LengthSquared() > 1e-6f) facing = MathF.Abs(Num.Vector3.Dot(Num.Vector3.Normalize(n), Num.Vector3.Normalize(GsN(tc))));
         }
         var streak = new GoreStreakRules.Streak(GsN(origin), ax, n, bodyHeight, scale, seed, preAge, Math.Clamp(bend, -0.4f, 0.4f), lethal, heavy,
-            GoreStreakRules.WidthShareOf(source, facing, heavy && !lethal), GoreStreakRules.EntryShareOf(source), unitCap);
+            GoreStreakRules.WidthShareOf(source, facing, heavy && !lethal), GoreStreakRules.EntryShareOf(source), unitCap, GoreStreakRules.FanShareOf(source));
         _lastStreakOrigin = origin; _lastStreakAxis = GsG(ax); _lastStreakUnit = streak.Unit; _lastStreakFacing = facing;   // for the capture aid's capture.json
         GoreStreaks().Spawn(streak, victim, own);
     }

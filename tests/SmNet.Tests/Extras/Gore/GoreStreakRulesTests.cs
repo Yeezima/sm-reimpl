@@ -326,6 +326,10 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
         Assert.True(Scale(Weight.Heavy, true) <= MaxScale);
         Assert.Equal(LethalScale, Scale(Weight.Normal, true), 4);
         Assert.InRange(LethalScale, 1.15f, 1.35f);   // gore round 4: bigger on a kill, not twice the area
+        // gore round 4: an explosion's fan narrower (frame 1 about 17 deg like the reference, not 29), gunfire's a little; melee the whole fan
+        Assert.True(FanShareOf(Source.Explosion) < FanShareOf(Source.Gunfire) && FanShareOf(Source.Gunfire) < FanShareOf(Source.Sweep));
+        Assert.Equal(1f, FanShareOf(Source.Sweep));
+        Assert.True(BandOf(Band.Upper, Keys[2], 3, 0f, 1f, 1f, ExplosionFan).Angle < BandOf(Band.Upper, Keys[2], 3, 0f).Angle);
     }
 
     [Theory]

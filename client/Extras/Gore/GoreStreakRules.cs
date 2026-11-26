@@ -58,7 +58,7 @@ public static class GoreStreakRules
     [
         //   T      Exit   Entry  Fan   Width   Fill   Opac   Grit   Br    Outer  Root   Haze   Depth
         new(0.00f, 1.40f, 0.50f,  3f, 0.030f, 1.00f, 0.85f, 0.00f, 1.0f, 0.00f, 1.00f, 0.00f, 1.00f),
-        new(0.05f, 1.63f, 0.80f,  6f, 0.056f, 0.90f, 0.80f, 0.10f, 1.4f, 0.00f, 1.00f, 0.10f, 1.00f),
+        new(0.05f, 1.63f, 0.80f,  6f, 0.060f, 0.90f, 0.80f, 0.10f, 1.5f, 0.00f, 1.00f, 0.10f, 1.00f),
         new(0.10f, 1.89f, 0.88f, 15f, 0.061f, 0.86f, 0.78f, 0.15f, 2.0f, 0.00f, 0.95f, 0.20f, 0.95f),
         new(0.18f, 1.94f, 0.90f, 15f, 0.061f, 0.76f, 0.66f, 0.25f, 2.0f, 0.55f, 0.80f, 0.30f, 0.85f),
         new(0.27f, 2.11f, 0.95f, 19f, 0.073f, 0.74f, 0.62f, 0.30f, 2.0f, 0.20f, 0.60f, 0.45f, 0.80f),
@@ -66,8 +66,8 @@ public static class GoreStreakRules
         new(0.48f, 2.34f, 1.07f, 18f, 0.088f, 0.52f, 0.42f, 0.45f, 2.0f, 0.06f, 0.00f, 0.65f, 0.62f),
         new(0.60f, 2.41f, 1.00f, 18f, 0.091f, 0.42f, 0.36f, 0.52f, 2.0f, 0.04f, 0.00f, 0.75f, 0.55f),
         new(0.72f, 2.48f, 0.95f, 17f, 0.094f, 0.34f, 0.30f, 0.58f, 2.0f, 0.04f, 0.00f, 0.85f, 0.48f),
-        new(0.85f, 2.50f, 0.13f, 16f, 0.094f, 0.24f, 0.24f, 0.62f, 2.0f, 0.08f, 0.00f, 0.95f, 0.42f),
-        new(0.98f, 2.50f, 0.07f, 13f, 0.094f, 0.08f, 0.16f, 0.65f, 2.0f, 0.70f, 0.00f, 1.00f, 0.38f),
+        new(0.85f, 2.50f, 0.13f, 16f, 0.094f, 0.30f, 0.28f, 0.62f, 2.0f, 0.08f, 0.00f, 0.95f, 0.42f),
+        new(0.98f, 2.50f, 0.07f, 13f, 0.094f, 0.11f, 0.22f, 0.65f, 2.0f, 0.70f, 0.00f, 1.00f, 0.38f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -179,7 +179,7 @@ public static class GoreStreakRules
     /// <param name="Heavy">A heavy weapon's hit: the fourth (lower) band, as a kill.</param>
     /// <param name="WidthShare">The width share for the source and the plane's facing (<see cref="WidthShareOf"/>).</param>
     /// <param name="UnitCap">The largest metres per table unit (<see cref="MaxUnitMetres"/>, Warfront <see cref="WarfrontUnitMetres"/>).</param>
-    public readonly record struct Streak(Vector3 Origin, Vector3 Axis, Vector3 Normal, float BodyHeight, float Scale, int Seed, float PreAge, float Bend, bool Lethal, bool Heavy = false, float WidthShare = 1f, float EntryShare = 1f, float UnitCap = MaxUnitMetres)
+    public readonly record struct Streak(Vector3 Origin, Vector3 Axis, Vector3 Normal, float BodyHeight, float Scale, int Seed, float PreAge, float Bend, bool Lethal, bool Heavy = false, float WidthShare = 1f, float EntryShare = 1f, float UnitCap = MaxUnitMetres, float FanShare = 1f)
     {
         /// <summary>The length's share of the scale (<see cref="LengthScale"/>).</summary>
         public float LenScale => LengthScale(Scale, Lethal);
@@ -207,6 +207,12 @@ public static class GoreStreakRules
         _ => FacingWidth(facing),
     };
     public const float HeavyGunfireWidth = 0.65f, ExplosionWidth = 0.8f, SweepWidth = 1f, MinFacingWidth = 1f;
+    /// <summary>
+    /// The fan's share for a source (gore round 4, ours: the gate-4 captures measured an explosion's frame 1 half-fan about 29 deg against the reference's 17, and gunfire's frames 2 to
+    /// 5 a few degrees wide): an explosion <see cref="ExplosionFan"/>, gunfire <see cref="GunfireFan"/>, a melee hit the whole fan.
+    /// </summary>
+    public static float FanShareOf(Source source) => source switch { Source.Explosion => ExplosionFan, Source.Gunfire => GunfireFan, _ => 1f };
+    public const float ExplosionFan = 0.7f, GunfireFan = 0.85f;
     /// <summary>The entry band's share for a source (ours).</summary>
     public static float EntryShareOf(Source source) => source switch { Source.Explosion => 0.8f, _ => 1f };
     /// <summary>A seeded hash in [0, 1) (stable across platforms).</summary>
@@ -350,7 +356,7 @@ public static class GoreStreakRules
     /// the entry band from the entry reach times <paramref name="entryShare"/>), its half width times <paramref name="widthMul"/> (the plane's facing and the weapon's width), where it
     /// leaves the axis, its own timing (the upper band's outer half fades first from frame 3; the entry band goes after frame 8) and its share of the arc's bend.
     /// </summary>
-    public static BandAt BandOf(Band band, Key k, int seed, float bend, float widthMul = 1f, float entryShare = 1f)
+    public static BandAt BandOf(Band band, Key k, int seed, float bend, float widthMul = 1f, float entryShare = 1f, float fanShare = 1f)
     {
         var b = Bands[(int)band];
         int i = (int)band;
@@ -364,7 +370,7 @@ public static class GoreStreakRules
         else
         {
             float g = b.Early + (1f - b.Early) * Grow(k);
-            deg = b.Angle * k.Fan + ja; len = k.Exit * b.Reach * jr * (0.35f + 0.65f * g); w *= MathF.Sqrt(g);
+            deg = b.Angle * k.Fan * fanShare + ja; len = k.Exit * b.Reach * jr * (0.35f + 0.65f * g); w *= MathF.Sqrt(g);
             if (band == Band.Upper) alpha = 1f - UpperFade * Smooth(Keys[2].T, Keys[4].T, k.T);
             if (g <= 0f) { len = 0f; alpha = 0f; }
         }
@@ -632,7 +638,7 @@ public static class GoreStreakRules
     /// lies behind it (one pass, never additive), the thin spray <see cref="ThinRgb"/> (a light salmon red over a mid grey) and the dense streaks <see cref="DenseRgb"/> (a deeper red),
     /// by the texel's density; times the level's light (<see cref="LightOf"/>: its ambient light and suns), so it is as bright as the level round it and never glows on a dark map. Scene-linear albedo; the same values on both renderers (Compatibility sends them in display form, its extra display-to-linear step).
     /// </summary>
-    public static readonly (float R, float G, float B) ThinRgb = (0.18f, 0.012f, 0.01f), DenseRgb = (0.06f, 0.016f, 0.014f);
+    public static readonly (float R, float G, float B) ThinRgb = (0.18f, 0.012f, 0.01f), DenseRgb = (0.07f, 0.012f, 0.011f);
     /// <summary>
     /// The light on the blood in a plainly lit level, as the colour model takes it (<see cref="LightOf"/> on the capture aid's Classic map; a dark map less). The tests check the colour
     /// at it and round it; the shader starts at it until the view has measured the level.
@@ -642,7 +648,9 @@ public static class GoreStreakRules
     /// Compatibility mixes the blood over the ground in display values (Forward+ in linear light; the captures over the grey backdrop showed green over red about 0.08 lower on
     /// Compatibility): there the albedo's green and blue are moved this share of the way toward its red, so both renderers draw about the same colour over a mid grey.
     /// </summary>
-    public const float CompatLift = 0.16f;
+    public const float CompatLift = 0.08f;
+    /// <summary>Compatibility's opacity gain (its display-value mix shows a faint red less than Forward+'s linear one: the late frames' tips dropped out first there).</summary>
+    public const float CompatAlphaGain = 1.15f;
     /// <summary>The share of a sun the blood takes whatever its plane's facing (the rest by the facing, taken at its mean, a half): a thin spray scatters light.</summary>
     public const float LightWrap = 0.5f;
     /// <summary>The scene light's bounds (a black map still shows the blood dimly; a blinding one never makes it glow), the ambient taken when no environment is known, and the share of a sky's energy taken as ambient (an estimate).</summary>
