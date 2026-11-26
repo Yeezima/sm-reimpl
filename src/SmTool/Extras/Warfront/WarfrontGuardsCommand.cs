@@ -41,11 +41,13 @@ static class WarfrontGuardsCommand
                 case "--json": json = true; break;
                 case "--faction" when i + 1 < rest.Length: chaos = rest[++i] == "chaos"; break;
                 case "--survey": survey = true; break;
-                default: Console.Error.WriteLine($"warfront-guards: unknown argument \"{rest[i]}\" (usage: warfront-guards [--slot wf_a1] [--seconds 240] [--frames file.rgb] [--frame-point 0..2] [--scenario routine|elite|flank|collapse|break|all] [--seed n | --seeds a,b,c] [--target 0..2] [--faction orks|chaos] [--json] [--survey])"); return 2;
+                case "--trickle": WarfrontLineTrial.TrickleOn = true; break;
+                case "--hq-tide": WarfrontLineTrial.QuietHq = false; break;
+                default: Console.Error.WriteLine($"warfront-guards: unknown argument \"{rest[i]}\" (usage: warfront-guards [--slot wf_a1] [--seconds 240] [--frames file.rgb] [--frame-point 0..2] [--scenario routine|elite|flank|collapse|break|all] [--seed n | --seeds a,b,c] [--target 0..2] [--faction orks|chaos] [--json] [--survey] [--trickle] [--hq-tide])"); return 2;
             }
         }
         var total = Stopwatch.StartNew();
-        if (survey) return Survey(chaos, json);
+        if (survey) return Survey(chaos, json, 12);
         if (!Boot(slotName, chaos, total, out var w, out var battle, out var guards, out int code)) return code;
         if (scenario.Length > 0) return Scenarios(w, slotName, chaos, scenario == "all" ? WarfrontLineTrial.Scenarios : [scenario], seeds, target, seconds, json, total);
 
@@ -141,6 +143,8 @@ static class WarfrontGuardsCommand
         return true;
     }
 
+    static string ArmyText(TfwBattle b) => string.Join(",", b.ArmyList.Select(a => a.Side.ToString()[0] + a.Count.ToString(CultureInfo.InvariantCulture) + "/" + a.Order));
+
     /// <summary><c>--scenario</c>: each scenario for each seed on a freshly booted battle (the graph comes from the cache); one line each, or one JSON array with <c>--json</c> (the boot lines go to the same output: take the last line).</summary>
     static int Scenarios(World firstWorld, string slotName, bool chaos, string[] names, List<int> seeds, int target, int seconds, bool json, Stopwatch total)
     {
@@ -155,7 +159,9 @@ static class WarfrontGuardsCommand
                 first = false;
                 if (sections) SimProfile.On = true;
                 WarfrontLineTrial.Prepare(w);
-                var r = WarfrontLineTrial.Run(w, name, seed, target, seconds, sections ? t => { SimProfile.EndTick(); if (t % 300 == 0) Console.WriteLine("    sections (mean/worst ms a tick): " + SimProfile.WindowReport()); } : null);
+                bool trace = Environment.GetEnvironmentVariable("SM_WF_GUARD_TRACE") == "1";
+                var bt = w.Tfw!.Battle!;
+                var r = WarfrontLineTrial.Run(w, name, seed, target, seconds, sections || trace ? t => { if (sections) SimProfile.EndTick(); if (t % 300 == 0 && sections) Console.WriteLine("    sections (mean/worst ms a tick): " + SimProfile.WindowReport()); if (trace && t % 150 == 0) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"    t {t / 30,3} s: Orks {w.Musou!.Alive}, Guardsmen {w.TfwGuards!.Alive} in {w.TfwGuards.SquadsAlive} squads, secured {bt.Objectives.Take(3).Count(o => o.State == TfwPositionState.Secured)}, armies {ArmyText(bt)}")); } : null);
                 results.Add(r);
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{slotName}{(chaos ? "/chaos" : "")} {r.Scenario,-8} seed {r.Seed} -> {r.Outcome,-16} points lost {r.PointsLost} (secured {r.PointsSecured}, first loss {r.FirstLossSeconds:0.0} s), Guardsmen {r.GuardsmenStart} -> {r.GuardsmenEnd} (min {r.GuardsmenMin}), squads {r.SquadsStart} -> {r.SquadsEnd}, wave {r.WaveSize} ({r.WaveElites:0} elites), Orks peak {r.OrksPeak} end {r.OrksEnd}, natural waves {r.NaturalWaves}, {r.Seconds} s; tick mean {r.TickMean:0.00} ms p50 {r.TickP50:0.00} p95 {r.TickP95:0.00} p99 {r.TickP99:0.00} worst {r.TickWorst:0.0} (mean {r.MeanGuardsmen:0} Guardsmen, {r.MeanOrks:0} Orks) hash {r.Hash}"));
             }
@@ -163,41 +169,42 @@ static class WarfrontGuardsCommand
         return 0;
     }
 
-    /// <summary><c>--survey</c>: for each of the nine lane slots, how far <c>SlotPlace</c> pulls the squads' places in from the open-ground grid (the metres between each placed slot and the nearest grid slot), per point and as the slot's mean.</summary>
-    static int Survey(bool chaos, bool json)
+    /// <summary><c>--survey [--squads 12]</c>: for each of the nine lane slots, how far the battle's private <c>SlotPlace</c> pulls a full line's places in from the open-ground grid (the metres between a placed slot and its grid slot), for each point and four approach bearings (the point's own, then 90, 180 and 270 degrees round). Reads <c>SlotPlace</c> by reflection (read-only; the line of a held point is only 4 to 8 squads in the first minutes, too few to reach the walls).</summary>
+    static int Survey(bool chaos, bool json, int squads)
     {
         var rows = new List<object>();
+        var place = typeof(TfwBattle).GetMethod("SlotPlace", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (place is null) { Console.Error.WriteLine("warfront-guards: TfwBattle.SlotPlace is not there (renamed?); the survey needs it"); return 1; }
         foreach (var slot in WarfrontSlots.All)
         {
             var sw = Stopwatch.StartNew();
-            if (!Boot(slot.Name, chaos, sw, out var w, out var battle, out var guards, out int code)) return code;
+            if (!Boot(slot.Name, chaos, sw, out var w, out var battle, out _, out int code)) return code;
             WarfrontLineTrial.Prepare(w, 20);
-            var perPoint = new List<string>(); double sum = 0; int counted = 0;
+            var cuts = new List<float>(); var perPoint = new List<string>(); int walk = 0;
             for (int p = 0; p < 3; p++)
             {
-                var point = battle.Layout.Positions[p]; var dir = battle.WarfrontApproach(p); var side = new Vector2(-dir.Y, dir.X);
-                var actual = new List<Vector3>();
-                for (int sq = 0; sq < GuardSim.MaxSquads; sq++)
+                var point = battle.Layout.Positions[p]; var dir0 = battle.WarfrontApproach(p); float radius = battle.Layout.Radius(p);
+                var pc = new List<float>(); int cells = 0;
+                if (w.Musou!.Nav is { } nv) for (int n = 0; n < nv.NodeCount; n++) { var np = nv.Position(n); if (MathF.Abs(np.Z - point.Z) < 4f && new Vector2(np.X - point.X, np.Y - point.Y).Length() <= 45f) cells++; }
+                walk += cells;
+                for (int turn = 0; turn < 4; turn++)
                 {
-                    var at = battle.WarfrontSlotOf(sq);
-                    if (guards.AliveIn(sq) > 0 && at != Vector3.Zero && new Vector2(at.X - point.X, at.Y - point.Y).Length() <= 45f) actual.Add(at);
+                    float a = turn * MathF.PI / 2f;
+                    var dir = new Vector2(dir0.X * MathF.Cos(a) - dir0.Y * MathF.Sin(a), dir0.X * MathF.Sin(a) + dir0.Y * MathF.Cos(a)); var side = new Vector2(-dir.Y, dir.X);
+                    for (int i = 0; i < squads; i++)
+                    {
+                        var (row, lat) = TfwBattle.SlotGrid(i, squads);
+                        float fwd = WarfrontGuardRules.FrontShare * radius - row * WarfrontGuardRules.RowSpacing;
+                        var ideal = new Vector2(point.X, point.Y) + dir * fwd + side * lat;
+                        var got = (Vector3)place.Invoke(battle, [point, dir, i, squads, radius])!;
+                        pc.Add((new Vector2(got.X, got.Y) - ideal).Length());
+                    }
                 }
-                if (actual.Count == 0) { perPoint.Add($"{"ABC"[p]}: no squads"); continue; }
-                float radius = battle.Layout.Radius(p);
-                var ideal = new List<Vector2>();
-                for (int i = 0; i < actual.Count; i++)
-                {
-                    var (row, lat) = TfwBattle.SlotGrid(i, actual.Count);
-                    float fwd = WarfrontGuardRules.FrontShare * radius - row * WarfrontGuardRules.RowSpacing;
-                    ideal.Add(new Vector2(point.X, point.Y) + dir * fwd + side * lat);
-                }
-                var cut = actual.Select(a => ideal.Min(q => (new Vector2(a.X, a.Y) - q).Length())).ToArray();
-                sum += cut.Average(); counted++;
-                perPoint.Add(string.Create(CultureInfo.InvariantCulture, $"{"ABC"[p]}: {actual.Count} squads, shortened mean {cut.Average():0.0} m, max {cut.Max():0.0} m, {cut.Count(x => x > 1f)} over 1 m, radius {radius:0}"));
+                cuts.AddRange(pc);
+                perPoint.Add(string.Create(CultureInfo.InvariantCulture, $"{"ABC"[p]}: mean {pc.Average():0.0} m, max {pc.Max():0.0} m, {pc.Count(x => x > 1f)}/{pc.Count} over 1 m, {cells} nav cells within 45 m"));
             }
-            double mean = counted == 0 ? 0 : sum / counted;
-            rows.Add(new { slot = slot.Name, meanShortenedMetres = Math.Round(mean, 2), points = perPoint });
-            Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"SURVEY {slot.Name}: mean shortening {mean:0.00} m | ") + string.Join(" | ", perPoint));
+            rows.Add(new { slot = slot.Name, meanShortenedMetres = Math.Round(cuts.Average(), 2), overOneMetre = cuts.Count(x => x > 1f), of = cuts.Count, navCellsWithin45m = walk, points = perPoint });
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"SURVEY {slot.Name}: mean shortening {cuts.Average():0.00} m, {cuts.Count(x => x > 1f)}/{cuts.Count} slots over 1 m, {walk} nav cells within 45 m of the 3 points | ") + string.Join(" | ", perPoint));
         }
         if (json) Console.WriteLine(JsonSerializer.Serialize(rows));
         return 0;
@@ -260,20 +267,25 @@ internal sealed record WarfrontLineTrialResult(
 /// <summary>
 /// The battle-level trial of the Guardsmen's line (design-guardsmen-1125, G0): one lane battle in-process, the points secured, the scripted human standing at the landing zone, then one of five scripted pushes:
 /// <c>routine</c> (a 200-Ork low-elite wave on one point), <c>elite</c> (the same size, 0.6 elites), <c>flank</c> (the routine wave and a second Ork army from another bearing at the same point), <c>collapse</c> (a 400-Ork,
-/// 0.6-elite wave: no help comes) and <c>break</c> (as collapse, then at 45 s the human walks onto the point and the Orks within 40 m die, as the Marines breaking the push). Seeded: the seed only moves the wave's
+/// 0.6-elite wave: no help comes) and <c>break</c> (as collapse, then at 90 s the human walks onto the point and for 60 s the Orks within 40 m die each second, as the Marines breaking the push). Seeded: the seed only moves the wave's
 /// delay (0 to 5 s), its size (+/- 10 %), its elite share (+/- 0.05) and the flank's side, so the same seed is the same run. Reads the simulation only through its public test aids; the simulation is unchanged.
 /// The same logic is copied into <c>smtool warfront-guards --scenario</c> (SmTool is not referenced by the tests), which runs it on the real lane maps; keep the two in step.
 /// </summary>
 internal static class WarfrontLineTrial
 {
+    /// <summary>The Orks' endless trickle from the sources (TfwBattle.Trickle): off for the scripted pushes, so the wave alone is the pressure; on only to see the whole tide.</summary>
+    public static bool TrickleOn { get; set; }
+    /// <summary>Keeps the HQ stronghold's own crowd dead (every second, the Orks that belong to no army within 50 m of its source): once every point is secured the HQ fills its crowd and swarms it, a tide that wipes any line in 2 minutes and would hide the scripted push. False (<c>--hq-tide</c>) lets it come.</summary>
+    public static bool QuietHq { get; set; } = true;
     public static readonly string[] Scenarios = ["routine", "elite", "flank", "collapse", "break"];
     public const int Human = 1, Points = 3;   // the lane battle's three capture points (a fourth objective, where a test arena has one, is the commander's)
-    public const float BreakAtSeconds = 45f, BreakRadius = 40f, FlankDistance = 80f;
+    public const float BreakAtSeconds = 90f, BreakRadius = 40f, FlankDistance = 80f;
 
     /// <summary>Secures every position of the battle (the test aid), kills the Orks that are left and lets the line stand 20 s. The human stands at the landing zone.</summary>
     public static void Prepare(World w, int settleSeconds = 20)
     {
         var battle = w.Tfw!.Battle!;
+        battle.Trickle = TrickleOn;
         for (int k = 0; k < Points; k++) battle.ClearAndSecureForTests(k);
         KillAll(w);
         w.TfwRespawnAt(Human, battle.Layout.LandingZone, 0f);
@@ -332,7 +344,7 @@ internal static class WarfrontLineTrial
         int breakAt = (int)(BreakAtSeconds * 30f);
         for (int t = 1; t <= ticks && !battle.Won; t++, ranTicks++)
         {
-            if (brk && t >= breakAt && t <= breakAt + 10 * 30 && (t == breakAt || t % 30 == 0))
+            if (brk && t >= breakAt && t <= breakAt + 60 * 30 && (t == breakAt || t % 30 == 0))
             {
                 if (t == breakAt) w.TfwRespawnAt(Human, point, 0f);
                 var all = new MusouEnemy[MusouSim.Capacity];
@@ -340,7 +352,8 @@ internal static class WarfrontLineTrial
                 for (int k = 0; k < n; k++)
                     if (all[k].Alive && new Vector2(all[k].Position.X - point.X, all[k].Position.Y - point.Y).Length() <= BreakRadius) w.Musou.Damage(all[k].Id, Human, 1e6f, Vector3.Zero, out _);
             }
-            if (t % 30 == 0 && !(brk && t >= breakAt) && w.Players.TryGetValue(Human, out var me) && !me.Alive) w.TfwRespawnAt(Human, battle.Layout.LandingZone, 0f);
+            if (QuietHq && t % 30 == 0) QuietHqCrowd(w, battle);
+            if (t % 30 == 0 && w.Players.TryGetValue(Human, out var me) && !me.Alive) w.TfwRespawnAt(Human, brk && t >= breakAt ? point : battle.Layout.LandingZone, 0f);
             long start = Stopwatch.GetTimestamp();
             w.Step(_ => default);
             double ms = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
@@ -361,6 +374,17 @@ internal static class WarfrontLineTrial
         return new WarfrontLineTrialResult(scenario, seed, target, size, size * share, outcome, lost, secured, firstLoss < 0 ? -1 : Math.Round(firstLoss / 30.0, 1),
             guardsStart, guards.Alive, guardsMin, squadsStart, guards.SquadsAlive, orksPeak, w.Musou!.Alive, battle.WavesSent - natural0 - 1, ranTicks / 30,
             steps.Count == 0 ? 0 : steps.Average(), P(0.5), P(0.95), P(0.99), steps.Count == 0 ? 0 : steps[^1], liveGuards / (double)Math.Max(1, steps.Count), liveOrks / (double)Math.Max(1, steps.Count), steps.Count, hash);
+    }
+
+    static void QuietHqCrowd(World w, TfwBattle battle)
+    {
+        var src = battle.Layout.Sources.Length > 3 ? battle.Layout.Sources[3] : battle.Layout.Hq;
+        var army = new HashSet<ushort>();
+        foreach (var a in battle.ArmyList) foreach (ushort id in a.Orks) army.Add(id);
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = w.Musou!.CopyTo(all);
+        for (int k = 0; k < n; k++)
+            if (all[k].Alive && !army.Contains(all[k].Id) && new Vector2(all[k].Position.X - src.X, all[k].Position.Y - src.Y).Length() <= 50f) w.Musou.Damage(all[k].Id, Human, 1e6f, Vector3.Zero, out _);
     }
 
     /// <summary>A short state hash (the Guardsmen's and Orks' places in id order, the objectives): the same seeded run gives the same one; the baseline of the restore switch.</summary>
