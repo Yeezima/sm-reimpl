@@ -50,10 +50,7 @@ public partial class NetworkView
         _streakCapturePhase = 0;
         _streakCaptureAt = _connectedFor;
         // true 1080p frames (a decorated window lost its title bar's height: 1920x1061)
-        var win = GetWindow();
-        win.Borderless = true;
-        win.Position = Vector2I.Zero;
-        win.Size = new Vector2I(1920, 1080);
+        GoreStreakView.CaptureWindow(GetWindow());
         GD.Print($"gore-streak-capture: case {StreakCaptureCase}, frames to {StreakCaptureDir()}");
     }
 

@@ -312,8 +312,20 @@ void fragment() {
         return _tex = ImageTexture.CreateFromImage(image);
     }
 
+    /// <summary>Capture aid <c>--capture-1080</c> (live recordings with <c>--write-movie</c>): the window made borderless at 1920 x 1080 when the view starts (the private test desktop otherwise caps it).</summary>
+    static readonly bool Capture1080 = System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--capture-1080") >= 0;
+
+    /// <summary>Makes <paramref name="w"/> a borderless 1920 x 1080 window at the corner (true 1080p frames for the capture aids).</summary>
+    public static void CaptureWindow(Window w)
+    {
+        w.Borderless = true;
+        w.Position = Vector2I.Zero;
+        w.Size = new Vector2I(1920, 1080);
+    }
+
     public override void _Ready()
     {
+        if (Capture1080) CaptureWindow(GetWindow());
         _shader ??= new Shader { Code = ShaderCode(strip: false) };
         _stripShader ??= new Shader { Code = ShaderCode(strip: true) };
         var tint = new Vector3(GoreStreakRules.StreakBloodRgb.R, GoreStreakRules.StreakBloodRgb.G, GoreStreakRules.StreakBloodRgb.B);
