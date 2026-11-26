@@ -24,7 +24,7 @@ static class WarfrontGuardsCommand
 {
     public static int Run(string[] rest)
     {
-        string slotName = "wf_a1", frames = "", scenario = ""; int frameEvery = 15, framePoint = 0; int seconds = 240, target = 0;
+        string slotName = "wf_a1", frames = "", scenario = ""; int frameEvery = 15, framePoint = 0, frameSeconds = 0; int seconds = 240, target = 0;
         var seeds = new List<int> { 1 }; bool json = false, chaos = false, survey = false;
         for (int i = 0; i < rest.Length; i++)
         {
@@ -34,6 +34,8 @@ static class WarfrontGuardsCommand
                 case "--seconds" when i + 1 < rest.Length && int.TryParse(rest[i + 1], out int s): seconds = Math.Clamp(s, 10, 900); i++; break;
                 case "--frames" when i + 1 < rest.Length: frames = Path.GetFullPath(rest[++i]); break;
                 case "--frame-point" when i + 1 < rest.Length && int.TryParse(rest[i + 1], out int fp): framePoint = Math.Clamp(fp, 0, 2); i++; break;
+                case "--frame-every" when i + 1 < rest.Length && int.TryParse(rest[i + 1], out int fe): frameEvery = Math.Clamp(fe, 1, 300); i++; break;
+                case "--frame-seconds" when i + 1 < rest.Length && int.TryParse(rest[i + 1], out int fsec): frameSeconds = Math.Clamp(fsec, 1, 900); i++; break;
                 case "--scenario" when i + 1 < rest.Length: scenario = rest[++i]; if (scenario != "all" && Array.IndexOf(WarfrontLineTrial.Scenarios, scenario) < 0) { Console.Error.WriteLine("warfront-guards: --scenario routine|elite|flank|collapse|break|all"); return 2; } break;
                 case "--seed" when i + 1 < rest.Length && int.TryParse(rest[i + 1], out int sd): seeds = [sd]; i++; break;
                 case "--seeds" when i + 1 < rest.Length: seeds = [.. rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => int.Parse(x, CultureInfo.InvariantCulture))]; break;
@@ -43,13 +45,13 @@ static class WarfrontGuardsCommand
                 case "--survey": survey = true; break;
                 case "--trickle": WarfrontLineTrial.TrickleOn = true; break;
                 case "--hq-tide": WarfrontLineTrial.QuietHq = false; break;
-                default: Console.Error.WriteLine($"warfront-guards: unknown argument \"{rest[i]}\" (usage: warfront-guards [--slot wf_a1] [--seconds 240] [--frames file.rgb] [--frame-point 0..2] [--scenario routine|elite|flank|collapse|break|all] [--seed n | --seeds a,b,c] [--target 0..2] [--faction orks|chaos] [--json] [--survey] [--trickle] [--hq-tide])"); return 2;
+                default: Console.Error.WriteLine($"warfront-guards: unknown argument \"{rest[i]}\" (usage: warfront-guards [--slot wf_a1] [--seconds 240] [--frames file.rgb] [--frame-point 0..2] [--frame-every ticks] [--frame-seconds s] [--scenario routine|elite|flank|collapse|break|all] [--seed n | --seeds a,b,c] [--target 0..2] [--faction orks|chaos] [--json] [--survey] [--trickle] [--hq-tide])"); return 2;
             }
         }
         var total = Stopwatch.StartNew();
         if (survey) return Survey(chaos, json, 12);
         if (!Boot(slotName, chaos, total, out var w, out var battle, out var guards, out int code)) return code;
-        if (scenario.Length > 0) return Scenarios(w, slotName, chaos, scenario == "all" ? WarfrontLineTrial.Scenarios : [scenario], seeds, target, seconds, json, total);
+        if (scenario.Length > 0) return Scenarios(w, slotName, chaos, scenario == "all" ? WarfrontLineTrial.Scenarios : [scenario], seeds, target, seconds, json, total, frames, frameEvery, frameSeconds > 0 ? frameSeconds : 180);
 
         var all = new MusouEnemy[MusouSim.Capacity];
         for (int p = 0; p < 3; p++)
@@ -107,7 +109,7 @@ static class WarfrontGuardsCommand
                     Console.WriteLine(l);
                 }
             }
-            if (frameFile is not null && t % frameEvery == 0 && t <= 3600) Frame(frameFile, w, battle, guards, framePoint);
+            if (frameFile is not null && t % frameEvery == 0 && t <= (frameSeconds > 0 ? frameSeconds : 120) * 30) Frame(frameFile, w, battle, guards, framePoint);
         }
         if (steps.Count == 0) { Console.WriteLine("no tick with a Guardsman standing"); return 1; }
         steps.Sort();
@@ -146,7 +148,12 @@ static class WarfrontGuardsCommand
     static string ArmyText(TfwBattle b) => string.Join(",", b.ArmyList.Select(a => a.Side.ToString()[0] + a.Count.ToString(CultureInfo.InvariantCulture) + "/" + a.Order));
 
     /// <summary><c>--scenario</c>: each scenario for each seed on a freshly booted battle (the graph comes from the cache); one line each, or one JSON array with <c>--json</c> (the boot lines go to the same output: take the last line).</summary>
-    static int Scenarios(World firstWorld, string slotName, bool chaos, string[] names, List<int> seeds, int target, int seconds, bool json, Stopwatch total)
+    /// <summary>
+    /// <c>--scenario</c> with <c>--frames base.rgb</c> (Guardsmen G4's paired captures): each run also writes raw 720 x 720 RGB frames looking down on the target point, every <c>--frame-every</c> ticks (default 15: 2 a second)
+    /// for the first <c>--frame-seconds</c> (default 180) after the wave leaves, to <c>base-&lt;slot&gt;-&lt;scenario&gt;-s&lt;seed&gt;-old.rgb</c> or <c>-new.rgb</c> (old: <c>SM_WF_GUARD_AI_OLD=1</c>). About 1.5 MB a frame: 360 frames are 560 MB, so
+    /// convert to MP4 at once (<c>ffmpeg -f rawvideo -pix_fmt rgb24 -s 720x720 -framerate 2*30/every -i file.rgb ...</c>) and delete the raw file.
+    /// </summary>
+    static int Scenarios(World firstWorld, string slotName, bool chaos, string[] names, List<int> seeds, int target, int seconds, bool json, Stopwatch total, string frames = "", int frameEvery = 15, int frameSeconds = 180)
     {
         var results = new List<WarfrontLineTrialResult>();
         bool first = true;
@@ -163,8 +170,23 @@ static class WarfrontGuardsCommand
                 bool trace = Environment.GetEnvironmentVariable("SM_WF_GUARD_TRACE") == "1";
                 var bt = w.Tfw!.Battle!;
                 if (Environment.GetEnvironmentVariable("SM_WF_GUARD_LINE_TRACE") == "1")
+                {
+                    bt.OnRetreat = a => { if (a.Side == TfwArmySide.Guard) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"    RETREAT t {w.Tick / 30} army {a.Id} from {a.Post} to goal {a.Goal}, men {a.Count} of {a.Start}, pressure {(a.Post is >= 0 and < 3 ? bt.WarfrontPressure(a.Post) : 0):0}, men at point {(a.Post is >= 0 and < 3 ? bt.WarfrontMen(a.Post) : 0)}")); };
+                    bt.OnRally = a => Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"    RALLY t {w.Tick / 30} army {a.Id} to {a.Goal}, men {a.Count}, pressure there {(a.Goal is >= 0 and < 3 ? bt.WarfrontPressure(a.Goal) : 0):0}"));
                     bt.OnWarfrontWithdraw = (k, d, p, men, healthy) => Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"    WITHDRAW {"ABC"[k]} -> {(d < 3 ? "ABC"[d].ToString() : "LZ")} pressure {p:0} men {men} healthy {healthy}, Guardsmen {w.TfwGuards!.Alive}, garrison {bt.Stationed(k)}"));
-                var r = WarfrontLineTrial.Run(w, name, seed, target, seconds, sections || trace ? t => { if (sections) SimProfile.EndTick(); if (t % 300 == 0 && sections) Console.WriteLine("    sections (mean/worst ms a tick): " + SimProfile.WindowReport()); if (trace && t % 150 == 0) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"    t {t / 30,3} s: Orks {w.Musou!.Alive}, Guardsmen {w.TfwGuards!.Alive} in {w.TfwGuards.SquadsAlive} squads, secured {bt.Objectives.Take(3).Count(o => o.State == TfwPositionState.Secured)}, armies {ArmyText(bt)}")); } : null);
+                }
+                FileStream? frameFile = null;
+                if (frames.Length > 0)
+                {
+                    string stem = Path.Combine(Path.GetDirectoryName(frames) ?? ".", Path.GetFileNameWithoutExtension(frames));
+                    string file = $"{stem}-{slotName}{(chaos ? "-chaos" : "")}-{name}-s{seed}-{(WarfrontLineRules.Old ? "old" : "new")}.rgb";
+                    frameFile = File.Create(file);
+                    Console.WriteLine($"frames: {file} (every {frameEvery} ticks for {frameSeconds} s, 720x720 rgb24)");
+                }
+                var fw = w;
+                Action<int>? framer = frameFile is null ? null : t => { if (t % frameEvery == 0 && t <= frameSeconds * 30) Frame(frameFile, fw, fw.Tfw!.Battle!, fw.TfwGuards!, target); };
+                var r = WarfrontLineTrial.Run(w, name, seed, target, seconds, sections || trace || framer is not null ? t => { framer?.Invoke(t); if (sections) SimProfile.EndTick(); if (t % 300 == 0 && sections) Console.WriteLine("    sections (mean/worst ms a tick): " + SimProfile.WindowReport()); if (trace && t % 150 == 0) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"    t {t / 30,3} s: Orks {w.Musou!.Alive}, Guardsmen {w.TfwGuards!.Alive} in {w.TfwGuards.SquadsAlive} squads, secured {bt.Objectives.Take(3).Count(o => o.State == TfwPositionState.Secured)}, armies {ArmyText(bt)}")); } : null);
+                frameFile?.Dispose();
                 results.Add(r);
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{slotName}{(chaos ? "/chaos" : "")} {r.Scenario,-8} seed {r.Seed} -> {r.Outcome,-16} points lost {r.PointsLost} (secured {r.PointsSecured}, first loss {r.FirstLossSeconds:0.0} s), Guardsmen {r.GuardsmenStart} -> {r.GuardsmenEnd} (min {r.GuardsmenMin}), squads {r.SquadsStart} -> {r.SquadsEnd}, wave {r.WaveSize} ({r.WaveElites:0} elites), Orks peak {r.OrksPeak} end {r.OrksEnd}, natural waves {r.NaturalWaves}, {r.Seconds} s; tick mean {r.TickMean:0.00} ms p50 {r.TickP50:0.00} p95 {r.TickP95:0.00} p99 {r.TickP99:0.00} worst {r.TickWorst:0.0} (mean {r.MeanGuardsmen:0} Guardsmen, {r.MeanOrks:0} Orks) hash {r.Hash}; line: withdrawals {r.Withdrawals}, rallies {r.Rallies}, flanks {r.Flanks}, vox {r.VoxLines} (flank {r.VoxFlank}){(r.BreakAtSeconds >= 0 ? $", break at {r.BreakAtSeconds:0.0} s" : "")}"));
             }

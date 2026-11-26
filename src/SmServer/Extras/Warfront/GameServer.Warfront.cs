@@ -333,6 +333,7 @@ public sealed partial class GameServer
             WarfrontBattleWatch(s);
             WarfrontFortressWalkAid(s);
             WarfrontLaneWalkAid(s);
+            WarfrontGuardPushAid(s);   // Guardsmen G2 live check, test aid SM_WF_GUARD_PUSH (dev tools, loopback only)
             WarfrontFallAid(s);
             WarfrontFinaleAid(s);   // Chaos Warfront C5c test aid SM_WF_FINALE (dev tools only)
             WarfrontResolveAid(s);

@@ -41,12 +41,14 @@ public partial class NetworkView
 
     void WarfrontVoxBark(WarfrontVoxKind kind, ushort sequence)
     {
-        if (_sound is null || _audio is null || !_audio.HasSpeech || _client is null) return;
-        uint voice = Fnv.Hash32(WfVoxVoices[sequence % WfVoxVoices.Length]);
+        if (_audio is null || !_audio.HasSpeech || _client is null) { GD.Print($"warfront: vox bark {kind}: no speech bank (audio {(_audio is null ? "off" : "without speech")})"); return; }
+        string voiceName = WfVoxVoices[sequence % WfVoxVoices.Length];
+        uint voice = Fnv.Hash32(voiceName);
         var leaves = kind == WarfrontVoxKind.Flank
             ? _audio.DialogueLeaves(WfVoxDangerEvent, [voice, Fnv.Hash32("danger")])
             : _audio.DialogueLeaves(AudioCatalog.SpeechExertionEvent, [voice, Fnv.Hash32("celebration")]);
-        if (leaves.Count == 0) return;
+        GD.Print($"warfront: vox bark {kind}: {voiceName} {(kind == WarfrontVoxKind.Flank ? "danger" : "celebration")}, {leaves.Count} line(s) in the install{(leaves.Count > 0 ? $", line {leaves[sequence % leaves.Count]:x8}" : "")}");
+        if (leaves.Count == 0 || _sound is null) return;
         var at = new SoundEmitter { Position = ToGodot(_client.Predicted.Position) + new Vector3(0, 1.6f, 0), Own = true, Label = "warfront vox bark", OneShot = true };
         var result = _sound.PostLine(leaves[sequence % leaves.Count], $"warfront vox/{kind}", at);
         if (result == SpeechResult.Started) _wfVoxSounds++;
