@@ -12,6 +12,12 @@ namespace SmClient.Customizer.Model;
 /// aiming, a reload press (the graph's exits of melee nav), death and respawn. A grenade throw and sprinting keep it (the graph returns them to melee nav).
 /// No timer: the mode lasts until one of those (owner; the data's camera <c>melee_mode_timeout</c> 3 s is not used).
 /// </para>
+/// <para>
+/// A finisher (added content, executions; owner 2026-11-26, decision series-37-pre-ship-executions "Melee cam": "Ignore them"): while the own player's execution holds him
+/// (<see cref="Inputs.Locked"/>) Fire, Aim and Reload do nothing to the mode, so he comes out of the finisher still in it. Fire and Reload held at any time during the lock
+/// count as released until they are let go, so only a fresh press after the End leaves (a press held through the End does not); Aim still held when the lock ends counts at
+/// once (lead 41: the player is visibly aiming), so the mode never stays on while the simulation aims. Death still ends the mode.
+/// </para>
 /// Engine-free; the client steps it once per input tick with that tick's own buttons, so the tick that leaves the mode already carries the camera's yaw.
 /// </summary>
 public sealed class MeleeMode
@@ -25,11 +31,14 @@ public sealed class MeleeMode
     /// <param name="Excluded">Added content's body that has no melee mode (Musou: the Dreadnought).</param>
     /// <param name="NewStrike">A new strike began this tick while one was already running (the next step of a string, a strike out of the dash attack): a strike start even
     /// though <paramref name="Strike"/> did not go from false to true, so a string chained after a fire press that fired nothing enters the mode again.</param>
-    public readonly record struct Inputs(bool Alive, bool Strike, bool Fire, bool Aim, bool Reload, bool Excluded, bool NewStrike = false);
+    /// <param name="Locked">The own player's finisher holds him this tick (added content, executions): Fire, Aim and Reload are ignored; Fire and Reload held now stay
+    /// ignored until released, Aim counts again on the first tick without the lock.</param>
+    public readonly record struct Inputs(bool Alive, bool Strike, bool Fire, bool Aim, bool Reload, bool Excluded, bool NewStrike = false, bool Locked = false);
 
     public enum Change { None, Entered, Shot, Aimed, Reloaded, Died, Respawned, Excluded }
 
     bool _wasStrike, _wasFire, _wasReload, _wasAlive;
+    bool _fireSpent, _reloadSpent;   // held during a finisher: ignored until released
 
     /// <summary>In melee mode: the field of view is widened and the camera orbits freely.</summary>
     public bool Active { get; private set; }
@@ -37,6 +46,11 @@ public sealed class MeleeMode
     /// <summary>Advances one tick; what began or ended the mode, if anything.</summary>
     public Change Step(Inputs i)
     {
+        // A finisher: Fire and Reload held during it are spent until released, so neither the hold nor its carry past the End reads as a press; Aim is ignored only
+        // while locked (still held after the lock, the player aims: the mode ends).
+        _fireSpent = i.Fire && (_fireSpent || i.Locked);
+        _reloadSpent = i.Reload && (_reloadSpent || i.Locked);
+        i = i with { Fire = i.Fire && !_fireSpent, Aim = i.Aim && !i.Locked, Reload = i.Reload && !_reloadSpent };
         var change = Change.None;
         bool strikeStart = i.Strike && (!_wasStrike || i.NewStrike);
         bool fireEdge = i.Fire && !_wasFire;
@@ -178,8 +192,11 @@ public sealed class MeleeOrbitClient
     /// <summary>A steered strike (sim/slam-steer) is in progress.</summary>
     public static bool SteeredStrike(SimConfig c, PlayerState s) => s.MeleeStep > 0 && Combat.MeleeStepOf(c, s) is { Steers: true };
 
-    /// <summary>Steps the mode once for this tick's input (a repeat call in the same tick does nothing and returns <see cref="MeleeMode.Change.None"/>).</summary>
-    public MeleeMode.Change StepMode(PlayerState me, PlayerInput input, SimConfig c, bool alive, bool excluded)
+    /// <summary>
+    /// Steps the mode once for this tick's input (a repeat call in the same tick does nothing and returns <see cref="MeleeMode.Change.None"/>); <paramref name="locked"/>: the own
+    /// finisher holds the player (<see cref="MeleeMode.Inputs.Locked"/>).
+    /// </summary>
+    public MeleeMode.Change StepMode(PlayerState me, PlayerInput input, SimConfig c, bool alive, bool excluded, bool locked = false)
     {
         if (_stepped && _tick == input.Tick) return MeleeMode.Change.None;
         _stepped = true; _tick = input.Tick;
@@ -189,13 +206,13 @@ public sealed class MeleeOrbitClient
         bool newStrike = me.MeleeStep > 0 && (me.MeleeStep != _lastStep || me.MeleeHeavy != _lastHeavy || me.MeleeTime < _lastTime);
         _lastStep = me.MeleeStep; _lastHeavy = me.MeleeHeavy; _lastTime = me.MeleeTime;
         return Mode.Step(new MeleeMode.Inputs(alive, MeleeMode.FreesCamera(me.MeleeStep, MeleeWargear(c, me), me.Rush),
-            (b & InputButtons.Fire) != 0, (b & InputButtons.Aim) != 0, (b & InputButtons.Reload) != 0, excluded, newStrike));
+            (b & InputButtons.Fire) != 0, (b & InputButtons.Aim) != 0, (b & InputButtons.Reload) != 0, excluded, newStrike, locked));
     }
 
     /// <summary>A human's live input: steps the mode, then (with <paramref name="orbit"/>, in melee mode) the yaw split; see the class summary.</summary>
-    public PlayerInput Apply(PlayerState me, PlayerInput input, float cameraYaw, SimConfig c, bool orbit, bool alive, bool excluded, out MeleeMode.Change change)
+    public PlayerInput Apply(PlayerState me, PlayerInput input, float cameraYaw, SimConfig c, bool orbit, bool alive, bool excluded, out MeleeMode.Change change, bool locked = false)
     {
-        change = StepMode(me, input, c, alive, excluded);
+        change = StepMode(me, input, c, alive, excluded, locked);
         var b = input.Buttons;
         var prev = _prev;
         _prev = b;

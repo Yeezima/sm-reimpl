@@ -1,4 +1,5 @@
 using System.Numerics;
+using SmClient;
 using SmClient.Customizer.Model;
 using SmSim;
 
@@ -151,6 +152,172 @@ public class MeleeModeTests
         m.Step(In(fire: true));
         m.Step(In());
         Assert.Equal(MeleeMode.Change.Entered, m.Step(In(strike: true)));
+    }
+
+    // ---- a finisher (executions; owner 2026-11-26, "Melee cam": "Ignore them") ----
+
+    static MeleeMode.Inputs Locked(bool fire = false, bool aim = false, bool reload = false) => In(fire: fire, aim: aim, reload: reload) with { Locked = true };
+
+    [Fact]
+    public void FireAimAndReloadPressedDuringAFinisherStayInMeleeMode()
+    {
+        var m = Entered();
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked()));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked(fire: true)));   // press, hold, release: nothing
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked(fire: true)));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked()));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked(aim: true)));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked()));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked(reload: true)));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked()));
+        }
+        Assert.Equal(MeleeMode.Change.None, m.Step(In()));   // the End: still in melee mode
+        Assert.True(m.Active);
+    }
+
+    [Theory]
+    [InlineData(true, false, false, MeleeMode.Change.Shot)]
+    [InlineData(false, true, false, MeleeMode.Change.Aimed)]
+    [InlineData(false, false, true, MeleeMode.Change.Reloaded)]
+    public void AFreshPressAfterTheFinisherLeaves(bool fire, bool aim, bool reload, MeleeMode.Change why)
+    {
+        var m = Entered();
+        m.Step(Locked(fire, aim, reload));
+        m.Step(Locked());
+        m.Step(In());   // the End
+        Assert.True(m.Active);
+        Assert.Equal(why, m.Step(In(fire: fire, aim: aim, reload: reload)));
+        Assert.False(m.Active);
+    }
+
+    [Theory]
+    [InlineData(true, false, MeleeMode.Change.Shot)]
+    [InlineData(false, true, MeleeMode.Change.Reloaded)]
+    public void APressHeldAcrossTheEndStaysUntilReleasedAndPressedAgain(bool fire, bool reload, MeleeMode.Change why)
+    {
+        var m = Entered();
+        m.Step(Locked(fire: fire, reload: reload));
+        m.Step(Locked(fire: fire, reload: reload));
+        for (int i = 0; i < 20; i++) Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: fire, reload: reload)));   // held past the End
+        Assert.True(m.Active);
+        Assert.Equal(MeleeMode.Change.None, m.Step(In()));   // released
+        Assert.True(m.Active);
+        Assert.Equal(why, m.Step(In(fire: fire, reload: reload)));   // pressed again
+        Assert.False(m.Active);
+    }
+
+    [Fact]
+    public void AimStillHeldWhenTheLockEndsLeavesAtOnce()
+    {
+        // Lead 41: the player is visibly aiming once the finisher (or a refused press's wait) lets go, so the mode ends on that tick; held during the lock it does nothing.
+        var m = Entered();
+        for (int i = 0; i < 10; i++) Assert.Equal(MeleeMode.Change.None, m.Step(Locked(aim: true)));
+        Assert.True(m.Active);
+        Assert.Equal(MeleeMode.Change.Aimed, m.Step(In(aim: true)));   // the End, Aim still held
+        Assert.False(m.Active);
+    }
+
+    [Fact]
+    public void FireHeldThroughAStrikeIntoAFinisherIsSpentToo()
+    {
+        var m = new MeleeMode();
+        m.Step(In(fire: true));
+        Assert.Equal(MeleeMode.Change.Entered, m.Step(In(fire: true, strike: true)));
+        m.Step(Locked(fire: true));                                  // the finisher starts with fire still held
+        Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: true)));  // the End, fire held on: no shot leaves
+        Assert.True(m.Active);
+    }
+
+    [Fact]
+    public void DeathDuringAFinisherStillLeaves()
+    {
+        var m = Entered();
+        m.Step(Locked());
+        Assert.Equal(MeleeMode.Change.Died, m.Step(Locked() with { Alive = false }));
+        Assert.False(m.Active);
+    }
+
+    [Fact]
+    public void WithoutAFinisherTheRulesAreUnchanged()
+    {
+        // Locked defaults to false: a hold that began in melee mode still leaves (fire held, aim held), as before the finisher rule.
+        var m = Entered();
+        Assert.Equal(MeleeMode.Change.Shot, m.Step(In(fire: true)));
+        m = Entered();
+        m.Step(In());
+        Assert.Equal(MeleeMode.Change.Aimed, m.Step(In(aim: true)));
+    }
+
+    // ---- before the Start arrives: the Execute press holds the mode (lead 41) ----
+
+    [Fact]
+    public void TheWaitForTheStartIsAtLeast06SecondsOrTwiceTheRoundTrip()
+    {
+        Assert.Equal(0.6, FinisherPressHold.Bound(0.0), 9);
+        Assert.Equal(0.6, FinisherPressHold.Bound(0.2), 9);
+        Assert.Equal(1.0, FinisherPressHold.Bound(0.5), 9);
+        Assert.Equal(0.6, FinisherPressHold.Bound(-1.0), 9);
+    }
+
+    [Fact]
+    public void APressThenALateStartStaysInMeleeModeThroughTheWholeFinisher()
+    {
+        var m = Entered();
+        var hold = new FinisherPressHold();
+        double bound = FinisherPressHold.Bound(0.1);
+        hold.Press(10.0);
+        double t = 10.0;
+        // The round trip: no Start yet; a fire press, a release and an aim press do nothing.
+        foreach (var (fire, aim) in new[] { (false, false), (true, false), (false, false), (false, true), (false, false) })
+        {
+            t += 0.1;
+            bool held = hold.Held(t, live: false, endedSincePress: false, bound);
+            Assert.True(held);
+            Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: fire, aim: aim) with { Locked = held }));
+        }
+        // The Start at 0.55 s: the real lock holds on (the speculative part lets go, the hook ORs the live run in).
+        t = 10.55;
+        Assert.False(hold.Held(t, live: true, endedSincePress: false, bound));
+        for (int i = 0; i < 30; i++) Assert.Equal(MeleeMode.Change.None, m.Step(In(reload: i % 2 == 0) with { Locked = true }));
+        // The End: the press is forgotten, still in melee mode; a fresh press leaves.
+        Assert.False(hold.Held(t + 2.0, live: false, endedSincePress: false, bound));
+        Assert.Equal(MeleeMode.Change.None, m.Step(In()));
+        Assert.True(m.Active);
+        Assert.Equal(MeleeMode.Change.Shot, m.Step(In(fire: true)));
+    }
+
+    [Fact]
+    public void APressWithNoStartReleasesTheHoldAfterTheBound()
+    {
+        var m = Entered();
+        var hold = new FinisherPressHold();
+        double bound = FinisherPressHold.Bound(0.05);   // 0.6 s
+        hold.Press(5.0);
+        Assert.True(hold.Held(5.3, false, false, bound));
+        Assert.True(hold.Held(5.6, false, false, bound));
+        Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: true) with { Locked = true }));   // a press in the wait: nothing
+        Assert.False(hold.Held(5.61, false, false, bound));                                  // refused or lost: the normal rule again
+        Assert.False(hold.Held(5.7, false, false, bound));
+        Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: true)));   // the press made in the wait is spent until released
+        m.Step(In());
+        Assert.Equal(MeleeMode.Change.Shot, m.Step(In(fire: true)));   // a fresh press leaves
+    }
+
+    [Fact]
+    public void AnEndHeardAfterThePressOrNoPressHoldsNothing()
+    {
+        var hold = new FinisherPressHold();
+        Assert.False(hold.Held(1.0, false, false, 0.6));   // no press
+        Assert.True(double.IsNaN(hold.PressedAt));
+        hold.Press(2.0);
+        Assert.Equal(2.0, hold.PressedAt);
+        Assert.False(hold.Held(2.2, live: false, endedSincePress: true, 0.6));   // the run started and ended before a live list showed it
+        Assert.False(hold.Held(2.3, false, false, 0.6));                         // forgotten
+        hold.Press(3.0);
+        hold.Reset();
+        Assert.False(hold.Held(3.1, false, false, 0.6));                         // a new connection
     }
 
     // ---- the body yaw ----
