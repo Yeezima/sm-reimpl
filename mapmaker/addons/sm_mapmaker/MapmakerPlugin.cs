@@ -69,7 +69,7 @@ public partial class MapmakerPlugin : EditorPlugin
         AddControlToDock(DockSlot.RightUl, _dock);
         GetUndoRedo().VersionChanged += OnUndoVersionChanged;
         GetUndoRedo().HistoryChanged += OnUndoVersionChanged;
-        EditorInterface.Singleton.GetSelection().SelectionChanged += () => DocChanged?.Invoke();
+        EditorInterface.Singleton.GetSelection().SelectionChanged += () => RaiseDocChanged();
         MapHost.RootChanged += OnRootChanged;
         SceneSaved += OnSceneSaved;
         MapHost.Sm1Changed += OnSm1Changed;
@@ -81,6 +81,10 @@ public partial class MapmakerPlugin : EditorPlugin
     public override void _ExitTree()
     {
         _decorWorker?.Dispose(); _decorWorker = null;   // no background build is applied to a plugin that is gone
+        _closing = true;
+        // The background check and the placement world (2026-11-27) allocate heavily on worker threads; a collection they cause while the plugin tears down was seen to crash the
+        // gizmo plugin's release below (0xC0000005 at exit in some runs, base 40d64bfa 0 of 2). Give a running one a short, bounded chance to finish first.
+        WaitForBackground(TimeSpan.FromSeconds(5));
         if (PlayRunning) StopPlayTest();   // closing the editor mid-test stops that test's server and bots (only the processes it recorded)
         MapHost.RootChanged -= OnRootChanged;
         MapHost.Sm1Changed -= OnSm1Changed;
@@ -90,16 +94,40 @@ public partial class MapmakerPlugin : EditorPlugin
         FreeViewportTools();
         EditorGrid.RestoreBuiltIn();   // Godot's own grid comes back with the user's setting
         SceneSaved -= OnSceneSaved;
+        ClearObjectGizmos();   // before any node is freed and before the gizmo plugin is released (see ClearObjectGizmos)
         FreeDetachedNodes(); _nodes.Clear(); _stash.Clear();
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
         // the gizmo plugin's handle is released here, on the main thread: left to the finalizer thread (any later GC, e.g. the material test's) its release removes the
         // gizmos from the scene's nodes off the main thread (Godot's thread guard: "can't call remove_gizmo()", M5 review)
-        if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo.Dispose(); _gizmo = null; }
+        if (_gizmo is not null)
+        {
+            RemoveNode3DGizmoPlugin(_gizmo);
+            // The engine object is never destroyed while the editor closes (2026-11-27): its destructor detaches the gizmos it still knows and refreshes every gizmo of the edited scene, and
+            // at exit that scene is being torn down (0xC0000005 inside the release, 7 of 10 headless self-test exits already on base 40d64bfa). One extra engine reference keeps the small
+            // object alive until the process ends; the managed handle is still released here, on the main thread (M5 review), and nothing is left to Godot's shutdown tracker (which crashed
+            // every exit with a big imported map open, review of 919e4b4b).
+            _gizmo.Reference();
+            _gizmo.Dispose();
+            _gizmo = null;
+        }
         Thumbs?.QueueFree(); Thumbs = null;
         MapHost.Shutdown();
         if (MapHost.Plugin == this) MapHost.Plugin = null;
         // No forced GC here (M5 review): it handed the gizmo plugin's teardown to the finalizer thread (16 thread-guard errors at exit). The material handles are released
         // explicitly instead (MapmakerDock._ExitTree -> ReleaseMaterialViews); MaterialTest keeps its own collection.
+    }
+
+    /// <summary>
+    /// Removes every map object's gizmo while the nodes still exist. Releasing the gizmo plugin makes the engine walk the gizmos it still has registered and detach each from its node; a
+    /// gizmo whose node was freed before that walk is a dangling pointer (an intermittent 0xC0000005 inside the plugin's release at exit). Clearing them first leaves it nothing to walk.
+    /// </summary>
+    void ClearObjectGizmos()
+    {
+        var seen = new HashSet<ulong>();
+        void Clear(Node3D n) { if (GodotObject.IsInstanceValid(n) && seen.Add(n.GetInstanceId())) n.ClearGizmos(); }
+        foreach (var n in _nodes.Values) Clear(n);
+        if (MapHost.Root is { } root && GodotObject.IsInstanceValid(root))
+            foreach (var n in root.FindChildren("*", "Node3D", true, false)) if (n is MapmakerObject o) Clear(o);
     }
 
     static ISm1Source? SafeInstalled()
@@ -116,12 +144,16 @@ public partial class MapmakerPlugin : EditorPlugin
     {
         if (OS.GetCmdlineUserArgs().Length > 0) GD.Print("Mapmaker: started with " + string.Join(" ", OS.GetCmdlineUserArgs()));
         EnsureSceneRoot();
+        MapHost.ResetSnap();   // snap starts off in every session; Godot re-applies a scene's saved Use Snap when it opens, so once more a little later
+        GetTree().CreateTimer(2.0).Timeout += EditorSnap.SwitchOffBuiltIn;
         if (Selftest.Wanted) _ = new Selftest(this).Run();
         else if (FlowTest.Wanted) _ = new FlowTest(this).Run();
         else if (GroupsTest.Wanted) _ = new GroupsTest(this).Run();
         else if (GridTest.Wanted) _ = new GridTest(this).Run();
         else if (ClassicTest.Wanted) _ = new ClassicTest(this).Run();
         else if (EditModeTest.Wanted) _ = new EditModeTest(this).Run();
+        else if (PerfTest.Wanted) _ = new PerfTest(this).Run();
+        else if (ExitTest.Wanted) _ = new ExitTest(this).Run();
         else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
     }
 
@@ -170,16 +202,17 @@ public partial class MapmakerPlugin : EditorPlugin
             else if (_stash.Remove(id, out var back)) { Session = back.Session; Dirty = back.Dirty; }
             else if (_activeRoot != 0 || Session is null) { Session = null; Dirty = false; }   // a scene of its own: no map yet
             _activeRoot = id;
+            ForgetSolidWorld();   // another tab aims at its own pieces, never at the previous tab's world (review of 919e4b4b)
         }
         if (now is not null && GodotObject.IsInstanceValid(now) && SceneFileOf(now).Length > 0) _rootScene.TryAdd(id, SceneFileOf(now));
         HookHistory();
         FreeDetachedNodes();
-        _nodes.Clear(); _contentKeys.Clear();
+        _nodes.Clear(); _contentKeys.Clear(); _viewed.Clear();
         PruneStash();
         HoldEditorGrid();
         if (MapHost.Root is not null && Session is not null) SyncView(true);
         else if (MapHost.Root is { } fresh && SceneMapOf(fresh) is { } saved && System.IO.File.Exists(saved)) OpenMap(saved);   // a reopened scene loads its map again
-        DocChanged?.Invoke();
+        RaiseDocChanged();
     }
 
     /// <summary>
@@ -338,13 +371,13 @@ public partial class MapmakerPlugin : EditorPlugin
         if (MapHost.Root is not { } r || !GodotObject.IsInstanceValid(r) || Session is null || Session.Path is not { } p || SceneFileOf(r) is not { Length: > 0 } f) return;
         ulong id = r.GetInstanceId();
         if (_recorded == f + "|" + p && (!_rootScene.TryGetValue(id, out var seen) || seen == f)) return;
-        if (SaveSceneMap(r, Session, false)) { Dirty = false; DocChanged?.Invoke(); }
+        if (SaveSceneMap(r, Session, false)) { Dirty = false; RaiseDocChanged(); }
     }
 
     /// <summary>Saving the scene also saves its map. Only the edited scene's map is written: Godot does not say which scenes a save covers, so changed maps of other open tabs stay in memory until their scene is saved.</summary>
     public override void _SaveExternalData()
     {
-        if (Session is not null && MapHost.Root is { } r && SaveSceneMap(r, Session, Dirty)) { Dirty = false; DocChanged?.Invoke(); }
+        if (Session is not null && MapHost.Root is { } r && SaveSceneMap(r, Session, Dirty)) { Dirty = false; RaiseDocChanged(); }
     }
 
     /// <summary>Nodes of deleted objects are kept detached so undo can reattach them; free them when the map they belong to goes away.</summary>
@@ -354,15 +387,36 @@ public partial class MapmakerPlugin : EditorPlugin
             if (GodotObject.IsInstanceValid(n) && n.GetParent() is null) n.QueueFree();
     }
 
-    public void NotifyDoc() => DocChanged?.Invoke();
+    public void NotifyDoc() => RaiseDocChanged();
+
+    /// <summary>Test aid: a placement click in a Mapmaker tab that has no map yet (it starts an untitled one there).</summary>
+    public async Task TestPlaceInEmptyTabKeepsSnap()
+    {
+        Session = null;
+        ReadyToPlace();
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+    }
+
+    /// <summary>Tells the panels the document (or the selection) changed; with <see cref="EditCost.Enabled"/> each listener's time is recorded.</summary>
+    void RaiseDocChanged()
+    {
+        if (!EditCost.Enabled) { DocChanged?.Invoke(); return; }
+        foreach (var d in DocChanged?.GetInvocationList() ?? [])
+        {
+            long t = EditCost.Start();
+            ((Action)d).Invoke();
+            EditCost.End("DocChanged:" + (d.Method.DeclaringType?.Name ?? "") + "." + d.Method.Name, t);
+        }
+    }
     public void SetStatus(string text) { Status = text; GD.Print("Mapmaker: " + text); StatusChanged?.Invoke(text); }
 
     // ---- documents ------------------------------------------------------------------------------------------------------------------------------------
 
-    public MapSession NewMap(string name)
+    /// <param name="resetSnap">false for the untitled map a first placement starts in an empty tab: a snap box the user just ticked for that placement stays ticked (review of 2026-11-27).</param>
+    public MapSession NewMap(string name, bool resetSnap = true)
     {
         var s = MapSession.New(name, MapHost.Library, _sm1Adapter);
-        Adopt(s);
+        Adopt(s, resetSnap);
         return s;
     }
 
@@ -381,17 +435,24 @@ public partial class MapmakerPlugin : EditorPlugin
     public bool SaveMap(string? path = null)
     {
         if (Session is null) return false;
-        try { Session.Save(path); Dirty = false; SyncRootMeta(); SetStatus($"Saved {Session.Path}"); DocChanged?.Invoke(); return true; }
+        try { Session.Save(path); Dirty = false; SyncRootMeta(); SetStatus($"Saved {Session.Path}"); RaiseDocChanged(); return true; }
         catch (Exception e) when (e is MapException or System.IO.IOException or UnauthorizedAccessException) { SetStatus("Save failed: " + e.Message); return false; }
     }
 
-    void Adopt(MapSession s)
+    void Adopt(MapSession s, bool resetSnap = true)
     {
         HookHistory();
         Session = s; Dirty = false;
+        if (resetSnap)
+        {
+            MapHost.ResetSnap();   // every map opened or started begins with snap off (owner 2026-11-27)
+            // A scene opened from its file has Godot re-apply its saved Use Snap a moment later (the scene's editor state): switch it off once more then.
+            if (IsInsideTree()) GetTree().CreateTimer(0.5).Timeout += EditorSnap.SwitchOffBuiltIn;
+        }
+        ForgetSolidWorld();
         foreach (var k in _steps.Where(x => x.Value.RootId == _activeRoot).Select(x => x.Key).ToList()) _steps.Remove(k);   // this scene's history is cleared below; other tabs keep theirs
         foreach (var n in _nodes.Values) if (GodotObject.IsInstanceValid(n)) { n.GetParent()?.RemoveChild(n); n.QueueFree(); }
-        _nodes.Clear(); _contentKeys.Clear();
+        _nodes.Clear(); _contentKeys.Clear(); _viewed.Clear();
         if (MapHost.Root is { } root)
         {
             var strays = root.GetChildren().OfType<MapmakerObject>().ToList();
@@ -405,7 +466,7 @@ public partial class MapmakerPlugin : EditorPlugin
             try { GetUndoRedo().ClearHistory(GetUndoRedo().GetObjectHistoryId(root), true); } catch (Exception) { }
         }
         SyncView(true); SyncRootMeta();
-        DocChanged?.Invoke();
+        RaiseDocChanged();
     }
 
     // ---- applying operations (one editor undo step each) -----------------------------------------------------------------------------------------------
@@ -424,20 +485,24 @@ public partial class MapmakerPlugin : EditorPlugin
     public OpResult Do(string label, params JsonObject[] ops)
     {
         if (Session is null) { SetStatus("No map is open: use New or Open first."); return OpResult.Fail("no-document", "No map is open: use New or Open first."); }
+        long t0 = EditCost.Start();
         var step = new Step { RootId = _activeRoot, Ops = ops.Select(o => (JsonObject)o.DeepClone()).ToArray() };
-        step.BeforeDoc = Session.Document.ToJson();
+        // the snapshots come from the session, which serialises the map once before and once after the batch anyway (the edit-hang fix: no second copy of each)
         step.BeforePrefabs = PrefabSnapshot(PrefabIds(step.Ops));
+        EditCost.End("Do:before-snapshot", t0); t0 = EditCost.Start();
         var applied = Session.Apply(step.Ops);   // a batch is one transaction: on failure nothing changed, and no history entry is made
+        EditCost.End("Do:core-apply", t0);
         if (!applied.Ok)
         {
             SetStatus($"{label}: {string.Join("; ", applied.Errors.Select(e => $"{e.Code}: {e.Message}"))}");
             return applied;
         }
         step.Result = applied;
+        step.BeforeDoc = Session.LastBeforeJson ?? Session.Document.ToJson();
         bool deletes = step.Ops.Any(o => o["op"]?.ToString() == "delete-asset");
         step.DeletedAssets = deletes ? Session.LastTrashed.ToArray() : [];
         step.ReplacedAssets = deletes ? Session.LastReplaced.ToArray() : [];
-        step.AfterDoc = Session.Document.ToJson();
+        step.AfterDoc = Session.LastAfterJson ?? Session.Document.ToJson();
         step.AfterPrefabs = PrefabSnapshot(PrefabIds(step.Ops).Concat(applied.CreatedPrefabs));
         foreach (var created in applied.CreatedPrefabs) step.BeforePrefabs.TryAdd(created, null);
         // A held spin-box arrow repeats many edits: the first makes the undo step, the rest fold into it (one hold = one undo step).
@@ -451,12 +516,15 @@ public partial class MapmakerPlugin : EditorPlugin
         int id = ++_stepId;
         _steps[id] = step;
         _holdStep = SpinArrows.Holding ? (step, label, SpinArrows.HoldId) : null;
+        t0 = EditCost.Start();
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
+        EditCost.End("Do:after-change", t0); t0 = EditCost.Start();
         var ur = GetUndoRedo();
         ur.CreateAction(label, UndoRedo.MergeMode.Disable, MapHost.Root);
         ur.AddDoMethod(this, MethodName.StepDo, id);      // runs on redo only: the batch is already applied
         ur.AddUndoMethod(this, MethodName.StepUndo, id);
         ur.CommitAction(false);
+        EditCost.End("Do:history-commit", t0);
         var result = applied;
         if (result.Warnings.Count > 0) SetStatus($"{label}: " + string.Join("; ", result.Warnings));
         else SetStatus(label);
@@ -548,8 +616,10 @@ public partial class MapmakerPlugin : EditorPlugin
             if (MapHost.Armed is { Kind: LibraryKind.Prefab } armed && MapHost.Library.GetPrefab(armed.Id) is null) MapHost.Armed = null;
             MapHost.NotifyLibraryChanged();
         }
+        var keep = SelectedNodes();
         SyncView(false);
-        DocChanged?.Invoke();
+        KeepSelected(keep);
+        RaiseDocChanged();
     }
 
     // ---- the view ---------------------------------------------------------------------------------------------------------------------------------------
@@ -571,44 +641,81 @@ public partial class MapmakerPlugin : EditorPlugin
         ApplyGrid();
         if (root is null || Session is null) return;
         _busy = true;
+        long t0 = EditCost.Start();
         try
         {
             var doc = Session.Document;
-            var parts = Session.Resolve().GroupBy(p => p.ObjectId).ToDictionary(g => g.Key, g => g.ToList());
-            var ids = doc.Objects.Select(o => o.Id).ToHashSet();
+            // Every object's resolved parts (the whole map) are needed only when some object's drawing is rebuilt, so they are made on first use.
+            Dictionary<string, List<ResolvedPart>>? parts = null;
+            Dictionary<string, List<ResolvedPart>> Parts()
+            {
+                if (parts is not null) return parts;
+                long tr = EditCost.Start();
+                parts = Session.Resolve().GroupBy(p => p.ObjectId).ToDictionary(g => g.Key, g => g.ToList());
+                EditCost.End("SyncView:resolve", tr);
+                return parts;
+            }
+            var byId = new Dictionary<string, MapObject>(doc.Objects.Count);
+            foreach (var o in doc.Objects) byId.TryAdd(o.Id, o);
             // A node is kept for its id for good (detached while the object is gone): editor history entries made by the gizmo refer to the node, so
             // undoing a delete must hand back the same instance.
-            foreach (var gone in _nodes.Keys.Where(k => !ids.Contains(k)).ToList())
+            foreach (var gone in _nodes.Keys.Where(k => !byId.ContainsKey(k)).ToList())
+            {
+                _viewed.Remove(gone);
                 if (GodotObject.IsInstanceValid(_nodes[gone]) && _nodes[gone].GetParent() is { } held) held.RemoveChild(_nodes[gone]);
+            }
             // Strangers (nodes the editor added: a pasted or duplicated node) are not in the document; the document wins.
-            foreach (var stray in root.GetChildren().OfType<MapmakerObject>().Where(n => !_nodes.ContainsValue(n)).ToList()) { root.RemoveChild(stray); stray.QueueFree(); }
-            foreach (var o in doc.Objects) Ensure(o, doc, root, parts, force, new HashSet<string>());
+            var ours = new HashSet<MapmakerObject>(_nodes.Values);
+            foreach (var stray in root.GetChildren().OfType<MapmakerObject>().Where(n => !ours.Contains(n)).ToList()) { root.RemoveChild(stray); stray.QueueFree(); }
+            bool stampChanged = _viewedStamp != _lastPrefabStamp;
+            _viewedStamp = _lastPrefabStamp;
+            var guard = new HashSet<string>();
+            foreach (var o in doc.Objects) Ensure(o, byId, root, Parts, force, stampChanged, guard);
+            if (force) EditCost.FullSyncs++;
         }
-        finally { _busy = false; }
+        finally { _busy = false; EditCost.End("SyncView:nodes", t0); }
         LoadMissingSm1();
     }
 
-    MapmakerObject Ensure(MapObject o, MapDocument doc, MapmakerRoot root, Dictionary<string, List<ResolvedPart>> parts, bool force, HashSet<string> guard)
+    // The edit-hang fix (owner's report 2026-11-27): the view used to write every node's name, transform and visibility on every edit, and to sync a parent once per child. Renaming a
+    // node (even to the same name) makes Godot notify its whole subtree and the editor's Scene dock, so an SM1 map imported for editing (thousands of objects under one group node) spent
+    // tens of seconds per edit. Now an object whose document record is the one the node already shows is skipped, and a visited node is written only where it differs.
+    readonly Dictionary<string, MapObject> _viewed = new();   // the document record each node shows now
+    int _viewedStamp;
+
+    /// <summary>Test aid: object nodes the view holds (attached or detached).</summary>
+    public int NodeCount => _nodes.Count;
+
+    MapmakerObject Ensure(MapObject o, Dictionary<string, MapObject> byId, MapmakerRoot root, Func<Dictionary<string, List<ResolvedPart>>> parts, bool force, bool stampChanged, HashSet<string> guard)
     {
         if (!guard.Add(o.Id)) return _nodes[o.Id];
-        Node parentNode = o.Parent is { } p && doc.Find(p) is { } po ? Ensure(po, doc, root, parts, force, guard) : root;
+        Node parentNode = o.Parent is { } p && byId.TryGetValue(p, out var po) ? Ensure(po, byId, root, parts, force, stampChanged, guard) : root;
+        if (!force && _viewed.TryGetValue(o.Id, out var seen) && ReferenceEquals(seen, o) && !(stampChanged && o.Prefab is not null) && _contentKeys.ContainsKey(o.Id)
+            && _nodes.TryGetValue(o.Id, out var same) && GodotObject.IsInstanceValid(same) && same.GetParent() == parentNode)
+            return same;   // unchanged since the node last showed it
+        EditCost.NodesVisited++;
         if (!_nodes.TryGetValue(o.Id, out var node) || !GodotObject.IsInstanceValid(node))
         {
             node = new MapmakerObject { ObjectId = o.Id };
             _nodes[o.Id] = node;
             _contentKeys.Remove(o.Id);
         }
+        bool wrote = false;
         string key = $"{o.Asset}|{o.Prefab}|{o.Piece}|{string.Join(",", o.Overrides.Select(x => $"{x.Part}:{x.Visible}:{x.Transform}"))}|{(o.Prefab is null ? 0 : _lastPrefabStamp)}|{MeshKey(o.Mesh)}";
-        node.Name = Sanitize($"{o.Name}_{o.Id}");
+        string name = Sanitize($"{o.Name}_{o.Id}");
+        if (node.Name.ToString() != name) { node.Name = name; wrote = true; }
         if (node.GetParent() != parentNode)
         {
             node.GetParent()?.RemoveChild(node);
             parentNode.AddChild(node);
             node.Owner = root;
+            wrote = true;
         }
         else if (node.Owner != root) node.Owner = root;
-        node.Transform = ExpectedTransform(o);
-        node.Visible = o.Visible;
+        var expected = ExpectedTransform(o);
+        if (node.Transform != expected) { node.Transform = expected; wrote = true; }
+        if (node.Visible != o.Visible) { node.Visible = o.Visible; wrote = true; }
+        if (wrote) EditCost.NodesWritten++;
         if (force || !_contentKeys.TryGetValue(o.Id, out var old) || old != key)
         {
             var notes = new List<string>();
@@ -616,14 +723,16 @@ public partial class MapmakerPlugin : EditorPlugin
             if (o.Piece is { } piece) content = PieceViews.Build(piece, o.Mesh, out bounds, o.Transform.Scale);   // the edited shape, or the stock one (Edit mode, docs/mapmaker.md)
             else
             {
-                var objParts = parts.GetValueOrDefault(o.Id) ?? new List<ResolvedPart>();
-                var world = doc.World(o.Id);
+                var objParts = parts().GetValueOrDefault(o.Id) ?? new List<ResolvedPart>();
+                var world = Session!.Document.World(o.Id);
                 content = ContentFactory.BuildObject(objParts, world, out bounds, notes);
             }
             node.SetContent(content, bounds);
+            EditCost.ContentRebuilt++;
             _contentKeys[o.Id] = key;
             foreach (var n in notes.Distinct().Take(3)) GD.PushWarning("Mapmaker: " + n);
         }
+        _viewed[o.Id] = o;
         return node;
     }
 
@@ -662,6 +771,21 @@ public partial class MapmakerPlugin : EditorPlugin
     public IEnumerable<string> SelectedIds() =>
         EditorInterface.Singleton.GetSelection().GetSelectedNodes().OfType<MapmakerObject>().Select(n => n.ObjectId).Where(i => Session?.Document.Find(i) is not null);
 
+    static List<MapmakerObject> SelectedNodes() => EditorInterface.Singleton.GetSelection().GetSelectedNodes().OfType<MapmakerObject>().ToList();
+
+    /// <summary>
+    /// After an edit, undo or redo: every object that was selected before and is still in the map stays selected (owner 2026-11-27: a group moved, turned or scaled keeps
+    /// all of its members selected, in Object mode by the gizmo or by typed values). Objects the step removed are not brought back; nothing is added that was not selected.
+    /// </summary>
+    void KeepSelected(List<MapmakerObject> before)
+    {
+        if (before.Count == 0 || Session is null) return;
+        var sel = EditorInterface.Singleton.GetSelection();
+        var now = sel.GetSelectedNodes().OfType<MapmakerObject>().ToHashSet();
+        foreach (var n in before)
+            if (!now.Contains(n) && GodotObject.IsInstanceValid(n) && n.IsInsideTree() && _nodes.GetValueOrDefault(n.ObjectId) == n && Session.Document.Find(n.ObjectId) is not null) sel.AddNode(n);
+    }
+
     public void Select(IEnumerable<string> ids)
     {
         var sel = EditorInterface.Singleton.GetSelection();
@@ -679,7 +803,7 @@ public partial class MapmakerPlugin : EditorPlugin
     }
 
     /// <summary>Node transforms that no longer match the document (the move/rotate/scale gizmo, or the editor undoing it) become core transform operations.</summary>
-    public void ReconcileDeferred() { _reconcilePending = false; Reconcile(); }
+    public void ReconcileDeferred() { _reconcilePending = false; long t = EditCost.Start(); Reconcile(); EditCost.End("Reconcile", t); }
     bool _reconcilePending;
 
     public void Reconcile()
@@ -688,10 +812,16 @@ public partial class MapmakerPlugin : EditorPlugin
         if (ReconcileParents()) return;   // a drag in the Scene dock: becomes set-parent (then the view is synced to the document)
         var doc = Session.Document;
         var ops = new List<JsonObject>();
+        int displaced = 0;
         foreach (var o in doc.Objects)
         {
             if (!_nodes.TryGetValue(o.Id, out var node) || !GodotObject.IsInstanceValid(node)) continue;
             var expected = ExpectedTransform(o);
+            if (node.Transform == expected) continue;
+            // A node off its stored transform must be written back by the sync below even when its record does not change: a gizmo move that snaps back to the stored value, or a move
+            // the core refuses, leaves the record as it was, and the view skips unchanged records (review of 919e4b4b).
+            _viewed.Remove(o.Id);
+            displaced++;
             if (node.Transform.IsEqualApprox(expected)) continue;
             var (pos, rot, scale) = Frame.Components(node.Transform);
             var op = Op("transform", ("id", o.Id));
@@ -707,12 +837,18 @@ public partial class MapmakerPlugin : EditorPlugin
             }
             if (op.Count > 2) ops.Add(op);
         }
-        if (ops.Count == 0) return;
+        if (ops.Count == 0)
+        {
+            if (displaced > 0) { var held = SelectedNodes(); SyncView(false); KeepSelected(held); }   // snapped back to the stored values: the nodes follow
+            return;
+        }
         var r = Session.Apply(ops);
         if (!r.Ok) SetStatus("Move rejected: " + string.Join("; ", r.Errors.Select(e => e.Message)));
-        Dirty = true;
+        else Dirty = true;
+        var keep = SelectedNodes();
         SyncView(false);   // snaps the nodes to the stored values
-        DocChanged?.Invoke();
+        KeepSelected(keep);
+        RaiseDocChanged();
     }
 
     // ---- the 3D viewport ----------------------------------------------------------------------------------------------------------------------------------
@@ -764,7 +900,7 @@ public partial class MapmakerPlugin : EditorPlugin
             else SetStatus("This scene tab has no Mapmaker map. Add one from the Mapmaker dock first.");
             return false;
         }
-        if (Session is null) { NewMap("Untitled"); SetStatus("This scene had no map, so a new untitled map was started here (Save As to keep it)."); }
+        if (Session is null) { NewMap("Untitled", resetSnap: false); SetStatus("This scene had no map, so a new untitled map was started here (Save As to keep it)."); }
         return true;
     }
 
@@ -781,7 +917,7 @@ public partial class MapmakerPlugin : EditorPlugin
             for (int i = 0; i < 30 && MapHost.Root != root; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (MapHost.Root != root) return false;
         }
-        if (Session is null) NewMap("Untitled");
+        if (Session is null) NewMap("Untitled", resetSnap: false);
         SetStatus("Added a Mapmaker map to this scene tab (untitled; Save As to keep it). Click again to place.");
         return true;
     }
@@ -860,7 +996,7 @@ public partial class MapmakerPlugin : EditorPlugin
     {
         MapHost.Tool = tool;
         if (tool != Tool.Place) MapHost.Armed = null;
-        DocChanged?.Invoke();
+        RaiseDocChanged();
     }
 
     public void RefreshPicked()

@@ -150,6 +150,10 @@ public sealed class Sm1LibraryTest(MapmakerPlugin plugin, MapmakerDock dock)
         Check(Near(chaos.Transform.Position + new Num.Vector3(0, 0, chaos.Transform.Scale.Z / 2), new Num.Vector3(154.5f, -664.4f, 5.55f)), "Chaos spawn area at the recorded marker");
         plugin.RunCheck(withRoute: false);
         await Frames(10);
+        // the decoration compiles in the background and the check of an imported map then runs off the main thread (the edit-hang fix, 2026-11-27): wait for it to land
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (!plugin.CheckIsCurrent && waited.Elapsed.TotalSeconds < 240) await Frames(5);
+        Say($"map check of the imported map landed after {waited.Elapsed.TotalSeconds:0.0} s (current: {plugin.CheckIsCurrent})");
         var report = plugin.LastCheck;
         Say("map check: " + (report?.Headline ?? "none"));
         foreach (var i in report?.Issues ?? []) Say($"  [{i.Severity}] {i.Message}");

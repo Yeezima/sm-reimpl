@@ -129,7 +129,12 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
         Check(id is not null && doc().FindMaterial(id) is not null, $"material created ({id})");
         var ed = dock.MaterialEditorWindow;
         Check(ed.MaterialId == id, "the node editor shows it");
-        var imported = dock.ImportImages(pics, id);
+        // Import images lives in the node editor window, not in the Mapmaker panel (owner 2026-11-27)
+        Check(ed.FindChildren("*", "Button", true, false).OfType<Button>().Any(x => x.Name == MaterialEditor.ImportButtonName && x.Text == "Import images...") && ed.ImportButton.IsInsideTree(),
+            "the node editor window has the Import images button");
+        Check(!dock.FindChildren("*", "Button", true, false).OfType<Button>().Any(x => x.Text.StartsWith("Import images", StringComparison.Ordinal) && !ed.IsAncestorOf(x)),
+            "the Mapmaker panel has no Import images button");
+        var imported = ed.ImportImages(pics) ?? OpResult.Fail("no-editor", "the window imported nothing");
         Check(imported.Ok && doc().Images.Count == 5, $"5 pictures in the map ({string.Join("; ", imported.Errors.Select(e => e.Message))})");
         var g = doc().FindMaterial(id!)!;
         var m = g.Resolve();
@@ -237,6 +242,18 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
         Check(shapeA?.MaterialOverride is StandardMaterial3D { NormalTexture: not null, AlbedoTexture: not null } && shapeA.Mesh is ArrayMesh am && am.SurfaceGetFormat(0).HasFlag(Mesh.ArrayFormat.FormatTangent),
             "the editor draws Wall A with the material (the game's builder: textures, tangents)");
         Check(shapeB?.MaterialOverride is StandardMaterial3D { AlbedoTexture: null }, "Wall B keeps the default look");
+        // the scene root leaving and re-entering the tree (a scene-tab switch): the nodes are made again and Wall A is drawn with its material again (review of 919e4b4b)
+        if (MapHost.Root is { } mapRoot)
+        {
+            var oldNode = plugin.NodeOf(a);
+            MapHost.DetachRoot(mapRoot);
+            await Frames(2);
+            MapHost.AttachRoot(mapRoot);
+            await Frames(4);
+            var again = plugin.NodeOf(a)?.GetNodeOrNull<MeshInstance3D>("Content/Shape");
+            Check(plugin.NodeOf(a) != oldNode && again?.MaterialOverride is StandardMaterial3D { AlbedoTexture: not null },
+                "after the scene root leaves and re-enters, the new Wall A node is drawn with its material again");
+        }
         // Edit mode: while a face drag previews, the piece is drawn with its material on the preview shape; cancel keeps it textured
         plugin.Select([a]);
         await Frames(2);
@@ -270,6 +287,17 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
             ed.GetTexture().GetImage().SavePng(Path.Combine(_out, "node-editor.png"));
             ed.PreviewViewport.GetTexture().GetImage().SavePng(Path.Combine(_out, "node-editor-preview.png"));
             ed.Hide();
+            // the Mapmaker panel's Library tab with its Materials section (no Import images button there any more)
+            dock.ShowTab(DockTab.Library);
+            await Frames(20);
+            if (dock.GetParent() is Control && dock.IsVisibleInTree())
+            {
+                var r = dock.GetGlobalRect();
+                var whole = ((SceneTree)Engine.GetMainLoop()).Root.GetTexture().GetImage();
+                var clip = new Rect2I((Vector2I)r.Position, (Vector2I)r.Size).Intersection(new Rect2I(0, 0, whole.GetWidth(), whole.GetHeight()));
+                if (clip.Size.X > 0 && clip.Size.Y > 0) whole.GetRegion(clip).SavePng(Path.Combine(_out, "panel-materials.png"));
+                whole.SavePng(Path.Combine(_out, "editor-window.png"));
+            }
             plugin.Select([]);
             await plugin.Frame3D(new SysNum.Vector3(-2.2f, -0.5f, 0f), new SysNum.Vector3(8.2f, 0.5f, 3.1f));
             await Frames(60);

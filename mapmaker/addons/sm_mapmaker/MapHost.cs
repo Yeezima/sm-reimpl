@@ -32,10 +32,24 @@ public static class MapHost
     /// <summary>True while the dock starts a new empty map after the "Not a Mapmaker map" dialog; placement clicks are ignored meanwhile.</summary>
     public static bool StartingEmptyMap { get; set; }
 
-    public static bool SnapGrid { get; set; } = true;
+    // Snap starts off (owner 2026-11-27: "by default snap mode should be off"): every editor session and every map opened or started begins with grid and angle snap off (the
+    // Edit mode's move and scale use the grid snap, its rotate the angle snap), and so does Godot's own Use Snap of the 3D view. A box ticked stays on until the editor closes or
+    // another map is opened; nothing is saved. The steps keep their values.
+    public static bool SnapGrid { get; set; }
     public static float GridStep { get; set; } = 0.25f;
-    public static bool SnapAngle { get; set; } = true;
+    public static bool SnapAngle { get; set; }
     public static float AngleStep { get; set; } = 15f;
+
+    /// <summary>The snap settings went back to off (a map was opened or started); the dock unticks its boxes.</summary>
+    public static event Action? SnapReset;
+
+    /// <summary>Every snap kind off: the Mapmaker's grid and angle snap and Godot's own Use Snap (<see cref="EditorSnap"/>).</summary>
+    public static void ResetSnap()
+    {
+        SnapGrid = false; SnapAngle = false;
+        EditorSnap.SwitchOffBuiltIn();
+        SnapReset?.Invoke();
+    }
 
     public static event Action? RootChanged;
     public static event Action? Sm1Changed;
@@ -62,7 +76,8 @@ public static class MapHost
         foreach (var s in Loaded.Values) s.Release();
         Loaded.Clear(); Sm1 = null; PickedSm1.Clear(); Armed = null;
         ContentFactory.ForgetAssets();
-        RootChanged = null; Sm1Changed = null; PickedChanged = null; LibraryChanged = null;
+        RootChanged = null; Sm1Changed = null; PickedChanged = null; LibraryChanged = null; SnapReset = null;
+        SnapGrid = false; SnapAngle = false;   // a plugin reload in the same editor starts with snap off too
     }
 
     public static Sm1Source? Sm1For(string map) => Loaded.GetValueOrDefault(map);

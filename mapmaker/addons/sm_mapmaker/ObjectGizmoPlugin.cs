@@ -26,13 +26,16 @@ public partial class ObjectGizmoPlugin : EditorNode3DGizmoPlugin
         foreach (var (p, q) in new[] { (0, 1), (2, 3), (4, 5), (6, 7), (0, 2), (1, 3), (4, 6), (5, 7), (0, 4), (1, 5), (2, 6), (3, 7) })
         { lines[n++] = Corner(p); lines[n++] = Corner(q); }
         if (!editing) gizmo.AddLines(lines, GetMaterial("box", gizmo));
-        var box = new BoxMesh { Size = b.Size };
-        var tri = box.GenerateTriangleMesh();
+        // The helper meshes are released here, on the main thread (2026-11-27): left to the finalizer, thousands of them (one set per object per redraw) were released on the
+        // finalizer thread while the editor tore the plugin down, a likely source of the 0xC0000005 seen at exit. The gizmo keeps its own reference to the collision mesh.
+        Vector3[] faces;
+        using (var box = new BoxMesh { Size = b.Size })
+        using (var tri = box.GenerateTriangleMesh())
+            faces = tri.GetFaces();
         // BoxMesh is centred on the origin; move it to the box.
-        var faces = tri.GetFaces();
         var moved = new Vector3[faces.Length];
         for (int i = 0; i < faces.Length; i++) moved[i] = faces[i] + b.GetCenter();
-        var shifted = new TriangleMesh();
+        using var shifted = new TriangleMesh();
         shifted.CreateFromFaces(moved);
         gizmo.AddCollisionTriangles(shifted);
     }

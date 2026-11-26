@@ -16,8 +16,12 @@ public partial class MapmakerObject : Node3D
 
     Node3D? _content;
 
+    /// <summary>Counts <see cref="SetContent"/> calls: a view cache keyed on it knows when the drawing was replaced.</summary>
+    public int ContentVersion { get; private set; }
+
     public void SetContent(Node3D? content, Aabb bounds)
     {
+        ContentVersion++;
         if (_content is not null) { RemoveChild(_content); _content.QueueFree(); }
         _content = content;
         if (content is not null) { content.Name = "Content"; AddChild(content); }   // no owner: never serialised

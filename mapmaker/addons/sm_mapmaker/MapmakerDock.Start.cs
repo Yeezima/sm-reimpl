@@ -23,6 +23,8 @@ public partial class MapmakerDock
     readonly OptionButton _template = new() { TooltipText = "The starting layout. You can change everything afterwards." };
     readonly Label _templateInfo = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0) };
     readonly Label _checkHead = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0), ThemeTypeVariation = "HeaderSmall" };
+    /// <summary>Test aid: the Test tab's check headline.</summary>
+    public string TestCheckHeadline => _checkHead.Text;
     readonly VBoxContainer _checkList = new();
     readonly Label _checkFacts = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0) };
     readonly OptionButton _playMode = new() { TooltipText = "Which game mode to play. Seize Ground needs at least one capture point." };
@@ -91,7 +93,7 @@ public partial class MapmakerDock
         _checkFacts.AddThemeColorOverride("font_color", HintColour); _checkFacts.AddThemeFontSizeOverride("font_size", 12);
         Section(v, "Check", "Updates after every edit. Fix it does the common repairs; Ctrl+Z undoes them. The bots' route is checked only when you press Check route.");
         v.AddChild(_checkHead);
-        var route = Btn("Check route", () => _plugin.RunCheck(withRoute: true), "Checks whether bots can walk from each spawn to the other side and to every capture point. Builds the bots' walking graph, which takes a few seconds of CPU, so it runs only when you press this.");
+        var route = Btn("Check route", () => _plugin.PressCheckRoute(), "Checks whether bots can walk from each spawn to the other side and to every capture point. Builds the bots' walking graph, which takes a few seconds of CPU, so it runs only when you press this. It runs in the background: the editor stays usable and the result shows here when it lands.");
         route.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         v.AddChild(Row(route));
         v.AddChild(_checkList);
@@ -234,6 +236,12 @@ public partial class MapmakerDock
     {
         foreach (var c in _checkList.GetChildren()) { _checkList.RemoveChild(c); c.QueueFree(); }
         var r = _plugin.LastCheck;
+        if (_plugin.Session is not null && r is null && _plugin.Checking)
+        {
+            _checkHead.Text = "Checking the map...";
+            _checkFacts.Text = "";
+            return;
+        }
         if (_plugin.Session is null || r is null)
         {
             _checkHead.Text = "No map yet. On the Map tab, pick a layout and press New map.";
@@ -242,7 +250,7 @@ public partial class MapmakerDock
             return;
         }
         _modeAnnihilation.SetPressedNoSignal(r.Declared.Contains("annihilation")); _modeSeize.SetPressedNoSignal(r.Declared.Contains("seize"));
-        _checkHead.Text = r.Headline + (_plugin.RouteChecking ? "  (checking the bots' route...)" : "");
+        _checkHead.Text = r.Headline + (_plugin.Checking ? "  (checking...)" : _plugin.RouteChecking ? "  (checking the bots' route...)" : "");
         _checkHead.AddThemeColorOverride("font_color", r.AnnihilationReady || r.SeizeReady ? new Color(0.5f, 0.95f, 0.55f) : new Color(1f, 0.55f, 0.5f));
         foreach (var issue in r.Issues.Where(i => i.Code != "note").OrderBy(i => i.Severity))
         {
@@ -284,7 +292,7 @@ public partial class MapmakerDock
             }
             v.AddChild(grid);
         }
-        var intro = Hint("Click a piece, then click in the 3D view to place it (right click or Esc stops). Click a block to stack on it. Pieces snap to the grid (Map tab). Type exact values on the Object tab.");
+        var intro = Hint("Click a piece, then click in the 3D view to place it (right click or Esc stops). Click a block to stack on it. Pieces snap to the grid when Snap is on (Map tab; off for every new map). Type exact values on the Object tab.");
         v.AddChild(intro);
         v.AddChild(_buildHint);
         Group("Ground and cover", null, "floor", "wall", "cover", "ramp", "column", "invisible");

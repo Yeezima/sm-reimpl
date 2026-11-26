@@ -271,7 +271,7 @@ public partial class MapmakerDock
 
     void HiddenFilterRow(VBoxContainer v)
     {
-        _hiddenFilter.Toggled += _ => { _sceneVersion = -1; RefreshScene(); };
+        _hiddenFilter.Toggled += _ => { _sceneVersion = -1; _sceneShape = "\0"; RefreshScene(); };
         v.AddChild(_hiddenFilter);
     }
 
