@@ -363,9 +363,12 @@ void fragment() {
         {
             switch (GoreStreakRules.JoinOf(_starts[vs], _lastHit[vs], _lethal[vs], _clock, s.Lethal, _scale[vs], s.Scale))
             {
+                case GoreStreakRules.Join.Ignore:   // a hit on a corpse after the kill's hold: the kill's streak fades out
+                    _cpuMs += _watch.Elapsed.TotalMilliseconds;
+                    return vs;
                 case GoreStreakRules.Join.Merge:
                 {
-                    _lastHit[vs] = _clock;
+                    if (!_lethal[vs]) _lastHit[vs] = _clock;   // a kill's streak keeps its kill time (GoreStreakRules.KillHoldSeconds)
                     double held = GoreStreakRules.HoldStart(_starts[vs], _clock);
                     if (held != _starts[vs])
                     {
@@ -462,16 +465,26 @@ void fragment() {
     /// every half second.
     /// </summary>
     public float SceneLight => _sceneLight;
-    float _sceneLight = GoreStreakRules.SceneLight;
+    float _sceneLight = GoreStreakRules.SceneLight, _lightTarget = GoreStreakRules.SceneLight, _lightSent = float.NaN;
     double _lightAt = double.NegativeInfinity, _sunsAt = double.NegativeInfinity;
     DirectionalLight3D[] _suns = System.Array.Empty<DirectionalLight3D>();
+    ulong _lightEnvId;
+    int _sunLookups;
 
-    void UpdateSceneLight()
+    void UpdateSceneLight(float dt)
     {
+        // ease toward the measured target every frame (no popping), the uniform sent only when it moved
+        _sceneLight = GoreStreakRules.EaseLight(_sceneLight, _lightTarget, dt);
+        if (float.IsNaN(_lightSent) || MathF.Abs(_sceneLight - _lightSent) > 1e-3f) { _lightSent = _sceneLight; _mat.SetShaderParameter(PSceneLight, _sceneLight); }
         if (_clock - _lightAt < 0.5) return;
         _lightAt = _clock;
         var world = GetViewport()?.World3D;
         var env = world?.Environment ?? world?.FallbackEnvironment;
+        // the suns looked up again at once when a cached one is gone or the environment changed (a map load), else every 10 s
+        ulong envId = env?.GetInstanceId() ?? 0;
+        bool stale = envId != _lightEnvId;
+        foreach (var d in _suns) if (!GodotObject.IsInstanceValid(d)) { stale = true; break; }
+        if (stale) { _sunsAt = double.NegativeInfinity; _lightEnvId = envId; }
         float amb = GoreStreakRules.AmbientFallback;
         if (env is not null)
         {
@@ -485,7 +498,7 @@ void fragment() {
         }
         if (_clock - _sunsAt >= 10.0)
         {
-            _sunsAt = _clock;
+            _sunsAt = _clock; _sunLookups++;
             var found = new List<DirectionalLight3D>();
             foreach (var n in GetTree().Root.FindChildren("*", "DirectionalLight3D", true, false)) if (n is DirectionalLight3D d) found.Add(d);
             _suns = found.ToArray();
@@ -498,12 +511,12 @@ void fragment() {
                 sun += d.LightEnergy * GoreStreakRules.Luma(lc.R, lc.G, lc.B);
             }
         float light = GoreStreakRules.LightOf(amb, sun);
-        if (MathF.Abs(light - _sceneLight) > 1e-3f) { _sceneLight = light; _mat.SetShaderParameter(PSceneLight, light); }
+        _lightTarget = light;
         // logged at the first measure and whenever it moves by a quarter (at most every 5 s): a map change, the weather, a lighting preset
         if (float.IsNaN(_lightLogged) || (MathF.Abs(light - _lightLogged) > 0.25f * MathF.Max(_lightLogged, 0.25f) && _clock - _lightLogAt >= 5.0))
         {
             _lightLogged = light; _lightLogAt = _clock;
-            GD.Print($"gore streak: scene light {light:F2} (ambient {amb:F2}, suns {sun:F2} from {_suns.Length}; view t {_clock:F1})");
+            GD.Print($"gore streak: scene light {light:F2} (ambient {amb:F2}, suns {sun:F2} from {_suns.Length}, {_sunLookups} lookups; view t {_clock:F1})");
         }
     }
     float _lightLogged = float.NaN;
@@ -515,7 +528,7 @@ void fragment() {
         BeforeFrame?.Invoke();
         _watch.Restart();
         _clock += delta;
-        UpdateSceneLight();
+        UpdateSceneLight((float)delta);
         float now = (float)(_clock % ClockPeriod);
         _mat.SetShaderParameter(PNow, now);
         if (_prewarmSlot >= 0)

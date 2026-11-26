@@ -488,6 +488,15 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
         }
         Assert.True(Colour(1f).R < Colour(0f).R);
         Assert.InRange(LightWrap, 0.2f, 0.8f);
+        // the measured scene light (gore round 4 fix, gate 5: a lit Warfront level measured 0.35 while its sun was hidden): floored at 0.8, at most 3, eased over about a second
+        Assert.Equal(SceneLightMin, LightOf(0.35f, 0f));
+        Assert.InRange(SceneLightMin, 0.7f, 0.9f);
+        Assert.InRange(LightOf(0.66f, 1.62f), 1.85f, 1.9f);   // the capture map's ambient and sun
+        Assert.Equal(SceneLightMax, LightOf(5f, 5f));
+        float e = 0.8f; for (int i = 0; i < 60; i++) e = EaseLight(e, 1.8f, 1f / 60f);   // one second at 60 fps
+        Assert.InRange(e, 1.35f, 1.55f);                                                  // most of the way, not a jump
+        Assert.True(EaseLight(0.8f, 1.8f, 1f / 60f) < 0.83f, "no popping in one frame");
+        Assert.Equal(1.8f, EaseLight(0.8f, 1.8f, 30f), 3);
         // lit: a dim level draws it darker (exposure-aware: no glow on a dark map)
         var grey = (0.3f, 0.3f, 0.3f);
         Assert.True(Composite(grey, 0.6f, 0.3f, 0.3f * SceneLight).R < Composite(grey, 0.6f, 0.3f, SceneLight).R - 0.1f);
@@ -525,7 +534,18 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
         Assert.Equal(Join.Upgrade, JoinOf(10.0, 10.0, false, 10.1, true, 1f, 1.25f));
         Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, true, 10.1, false, 1.25f, 1f));
         Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, true, 10.1, true, 1.25f, 1.25f));
-        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, true, 10.9, false, 1.25f, 1.35f));     // a kill's streak is never replaced, even by a heavier hit
+        Assert.Equal(Join.Ignore, JoinOf(10.0, 10.0, true, 10.9, false, 1.25f, 1.35f));    // a kill's streak is never replaced, even by a heavier hit
+        // gate-5 finding: fire into a corpse holds the kill's streak only for KillHoldSeconds after the kill (its last hit stays the kill's time), then it fades
+        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, true, 10.0 + KillHoldSeconds - 0.01, false, 1.25f, 1f));
+        Assert.Equal(Join.Ignore, JoinOf(10.0, 10.0, true, 10.0 + KillHoldSeconds + 0.01, false, 1.25f, 1f));
+        Assert.InRange(KillHoldSeconds, 0.3, 0.7);
+        double ks = 10.0;
+        for (double t = 10.1; t < 11.0; t += 0.1)
+        {
+            var j = JoinOf(ks, 10.0, true, t, false, 1.25f, 1f);
+            if (j == Join.Merge) ks = HoldStart(ks, t);
+        }
+        Assert.True(11.0 - ks > HoldAge + 0.3, "after the hold the kill's streak ages and fades");
         // a heavier joining hit restarts it at its own, bigger size (as a kill does); a lighter or equal one merges
         Assert.Equal(Join.Upgrade, JoinOf(10.0, 10.0, false, 10.1, false, 1f, HeavyScale));
         Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, false, 10.1, false, HeavyScale, 1f));

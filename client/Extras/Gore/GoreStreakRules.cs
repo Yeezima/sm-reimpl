@@ -654,7 +654,11 @@ public static class GoreStreakRules
     /// <summary>The share of a sun the blood takes whatever its plane's facing (the rest by the facing, taken at its mean, a half): a thin spray scatters light.</summary>
     public const float LightWrap = 0.5f;
     /// <summary>The scene light's bounds (a black map still shows the blood dimly; a blinding one never makes it glow), the ambient taken when no environment is known, and the share of a sky's energy taken as ambient (an estimate).</summary>
-    public const float SceneLightMin = 0.25f, SceneLightMax = 3f, AmbientFallback = 0.4f, SkyAmbientShare = 0.6f;
+    public const float SceneLightMin = 0.8f, SceneLightMax = 3f, AmbientFallback = 0.4f, SkyAmbientShare = 0.6f;
+    /// <summary>The scene light eases toward its measured target over about this long (s; no popping when a sun turns on or the map changes).</summary>
+    public const float LightEaseSeconds = 1f;
+    /// <summary>The scene light <paramref name="current"/> eased toward <paramref name="target"/> over <paramref name="dt"/> s (exponential, time constant <see cref="LightEaseSeconds"/>).</summary>
+    public static float EaseLight(float current, float target, float dt) => current + (target - current) * (1f - MathF.Exp(-MathF.Max(0f, dt) / LightEaseSeconds));
     /// <summary>A linear colour's luminance (Rec. 709).</summary>
     public static float Luma(float r, float g, float b) => 0.2126f * r + 0.7152f * g + 0.0722f * b;
     /// <summary>
@@ -716,19 +720,27 @@ public static class GoreStreakRules
     public const double HoldUntilAge = 0.48;
     /// <summary>A joining hit this much bigger than the victim's streak (scale ratio) restarts it at its own, bigger size (gore round 4, as a kill does).</summary>
     public const float HeavierRatio = 1.05f;
-    /// <summary>What a new hit does on its victim (<see cref="JoinOf"/>): a new streak, held into the running one, or the running one replaced in its slot by this hit's.</summary>
-    public enum Join { New, Merge, Upgrade }
+    /// <summary>
+    /// After a kill, hits on the corpse hold the kill's streak only this long after the killing hit (s; gore round 4 fix, gate-5 finding: fire into a corpse held the kill's streak at
+    /// frame 4 for as long as it lasted); later hits are ignored and the kill's streak fades out.
+    /// </summary>
+    public const double KillHoldSeconds = 0.5;
+    /// <summary>What a new hit does on its victim (<see cref="JoinOf"/>): a new streak, held into the running one, the running one replaced in its slot by this hit's, or nothing (a hit on a corpse after <see cref="KillHoldSeconds"/>).</summary>
+    public enum Join { New, Merge, Upgrade, Ignore }
     /// <summary>
     /// What a hit at <paramref name="now"/> (killing: <paramref name="lethal"/>; scale <paramref name="scale"/>) does on a victim whose streak started at <paramref name="start"/>, was
     /// last hit at <paramref name="lastHit"/>, killed (<paramref name="lastLethal"/>) or not, at scale <paramref name="lastScale"/>: none showing, a new one; a kill on a streak that did
     /// not kill, or a heavier hit (<see cref="HeavierRatio"/>) on one that did not kill, takes the slot and starts over bigger; a hit within <see cref="MergeSeconds"/> of the last, or
-    /// on a streak younger than <see cref="HoldUntilAge"/>, or on a kill's streak, holds it; otherwise it replaces the faded streak in its slot (never a second streak on one victim).
+    /// on a streak younger than <see cref="HoldUntilAge"/>, holds it; otherwise it replaces the faded streak in its slot (never a second streak on one victim). On a kill's streak
+    /// (<paramref name="lastHit"/> stays the killing hit's time: the view does not move it on a merge into a kill) a hit within <see cref="KillHoldSeconds"/> of the kill holds it, a later one
+    /// is ignored (it fades out).
     /// </summary>
     public static Join JoinOf(double start, double lastHit, bool lastLethal, double now, bool lethal, float lastScale = 0f, float scale = 0f)
     {
         if (!Live(start, now)) return Join.New;
-        if (!lastLethal && (lethal || scale > lastScale * HeavierRatio)) return Join.Upgrade;
-        if (now - lastHit < MergeSeconds || now - start < HoldUntilAge || lastLethal) return Join.Merge;
+        if (lastLethal) return now - lastHit < KillHoldSeconds ? Join.Merge : Join.Ignore;
+        if (lethal || scale > lastScale * HeavierRatio) return Join.Upgrade;
+        if (now - lastHit < MergeSeconds || now - start < HoldUntilAge) return Join.Merge;
         return Join.Upgrade;
     }
     /// <summary>A merged streak's start: held so its age at <paramref name="now"/> is at most <see cref="HoldAge"/> (a streak still waiting for its tracer keeps its start).</summary>
