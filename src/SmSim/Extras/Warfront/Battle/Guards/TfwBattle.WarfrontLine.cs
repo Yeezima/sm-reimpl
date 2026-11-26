@@ -84,7 +84,9 @@ public sealed partial class TfwBattle
         for (int k = 0; k < Positions; k++)
         {
             float floor = MathF.Max(WarfrontLineRules.BrokenFloor, WarfrontLineRules.BrokenShare * _wfPushRef[k]);
-            _wfBrokenSteps[k] = Imperial(k) && _wfPressure[k] <= floor ? _wfBrokenSteps[k] + 1 : 0;
+            float ring = 0f;   // lead 42 (round 3): the approach ring (the sectors' enemies within RallyRingRadius) must be as quiet, so no survivor is fed back into a fight still on at the flank ring
+            if (WarfrontLineRules.RallyRingQuiet) for (int i = 0; i < WarfrontLineRules.Sectors; i++) ring += _wfSector[k, i];
+            _wfBrokenSteps[k] = Imperial(k) && _wfPressure[k] <= floor && ring <= floor ? _wfBrokenSteps[k] + 1 : 0;
         }
         for (int k = 0; k < Positions; k++) WfStepPoint(k);
         WfFlankStep();   // TfwBattle.WarfrontFlank.cs

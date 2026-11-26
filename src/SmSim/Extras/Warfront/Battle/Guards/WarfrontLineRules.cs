@@ -43,6 +43,12 @@ public static class WarfrontLineRules
     /// <summary>The push is broken while the pressure stays at or below max(<see cref="BrokenFloor"/>, <see cref="BrokenShare"/> x the pressure at the break) for <see cref="BrokenSeconds"/>.</summary>
     public const float BrokenFloor = 6f, BrokenShare = 0.25f;
     public const int BrokenSeconds = 5;
+    /// <summary>
+    /// Lead 42 (2026-11-27, round 3; ours, low): a push counts as broken for an automatic rally (a line's record and a retreating Guard army alike) only while the approach ring is quiet too: the weighted enemies
+    /// within <see cref="RallyRingRadius"/> (the sectors' ring, the same weights) at or below the same floor. Before it a garrison whose losses came from a flank army 40 to 70 m out rallied back into it 8 s later.
+    /// </summary>
+    public const bool RallyRingQuiet = true;
+    public const float RallyRingRadius = WarfrontGuardRules.ApproachRadius;
     /// <summary>After re-forming, no new withdrawal from the point for this long.</summary>
     public const int RallyLockoutSeconds = 45;
     /// <summary>A rallying squad that has not reached its point after this long is released where it stands (as a field squad posted there).</summary>
