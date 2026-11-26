@@ -172,6 +172,24 @@ public partial class NetworkView
         return toward.LengthSquared() > 1e-4f ? v + toward.Normalized() * ExecWoundOut : v;
     }
 
+    /// <summary>A bone by the data's marker name, case aside (the files write <c>rig_r_hand</c>, the rigs <c>RIG_R_Hand</c>); -1 when the skeleton has none.</summary>
+    static int ExecFindBone(Skeleton3D sk, string marker)
+    {
+        int exact = sk.FindBone(marker);
+        if (exact >= 0 || marker.Length == 0) return exact;
+        for (int i = 0; i < sk.GetBoneCount(); i++)
+            if (string.Equals(sk.GetBoneName(i), marker, StringComparison.OrdinalIgnoreCase)) return i;
+        return -1;
+    }
+
+    /// <summary>The move's first contact: its first sound or motor hit or grind at the wound (seconds), else the row's contact event.</summary>
+    static float ExecFirstContact(ExecCueRun cr)
+    {
+        foreach (var c in cr.Cues)
+            if (c.Place == ExecutionCuePlace.Wound && c.Kind is ExecutionCueKind.Sound or ExecutionCueKind.Motor && c.Motor != ExecutionMotorRole.Rev) return c.At;
+        return cr.Row.At(ExecutionEventKind.Contact) ?? cr.Row.KillSeconds;
+    }
+
     static bool ExecHeadCue(ExecutionCue c)
     {
         string t = (c.Tag + " " + c.Event).ToLowerInvariant();
@@ -278,8 +296,10 @@ public partial class NetworkView
                 return "wielder swing " + swing;
             case ExecutionMotorRole.Hit:
             case ExecutionMotorRole.Grind:
-                var hits = _soundTriggers.MeleeHitEvents(wargear, _soundTriggers.MeleeHitAbility(wargear, false, 1), false)
-                    .Where(h => !h.Contains("bull_rush", StringComparison.OrdinalIgnoreCase)).ToList();   // the light strike's blade hit, not its charge's body smash
+                var hits = ExecutionWeapons.FamilyOf(wargear) == ExecutionWeapons.CombatKnife
+                    ? new List<string> { ExecutionCueRules.KnifeHit }   // the campaign knife's stab, not the MP light strike's fist hit (re-review N2)
+                    : _soundTriggers.MeleeHitEvents(wargear, _soundTriggers.MeleeHitAbility(wargear, false, 1), false)
+                        .Where(h => !h.Contains("bull_rush", StringComparison.OrdinalIgnoreCase)).ToList();   // the light strike's blade hit, not its charge's body smash
                 if (hits.Count == 0) return "the wielder has no hit sound";
                 int repeats = cue.Motor == ExecutionMotorRole.Grind ? Math.Max(1, (int)MathF.Ceiling((cue.Until - cue.At) / ExecMotorRepeatSeconds)) : 1;
                 for (int i = 0; i < repeats; i++) foreach (var h in hits) _sound.Post(h, cr.Wound, extraDelay: i * ExecMotorRepeatSeconds);
@@ -300,11 +320,14 @@ public partial class NetworkView
         {
             if (c.Weapons is { } rig && rig.TryMeleeMarker(marker, out _))
                 follow = () => ExecCharacter(cr.Run.Executor) is { Weapons: { } r } && r.TryMeleeMarker(marker, out var t) ? (t.Origin, t.Basis) : null;
-            else if (c.Skeleton is { } sk && sk.FindBone(marker) is int bone and >= 0)
+            else if (c.Skeleton is { } sk && ExecFindBone(sk, marker) is int bone and >= 0)
                 follow = () => IsInstanceValid(sk) && sk.IsInsideTree() ? ((sk.GlobalTransform * sk.GetBoneGlobalPose(bone)).Origin, Basis.Identity) : null;
         }
-        else if (cue.Side == ExecutionCueSide.Victim && ExecProxyViewer(cr) is { Skeleton: { } vs } && vs.FindBone(marker) is int vb and >= 0)
+        else if (cue.Side == ExecutionCueSide.Victim && ExecProxyViewer(cr) is { Skeleton: { } vs } && ExecFindBone(vs, marker) is int vb and >= 0)
             follow = () => IsInstanceValid(vs) && vs.IsInsideTree() ? ((vs.GlobalTransform * vs.GetBoneGlobalPose(vb)).Origin, Basis.Identity) : null;
+        // A blade-borne effect whose marker this blade lacks, before the move's first contact (O4's blood_pre_grind at 0.300 s on a knife or sword): dropped, not moved to the wound, where it
+        // would show blood on the victim before anything touches him (re-review N4). From the first contact on (within 0.1 s), the wound is the right place for the cut's blood.
+        if (follow is null && cue.Side == ExecutionCueSide.Attacker && marker.Length > 0 && cue.At < ExecFirstContact(cr) - 0.1f) return $"dropped (no {marker} on this blade or body, before the first contact)";
         bool head = ExecHeadCue(cue), atWound = follow is null;
         follow ??= () => ExecWoundAt(cr, head) is { } w ? (w, Basis.Identity) : null;   // a marker this body or blade lacks (the chainsword's teeth on a sword): at the wound
         if (follow() is not { } at) return "no place";

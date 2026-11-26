@@ -56,7 +56,9 @@ Nothing from the install is committed. Like the catalogue rows, this file holds 
     - a hit or a grind plays the light strike's hit events, repeated every 0.4 s along a grind;
     - a rev or wind-up plays nothing.
   - The same motor rule applies to the wielded weapon's own file on a borrowed move (the knife file keeps a leftover chainsword cut bed, `play_sm_chainsword_sk_cut_start`, and trail).
-  - A whoosh is a swing; a blade drawn out (`remove`, `release`) adds no second hit. Swings play on the attacker, hits and grinds at the wound.
+  - A whoosh is a swing; a blade drawn out (`remove`, `release`) and a wind-up before contact (a `_pre` suffix, O4's `play_sm_chain_sword_grind_pre`) add no hit. Swings play on the attacker, hits and grinds at the wound.
+  - The knife's hit is the campaign knife's own `play_combat_knife_stab`, not the MP light strike's `play_sm_fist_hit`.
+  - A blade-borne effect whose marker the blade lacks is dropped when it falls more than 0.1 s before the move's first contact (O4's `blood_pre_grind` at 0.300 s): at the wound it would show blood on the victim before anything touches him. From the first contact on it plays at the wound. Dropping was chosen over moving it to the contact: the cut's own blood already plays there.
   - The chainsword's teeth trails are not drawn. Its blood effects stay, placed at the wound when the blade lacks the chainsword's marker.
   - A power sword on a chainsword move therefore sounds like a power sword (`play_sm_power_sword_hit`).
 - **Blood.** Blood effects and one gore streak at the kill frame draw only where the match's gore allows: Warfront, or Classic with the Extended gore
@@ -64,7 +66,7 @@ Nothing from the install is committed. Like the catalogue rows, this file holds 
   `--no-gore-streak`). `--no-execution-gore` turns both off for executions. The general blood redesign is untouched.
 - **Once everywhere, cancelled on interruption** (`ExecutionCueTimeline`).
   - Each client fires each cue of a run once, whether it is the attacker's, the victim's or an observer's client.
-  - A run first seen late skips the cues more than 0.25 s behind the clock, and the kill streak too. A clock that steps back fires nothing again. A closed run revived by the live list plays nothing again.
+  - On any advance (a run first seen late, or a clock jump mid-move), cues more than 0.25 s behind the clock are skipped, never fired in a burst; stops always apply. The kill streak follows the same rule. A clock that steps back fires nothing again. A closed run revived by the live list plays nothing again.
   - A lost connection interrupts every run (the core's `ExtrasConnectionGone`). The emitters are one-shot, so the sound system forgets them once their voices end.
   - Any end other than Done (Killed, Invalid, Disconnect, MatchEnd), or a run that vanishes, stops all three emitters at once: grinds, motor loops and pending voices. The run's
     effects end with it.
@@ -745,7 +747,7 @@ Columns:
 | 0.057 | attacker | sound | attacker | `EVT_Gear_Move` | `play_sm_gear_move_01` | vanguard |  |
 | 0.300 | attacker | speech | attacker | `EVT_GrindStart` | `speech autodetect roar` | powersword_new |  |
 | 0.300-0.433 | attacker | effect | attacker | `EVT_GrindStart` | `blood_pre_grind at fx_chainsword_spray (blood)` | powersword_new |  |
-| 0.300-0.433 | attacker | motor (ours) | wound | `EVT_GrindStart` | `play_sm_chain_sword_grind_pre -> the wielder's grind` | powersword_new |  |
+| 0.300-0.433 | attacker | motor (ours) | wound | `EVT_GrindStart` | `play_sm_chain_sword_grind_pre -> the wielder's rev` | powersword_new |  |
 | 0.450 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.500 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
 | 0.500-0.700 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |

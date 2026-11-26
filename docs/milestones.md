@@ -3574,6 +3574,14 @@ Gore streak round 4 fixes (same branch, 2026-11-26; lead 41: gate 5 scored 76 to
 
 Tests: `ExecutionCueTests` (the real event names' roles, the borrowed move's wielded file and echo, a closed run); the hook pinned in `ExtrasBoundaryTests`.
 
+Re-review follow-ups (bc460178 judged merge-ready):
+- N1: a `_pre` wind-up is a rev, so the power sword's O4 no longer hits at 0.300 s.
+- N2: the knife's borrowed hit is `play_combat_knife_stab`.
+- N3: overdue cues are skipped on any advance (a clock jump fires no burst); stops always apply.
+- N4: a blade-borne effect without its marker is dropped before the first contact, instead of drawing blood on the victim early.
+
+Test `A_clock_jump_skips_overdue_cues_but_applies_stops`.
+
 Melee mode through an own finisher, the wait for the Start (same branch, 2026-11-26; lead 41). The lock began only when the server's Start was heard, so a Fire, Aim or Reload press in the round trip after the Execute press still left melee mode. Now an Execute press made while the Execute marker showed (the prediction's press count, the marker as the last frame left it, as X6's `PressSpendsOffer` reads it) holds the mode speculatively (`FinisherPressHold`, in `MeleeMode.cs`) until the Start is heard, an own End is heard, or max(0.6 s, 2 x the echo round trip) passes; a refusal or a lost Start falls back to the normal rule. Read from the hook file only (no executions file edited). Tests: `MeleeModeTests` (the bound, a press then a late Start stays, a press with no Start lets go after the bound, an End or a new connection forgets the press).
 
 Melee mode through an own finisher, review fixes (same branch, 2026-11-26; Fable review MERGE-READY, two lows; lead 41). Aim held across the End (or through a refused press's wait) no longer stays spent: on the first tick without the lock a still-held Aim leaves melee mode, because the simulation aims and the player sees it (before, the mode stayed on while aiming, a state that never existed); Fire and Reload still need a fresh press. `FinisherPressHold` moved out of the core `MeleeMode.cs` into `client/Extras/Executions/FinisherPressHold.cs` (linked into SmNet.Tests); the core keeps only the neutral `Inputs.Locked` seam.

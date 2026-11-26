@@ -187,10 +187,17 @@ public static class ExecutionCueRules
     {
         string e = evt.ToLowerInvariant();
         if (e.Contains("swing") || e.Contains("whoosh")) return ExecutionMotorRole.Swing;
+        if (e.EndsWith("_pre", StringComparison.Ordinal)) return ExecutionMotorRole.Rev;   // a wind-up before contact (the chainsword's grind_pre at 0.300 s on O4): no hit there (re-review N1)
         if (e.Contains("grind") || e.Contains("cut")) return ExecutionMotorRole.Grind;
         if (e.Contains("rev") || e.Contains("antic") || e.Contains("remove") || e.Contains("release")) return ExecutionMotorRole.Rev;
         return ExecutionMotorRole.Hit;
     }
+
+    /// <summary>
+    /// The combat knife's hit in a borrowed move (re-review N2): the campaign knife's own stab (<c>combat_knife</c> triggered action <c>actn_sync_head_stab</c>), not the MP light strike's
+    /// <c>play_sm_fist_hit</c>, which reads as a punch along a grind.
+    /// </summary>
+    public const string KnifeHit = "play_combat_knife_stab";
 
     /// <summary>Whether a sound plays at the wound (ours, the brief's "impacts at the wound"): hits, impacts, slams, stomps, smashes, kicks, grinds, cuts, gore, stabs, the arm break.</summary>
     public static bool AtWound(string evt)
@@ -443,15 +450,14 @@ public sealed class ExecutionCueTimeline
         if (_closed.Contains(key)) return;   // a run that finished or was interrupted never starts again (a stale frame, a late repeat)
         if (!_tracks.TryGetValue(key, out var t)) _tracks[key] = t = new Track { Cues = cues };
         if (!float.IsFinite(clock)) return;
-        if (!t.Seen)
-        {
-            t.Seen = true;
-            while (t.Next < t.Cues.Count && t.Cues[t.Next].At < clock - LateSkipSeconds) { t.Next++; Skipped++; }
-        }
+        t.Seen = true;
+        // On every advance (first sight or a clock jump: a hitch, a late snapshot), a cue more than LateSkipSeconds behind the clock is skipped, never fired in a burst; a stop always
+        // applies (a grind started before the jump must still end; re-review N3).
         while (t.Next < t.Cues.Count && t.Cues[t.Next].At <= clock)
         {
-            steps.Add(new Step(StepKind.Fire, key, t.Cues[t.Next]));
-            t.Next++;
+            var cue = t.Cues[t.Next++];
+            if (cue.Kind != ExecutionCueKind.Stop && cue.At < clock - LateSkipSeconds) { Skipped++; continue; }
+            steps.Add(new Step(StepKind.Fire, key, cue));
             Fired++;
         }
         if (t.Finishing && (t.Next >= t.Cues.Count && (t.Cues.Count == 0 || clock >= t.Cues[^1].At + FinishGraceSeconds) || t.Next >= t.Cues.Count && clock >= LastAt(t) + FinishGraceSeconds))

@@ -175,7 +175,7 @@ public class ExecutionCueTests
         var key = new ExecutionCueTimeline.RunKey(2, 9);
         var t = new ExecutionCueTimeline();
         var steps = new List<ExecutionCueTimeline.Step>();
-        t.Advance(key, cues, 2.8f - 2.7f, steps);
+        t.Advance(key, cues, 0.25f, steps);
         t.Finish(key);                       // Done at the attacker's end (2.8 s): the victim's later cue still plays
         for (float clock = 2.8f; clock < 4f; clock += 0.1f) t.Advance(key, cues, clock, steps);
         Assert.Equal(["a", "victim late"], steps.Where(s => s.Kind == ExecutionCueTimeline.StepKind.Fire).Select(s => s.Cue!.Event));
@@ -191,6 +191,8 @@ public class ExecutionCueTests
         Assert.Equal(ExecutionMotorRole.Swing, ExecutionCueRules.RoleOf("play_combat_knife_whoosh"));
         Assert.Equal(ExecutionMotorRole.Hit, ExecutionCueRules.RoleOf("play_combat_knife_stab"));
         Assert.Equal(ExecutionMotorRole.Rev, ExecutionCueRules.RoleOf("play_combat_knife_remove"));
+        Assert.Equal(ExecutionMotorRole.Rev, ExecutionCueRules.RoleOf("play_sm_chain_sword_grind_pre"));   // re-review N1: the wind-up before O4's contact, not a hit
+        Assert.Equal("play_combat_knife_stab", ExecutionCueRules.KnifeHit);                               // re-review N2: the knife's hit along a borrowed grind
         Assert.Equal(ExecutionMotorRole.Swing, ExecutionCueRules.RoleOf("play_sm_chainsword_swing_x4"));
         Assert.Equal(ExecutionMotorRole.Grind, ExecutionCueRules.RoleOf("play_sm_sk_chainsword_grind_flesh"));
         Assert.Equal(ExecutionMotorRole.Grind, ExecutionCueRules.RoleOf("play_sm_chainsword_sk_cut_start"));
@@ -225,6 +227,23 @@ public class ExecutionCueTests
         // Review 7: the attacker file's damage_big at 0.700 s echoes the boy's own at 0.733 s: only the victim's own plays.
         Assert.Single(cues, c => c.Kind == ExecutionCueKind.Speech && c.Speech!.Type == "damage_big");
         Assert.Equal(ExecutionCueSide.Victim, Assert.Single(cues, c => c.Kind == ExecutionCueKind.Speech).Side);
+    }
+
+    [Fact]
+    public void A_clock_jump_skips_overdue_cues_but_applies_stops()
+    {
+        static ExecutionCue Stop(float at) => new("T1.x", ExecutionWield.Own, ExecutionCueSide.Attacker, ExecutionCueKind.Stop, ExecutionCuePlace.Wound, at, at, "TAG", "stop_grind", "f");
+        IReadOnlyList<ExecutionCue> cues = [Cue(0.1f, "a"), Cue(0.6f, "grind"), Cue(0.9f, "b"), Stop(1.1f), Cue(1.3f, "c"), Cue(1.45f, "d")];
+        var key = new ExecutionCueTimeline.RunKey(5, 70);
+        var t = new ExecutionCueTimeline();
+        var steps = new List<ExecutionCueTimeline.Step>();
+        t.Advance(key, cues, 0.2f, steps);
+        t.Advance(key, cues, 0.65f, steps);   // "a", then the grind
+        t.Advance(key, cues, 1.5f, steps);    // a hitch: the clock jumps 0.85 s mid-move (re-review N3)
+        var fired = steps.Select(s => s.Cue!.Event).ToArray();
+        // "b" (0.6 s behind) and nothing else overdue fires in a burst; the stop still applies; "c" and "d" are within 0.25 s and play.
+        Assert.Equal(["a", "grind", "stop_grind", "c", "d"], fired);
+        Assert.Equal(1, t.Skipped);
     }
 
     [Fact]
