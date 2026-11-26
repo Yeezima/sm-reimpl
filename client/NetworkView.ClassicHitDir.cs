@@ -401,7 +401,7 @@ public partial class NetworkView
                     if (drawn) _hitDirBlood++;
                 }
                 if (lethal && shot.Head) ExtrasClassicFatalHeadshot(o.PlayerId, shot.Shooter, shot.Contact, shot.Dir);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
-                if (LogHitDir) HitDirPrint($"HITDIR shot P{shot.Shooter}->P{o.PlayerId} {(shot.Head ? "head" : "body")} {visual}{(lethal ? " lethal" : "")} shield {shield} health {health} armour-before {shot.ArmourUp} blood {drawn} (mark tick {(long)Math.Floor(_othersTick)}) (t {_connectedFor:F2})");
+                if (LogHitDir) HitDirPrint($"HITDIR shot P{shot.Shooter}->P{o.PlayerId} {(shot.Head ? "head" : "body")} {visual}{(lethal ? " lethal" : "")} shield {shield} health {health} armour-before {shot.ArmourUp} blood {drawn}{(drawn ? "" : HasBlood(visual) ? " (the blood look declined it: see HITDIR streak none, or no Extended blood)" : " (no blood for this hit class)")} (mark tick {(long)Math.Floor(_othersTick)}) (t {_connectedFor:F2})");
                 return false;
             }
             // melee: the attacker who just struck in reach

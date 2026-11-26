@@ -13,10 +13,10 @@ namespace SmClient;
 /// Every streak is up to <see cref="GoreStreakRules.MaxBranches"/> ribbons, each one instance of a single <see cref="MultiMesh"/> whose mesh is a thin strip of
 /// <see cref="GoreStreakRules.Segments"/> segments: the vertex stage lays each strip out on the streak's tilted plane (its band's angle, length, width profile and bend at the instance's
 /// age, from the per-frame table and band layouts generated into the shader: all the trigonometry per vertex, none per pixel), and the fragment stage draws it with the startup-made
-/// cell texture mapped onto the plane (cellular mottle), the lumpy core edge, the mist body under it, the outer fade, the patch erosion and the feathered, dithered edge
-/// (<see cref="GoreStreakRules.TexelAt"/> mirrors it). The CPU sets one clock uniform a frame and an instance's transform, colour and custom data only when a streak spawns (or a merged
-/// hit holds it back). Two passes: a strip (the ground under a drawn texel replaced by a mid-dark red with no green or blue, on both renderers) then the blood red mixed over the cores;
-/// our darker red, never additive, white or pink. Drawn at <see cref="ClassicBloodRules.RibbonRenderPriority"/> and one more, above the power weapons' flash.
+/// spray texture mapped onto the plane (soft flow streaks), the soft body with its lumpy, jagged edge, the outer fade and the large jagged tears (gore round 4;
+/// <see cref="GoreStreakRules.TexelAt"/> mirrors it). The CPU sets one clock uniform a frame and an instance's transform, colour and custom data only when a streak spawns (or a merged
+/// hit holds it back). One pass: a translucent red mixed over the ground (pinkish where thin, deeper red in the dense streaks; owner 2026-11-26), times the level's ambient and sun
+/// light so it never glows on a dark map; never additive or white. Drawn at <see cref="ClassicBloodRules.RibbonRenderPriority"/> plus one, above the power weapons' flash.
 /// <para>Instance (streak slot x 6 + band): transform = the plane frame (X exit axis, Y across leaning up, Z normal) x metres per table unit; CUSTOM = (start on the view clock incl.
 /// pre-age, seed, bend, width multiplier); COLOR = (band / 8, entry share, on, shown: 0 for the prewarm).</para>
 /// </summary>
@@ -42,25 +42,21 @@ public partial class GoreStreakView : Node3D
         return sb.ToString();
     }
 
-    /// <summary>The strip pass's output on both renderers (repair round 3): the ground replaced by the strip red (times the key's red), no green or blue.</summary>
-    static readonly string StripMix = "    ALBEDO = out_col(vec3(strip_red * red, 0.0, 0.0));   // GoreStreakRules.StripRed\n    ALPHA = st;";
-
-    static string ShaderCode(bool strip) => $$"""
+    /// <summary>The one pass (gore round 4): a translucent red mixed over the ground, unshaded, times the level's measured ambient and sun light (<see cref="SceneLight"/>); the same values on both renderers.</summary>
+    static string ShaderCode() => $$"""
 shader_type spatial;
 render_mode blend_mix, unshaded, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;
 
 uniform float now = 0.0;                 // the view clock modulo {{F((float)ClockPeriod)}} s
 uniform float age_override = -1.0;       // >= 0: every streak at this age (the capture aid)
-uniform float probe = -1.0;              // >= 0: the capture aid's colour probe (every band's core drawn solid at this core opacity)
-uniform sampler2D fil : filter_linear_mipmap_anisotropic, repeat_enable;   // GoreStreakRules.FilamentTexels: R small cells, G blotches, B large cells
-uniform vec3 tint = vec3(1.0, 0.02, 0.015);   // GoreStreakRules.StreakBloodRgb (raw values, no colour-space hint)
-uniform float strip_max = 0.995;         // GoreStreakRules.StripMax
-uniform float strip_red = 0.17;          // GoreStreakRules.StripRed (scene linear; both renderers blend in linear before the tonemapper)
-uniform float shade = 0.26;              // GoreStreakRules.Shade
-uniform float core_alpha = 0.45;         // GoreStreakRules.CoreAlpha
+uniform float probe = -1.0;              // >= 0: the capture aid's colour probe (every band drawn solid at this opacity)
+uniform sampler2D fil : filter_linear_mipmap_anisotropic, repeat_enable;   // GoreStreakRules.FilamentTexels: R flow noise, G blotches, B grain
+uniform vec3 thin_rgb = vec3({{F(GoreStreakRules.ThinRgb.R)}}, {{F(GoreStreakRules.ThinRgb.G)}}, {{F(GoreStreakRules.ThinRgb.B)}});      // GoreStreakRules.ThinRgb (scene linear)
+uniform vec3 dense_rgb = vec3({{F(GoreStreakRules.DenseRgb.R)}}, {{F(GoreStreakRules.DenseRgb.G)}}, {{F(GoreStreakRules.DenseRgb.B)}});   // GoreStreakRules.DenseRgb
 uniform float near_from = {{F(GoreStreakRules.NearFadeFrom)}};
 uniform float near_to = {{F(GoreStreakRules.NearFadeTo)}};
-uniform bool srgb_out = false;           // Compatibility: its albedo goes through display-to-linear once more on the way (the colour probe), so the scene-linear values are sent in display form
+uniform float scene_light = {{F(GoreStreakRules.SceneLight)}};   // the level's ambient and sun light on the blood (GoreStreakView.SceneLight, measured on the CPU): it never glows on a dark map
+uniform bool srgb_out = false;           // Compatibility: its albedo goes through display-to-linear once more on the way, so the scene-linear values are sent in display form
 
 const int NK = {{GoreStreakRules.Keys.Length}};
 const float K_T[NK] = { {{KeyArray(k => k.T)}} };
@@ -74,8 +70,8 @@ const float K_GRIT[NK] = { {{KeyArray(k => k.Grit)}} };
 const float K_BR[NK] = { {{KeyArray(k => k.Branches)}} };
 const float K_OUT[NK] = { {{KeyArray(k => k.Outer)}} };
 const float K_ROOT[NK] = { {{KeyArray(k => k.Root)}} };
-const float K_MIST[NK] = { {{KeyArray(k => k.Mist)}} };
-const float K_RED[NK] = { {{KeyArray(k => k.Red)}} };
+const float K_HAZE[NK] = { {{KeyArray(k => k.Haze)}} };
+const float K_DEPTH[NK] = { {{KeyArray(k => k.Depth)}} };
 const int NB = {{NB}};
 const float B_ANG[NB] = { {{BandArray(b => b.Angle)}} };
 const float B_REACH[NB] = { {{BandArray(b => b.Reach)}} };
@@ -87,12 +83,12 @@ const float B_RJ[NB] = { {{BandArray(b => b.ReachJitter)}} };
 const float B_BEND[NB] = { {{BandArray(b => b.Bend)}} };
 const float B_EARLY[NB] = { {{BandArray(b => b.Early)}} };
 
-varying vec3 v_uvs;            // along 0..1, across (1 at the core's nominal edge), along in table units
+varying vec3 v_uvs;            // along 0..1, across (1 at the body's nominal edge), along in table units
 varying float v_depth;
 varying flat float v_hw;       // the band's half width (table units)
 varying flat vec4 v_k;         // opacity x band share x shown, fill, grit, outer
-varying flat vec4 v_r;         // root, texture offset u, texture offset v, how far the side bands have grown
-varying flat vec2 v_m;         // mist, red
+varying flat vec4 v_r;         // root, texture offset u, texture offset v, haze
+varying flat float v_dp;       // depth (the deeper red's share)
 
 vec3 out_col(vec3 c) { return srgb_out ? mix(12.92 * c, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)) : c; }
 float h01(float seed, float salt) { return fract(sin(seed * 12.9898 + salt * 78.233) * 43758.5453); }   // GoreStreakRules.ShaderHash
@@ -105,7 +101,7 @@ void vertex() {
     float seed = INSTANCE_CUSTOM.y;
     float uu = VERTEX.x, vv = VERTEX.y;
     v_uvs = vec3(uu, vv * {{F(GoreStreakRules.EdgePad)}}, 0.0);
-    v_k = vec4(0.0); v_r = vec4(0.0); v_m = vec2(0.0);
+    v_k = vec4(0.0); v_r = vec4(0.0); v_dp = 0.0;
     v_depth = 0.0; v_hw = 0.0;
     // clipped: not born yet, gone, or retired (COLOR.b 0: a spent slot or a band this streak does not draw)
     if (COLOR.b < 0.5 || age < 0.0 || age >= {{F(GoreStreakRules.LifeSeconds)}}) {
@@ -135,18 +131,20 @@ void vertex() {
         }
         float ang = radians(deg);
         float bend = INSTANCE_CUSTOM.z * B_BEND[band];
-        // the strip vertex on the plane (GoreStreakRules.RibbonPoint)
+        float phase = h01(seed, 60.0 + float(band)) * 6.2831853;
+        // the strip vertex on the plane (GoreStreakRules.RibbonPoint, GoreStreakRules.Meander)
         float cs = cos(ang), sn = sin(ang);
         float s = uu * len;
-        float across = bend * s * s / max(len, 0.05) + vv * w * prof(uu) * {{F(GoreStreakRules.EdgePad)}};
+        float meander = ({{F(GoreStreakRules.MeanderWidth)}} * w + {{F(GoreStreakRules.MeanderLength)}} * len) * sin(3.14159265 * uu) * sin(6.2831853 * s / {{F(GoreStreakRules.MeanderWave)}} + phase);
+        float across = bend * s * s / max(len, 0.05) + meander + vv * w * prof(uu) * {{F(GoreStreakRules.EdgePad)}};
         VERTEX = vec3(B_ROOT[band] * ex + cs * s - sn * across, B_ACROSS[band] * min(1.0, 0.3 + g) + sn * s + cs * across, 0.0);
         vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
         v_depth = -view.z;
         POSITION = PROJECTION_MATRIX * view;   // written in both branches: once a shader writes POSITION, Godot takes it for every vertex
         v_uvs.z = s; v_hw = w;
         v_k = vec4(mix(K_OPAC[i], K_OPAC[b], u) * fade * alpha * COLOR.a, mix(K_FILL[i], K_FILL[b], u) * fade, mix(K_GRIT[i], K_GRIT[b], u), mix(K_OUT[i], K_OUT[b], u));
-        v_r = vec4(mix(K_ROOT[i], K_ROOT[b], u), h01(seed, 50.0 + float(band)), h01(seed, 54.0 + float(band)), g);
-        v_m = vec2(mix(K_MIST[i], K_MIST[b], u) * fade, mix(K_RED[i], K_RED[b], u));
+        v_r = vec4(mix(K_ROOT[i], K_ROOT[b], u), h01(seed, 50.0 + float(band)), h01(seed, 54.0 + float(band)), mix(K_HAZE[i], K_HAZE[b], u));
+        v_dp = mix(K_DEPTH[i], K_DEPTH[b], u);
     }
 }
 
@@ -155,65 +153,52 @@ void fragment() {
     float av = abs(v);
     float hwv = v * v_hw;   // across in table units
     vec2 o = v_r.yz;
-    // the cellular mottle, isotropic on the plane (GoreStreakRules.TexelAt)
-    float small = texture(fil, vec2(s / {{F(GoreStreakRules.CellAlongH)}} + o.x, hwv / {{F(GoreStreakRules.CellAcrossH)}} + o.y)).r;
-    float big = texture(fil, vec2(s / {{F(GoreStreakRules.BigTileH)}} + o.x * 1.7, hwv / {{F(GoreStreakRules.BigTileH)}} + o.y * 1.3)).b;
-    float mottle = 0.6 * small + 0.4 * big;
-    float lump = texture(fil, vec2(s * {{F(GoreStreakRules.LumpAlong)}} + o.x * 2.0, (v > 0.0 ? 0.3 : 0.7) + o.y)).g;   // the lumpy outline
-    float edge = 1.0 - smoothstep({{F(GoreStreakRules.EdgeFrom)}}, {{F(GoreStreakRules.EdgeTo)}}, av + {{F(GoreStreakRules.LumpDepth)}} * (lump - 0.5) + 0.25 * (0.5 - small) * av);
-    float along = smoothstep(0.0, 0.05, u) * (1.0 - smoothstep(0.78, 1.0, u + 0.12 * (big - 0.5)));
-    float outer = 1.0 - v_k.w * smoothstep(0.5, 1.0, u);
-    // the patch erosion against 1 - Fill (blobs on the plane), the root and the tip held, the cracks between the cells opening as it fades
-    float e = texture(fil, vec2(s / {{F(GoreStreakRules.ErodeTileH)}} + o.x * 3.1, hwv / {{F(GoreStreakRules.ErodeTileH)}} + o.y * 2.3)).g;
+    // the spray texture on the plane (GoreStreakRules.TexelAt)
+    float flow = texture(fil, vec2(s / {{F(GoreStreakRules.FlowAlongH)}} + o.x, hwv / {{F(GoreStreakRules.FlowAcrossH)}} + o.y)).r;
+    float jag = texture(fil, vec2(s / {{F(GoreStreakRules.JagAlongH)}} + o.x * 1.9, hwv / {{F(GoreStreakRules.JagAcrossH)}} + o.y * 1.3)).r;
+    float gap = texture(fil, vec2(s / {{F(GoreStreakRules.GapAlongH)}} + o.x * 3.1, hwv / {{F(GoreStreakRules.GapAcrossH)}} + o.y * 2.3)).g;
+    float grain = texture(fil, vec2(s / {{F(GoreStreakRules.GrainAlongH)}} + o.x * 1.3, hwv / {{F(GoreStreakRules.GrainAcrossH)}} + o.y * 1.7)).b;
+    float lump = texture(fil, vec2(s * {{F(GoreStreakRules.LumpAlong)}} + o.x * 2.0, (v > 0.0 ? 0.3 : 0.7) + o.y)).g;
+    // the soft body with a lumpy, jagged edge
+    float d = av + {{F(GoreStreakRules.LumpDepth)}} * (lump - 0.5) + {{F(GoreStreakRules.JagEdge)}} * (jag - 0.5) * min(av + 0.3, 1.0);
+    float body = 1.0 - smoothstep({{F(GoreStreakRules.BodyFrom)}} * (1.0 - 0.7 * v_r.w), 1.0, d);
+    float along = smoothstep(0.0, 0.06, u) * (1.0 - smoothstep(0.72, 1.0, u + 0.15 * (gap - 0.5)));
+    float outer = 1.0 - v_k.w * smoothstep(0.45, 1.0, u);
+    // the large jagged tears against 1 - Fill; the root and the tip held
     float thr = 1.0 - v_k.y;
-    float er = 0.7 * e + 0.3 * mottle;
-    float cov = smoothstep(thr - {{F(GoreStreakRules.ErodeSoft)}}, thr + {{F(GoreStreakRules.ErodeSoft)}}, er);
+    float tn = 0.75 * gap + 0.25 * flow + {{F(GoreStreakRules.TearJag)}} * (0.5 + v_k.z) * (jag - 0.5);
+    float keep = smoothstep(thr - {{F(GoreStreakRules.TearSoft)}}, thr + {{F(GoreStreakRules.TearSoft)}}, tn);
     float held = v_r.x * (1.0 - smoothstep({{F(0.6f * GoreStreakRules.RootShare)}}, {{F(GoreStreakRules.RootShare)}}, u));
-    float tip = {{F(GoreStreakRules.TipHold)}} * (1.0 - v_r.x) * smoothstep(0.7, 0.85, u) * smoothstep(0.3, 0.6, big) * smoothstep(0.0, 0.1, v_k.y);
-    cov = max(cov, max(held, tip));
-    float opn = smoothstep(0.2, 0.0, small - 0.35 * v_k.z) * v_k.z * (1.0 - held);
-    cov *= 1.0 - 0.5 * opn;
-    float mf = {{F(GoreStreakRules.MottleFloor)}} + {{F(GoreStreakRules.SwipeSolid)}} * (1.0 - v_r.w);   // frame 0: one solid swipe
-    float band0 = v_k.x * along * outer;
-    float core = min(1.0, band0 * edge * cov * (mf + (1.0 - mf) * mottle) * {{F(GoreStreakRules.CoreGain)}});
-    // the mist body under the core (GoreStreakRules.MistAlpha), clumped by the large cells, eroding after the core
-    float mcov = smoothstep(thr - 0.12, thr + 0.05, 0.6 * e + 0.4 * big);
-    float mist = band0 * v_m.x * {{F(GoreStreakRules.MistAlpha)}} * (1.0 - smoothstep({{F(GoreStreakRules.MistFrom)}}, {{F(GoreStreakRules.MistTo)}}, av + 0.6 * (lump - 0.5))) * mcov * (0.35 + 0.65 * big);
-    float nearf = smoothstep(near_from, near_to, v_depth);
-    float shp = max(core, mist) * nearf;
-    float dens = mottle * (1.0 - 0.4 * min(av, 1.0));   // lighter in the cell centres
-    float red = v_m.y * ({{F(GoreStreakRules.GranuleFloor)}} + {{F(GoreStreakRules.GranuleGain)}} * small);   // lighter granules in the cell centres, darker seams
-    // the feathered edge: drawn where the shape clears a threshold the large cells set (GoreStreakRules.Drawn); every drawn texel fully stripped, never a half-stripped pink fringe
-    float cut = {{F(GoreStreakRules.CutLo)}} + {{F(GoreStreakRules.CutHi - GoreStreakRules.CutLo)}} * (1.0 - big);
-    float blood = min(1.0, band0 * edge * cov * ({{F(GoreStreakRules.BloodCrack)}} + {{F(1f - GoreStreakRules.BloodCrack)}} * (1.0 - small)));   // darker cracks, lighter cells
-    if (probe >= 0.0) { shp = (av < 1.0 && u > 0.1 && u < 0.9) ? 1.0 : 0.0; blood = probe; dens = 0.7; red = 1.0; cut = 0.5; nearf = 1.0; }
-    float dr = smoothstep(cut - {{F(GoreStreakRules.DrawRamp)}}, cut + {{F(GoreStreakRules.DrawRamp)}}, shp);
-    if (dr <= 0.0) discard;
-    float a = min(1.0, blood * core_alpha) * nearf * dr;
-{{(strip ? $$"""
-    float st = strip_max * dr;
-{{StripMix}}
-""" : $$"""
-    ALBEDO = out_col(tint * shade * mix({{F(ClassicBloodRules.RibbonShadeFloor)}}, {{F(ClassicBloodRules.RibbonShadeTop)}}, smoothstep(0.15, 0.85, dens)));
+    float tip = {{F(GoreStreakRules.TipHold)}} * (1.0 - v_r.x) * smoothstep(0.7, 0.85, u) * smoothstep(0.35, 0.65, flow) * smoothstep(0.0, 0.1, v_k.y);
+    keep = max(keep, max(held, tip));
+    float ff = mix({{F(GoreStreakRules.FlowFloor)}}, {{F(GoreStreakRules.HazeFlowFloor)}}, v_r.w);   // the late haze evener (no breaking into specks)
+    float a = v_k.x * body * along * outer * keep * (ff + (1.0 - ff) * flow) * (1.0 + {{F(GoreStreakRules.GrainGain)}} * (1.0 - {{F(GoreStreakRules.HazeGrainCut)}} * v_r.w) * (grain - 0.5));
+    a = min({{F(GoreStreakRules.AlphaMax)}}, a * {{F(GoreStreakRules.AlphaGain)}});
+    float dens = smoothstep(0.35, 0.95, flow * body) * v_dp;
+    if (probe >= 0.0) { a = (av < 1.0 && u > 0.1 && u < 0.9) ? probe : 0.0; dens = 0.5; }
+    a *= smoothstep(near_from, near_to, v_depth);
+    if (a < 0.004) discard;
+    vec3 c = mix(thin_rgb, dense_rgb, dens);
+    if (srgb_out) c.gb = mix(c.gb, vec2(c.r), {{F(GoreStreakRules.CompatLift)}});   // Compatibility mixes in display values: a little more green and blue keeps its result on Forward+'s (GoreStreakRules.CompatLift)
+    ALBEDO = out_col(c * scene_light);
     ALPHA = a;
-""")}}
 }
 """;
 
-    static Shader? _shader, _stripShader;
+    static Shader? _shader;
     static ImageTexture? _tex;
     static ArrayMesh? _strip;
-    static readonly StringName PNow = "now", PAgeOverride = "age_override", PFil = "fil", PTint = "tint", PShade = "shade", PCoreAlpha = "core_alpha", PStripMax = "strip_max",
-        PNearFrom = "near_from", PNearTo = "near_to", PStripRed = "strip_red", PSrgbOut = "srgb_out", PProbe = "probe";
+    static readonly StringName PNow = "now", PAgeOverride = "age_override", PFil = "fil", PNearFrom = "near_from", PNearTo = "near_to", PSrgbOut = "srgb_out", PProbe = "probe", PSceneLight = "scene_light";
 
     MultiMesh _mm = null!;
     MultiMeshInstance3D _node = null!;
-    ShaderMaterial _mat = null!, _stripMat = null!;
+    ShaderMaterial _mat = null!;
     readonly double[] _starts = new double[GoreStreakRules.PoolSize];
     readonly bool[] _own = new bool[GoreStreakRules.PoolSize];
     readonly int[] _slotVictim = new int[GoreStreakRules.PoolSize];
     readonly double[] _lastHit = new double[GoreStreakRules.PoolSize];
     readonly bool[] _lethal = new bool[GoreStreakRules.PoolSize];
+    readonly float[] _scale = new float[GoreStreakRules.PoolSize];
     readonly Dictionary<int, int> _victimSlot = new();
     readonly List<int> _victimStale = new();
     double _clock;
@@ -243,15 +228,15 @@ void fragment() {
     public float? AgeOverride
     {
         get => _ageOverride;
-        set { _ageOverride = value; if (_mat is not null) { _mat.SetShaderParameter(PAgeOverride, value ?? -1f); _stripMat.SetShaderParameter(PAgeOverride, value ?? -1f); } }
+        set { _ageOverride = value; _mat?.SetShaderParameter(PAgeOverride, value ?? -1f); }
     }
     float? _ageOverride;
 
-    /// <summary>The capture aid's colour probe (<c>--gore-streak-probe</c>): every band's core drawn solid at this core opacity, or null (off).</summary>
+    /// <summary>The capture aid's colour probe (<c>--gore-streak-probe</c>): every band drawn solid at this opacity, or null (off).</summary>
     public float? Probe
     {
         get => _probe;
-        set { _probe = value; if (_mat is not null) { _mat.SetShaderParameter(PProbe, value ?? -1f); _stripMat.SetShaderParameter(PProbe, value ?? -1f); } }
+        set { _probe = value; _mat?.SetShaderParameter(PProbe, value ?? -1f); }
     }
     float? _probe;
 
@@ -260,7 +245,7 @@ void fragment() {
     {
         _nearFrom = from; _nearTo = to;
         if (_mat is null) return;
-        foreach (var m in new[] { _mat, _stripMat }) { m.SetShaderParameter(PNearFrom, from); m.SetShaderParameter(PNearTo, to); }
+        _mat.SetShaderParameter(PNearFrom, from); _mat.SetShaderParameter(PNearTo, to);
     }
     float _nearFrom = GoreStreakRules.NearFadeFrom, _nearTo = GoreStreakRules.NearFadeTo;
 
@@ -271,8 +256,8 @@ void fragment() {
     public int Live => _live;
     public int LiveOwn => _liveOwn;
 
-    /// <summary>The shader source (for tests and the log): the blood pass, or the strip pass.</summary>
-    public static string Source(bool strip) => ShaderCode(strip);
+    /// <summary>The shader source (for tests and the log).</summary>
+    public static string Source() => ShaderCode();
 
     /// <summary>The strip mesh: <see cref="GoreStreakRules.Segments"/> segments along (x = 0..1), two vertices across (y = -1, 1); the vertex stage lays it out.</summary>
     static ArrayMesh StripMesh()
@@ -326,26 +311,19 @@ void fragment() {
     public override void _Ready()
     {
         if (Capture1080) CaptureWindow(GetWindow());
-        _shader ??= new Shader { Code = ShaderCode(strip: false) };
-        _stripShader ??= new Shader { Code = ShaderCode(strip: true) };
-        var tint = new Vector3(GoreStreakRules.StreakBloodRgb.R, GoreStreakRules.StreakBloodRgb.G, GoreStreakRules.StreakBloodRgb.B);
+        _shader ??= new Shader { Code = ShaderCode() };
         _mat = new ShaderMaterial { Shader = _shader, RenderPriority = ClassicBloodRules.RibbonRenderPriority + 1 };
-        _stripMat = new ShaderMaterial { Shader = _stripShader, RenderPriority = ClassicBloodRules.RibbonRenderPriority, NextPass = _mat };
-        // the same darker red on both renderers (repair round 3: both blend in linear light before the tonemapper, so the same values)
-        foreach (var m in new[] { _mat, _stripMat })
-        {
-            m.SetShaderParameter(PFil, Filament()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, GoreStreakRules.Shade);
-            m.SetShaderParameter(PStripMax, GoreStreakRules.StripMax); m.SetShaderParameter(PCoreAlpha, GoreStreakRules.CoreAlpha);
-            m.SetShaderParameter(PNearFrom, _nearFrom); m.SetShaderParameter(PNearTo, _nearTo);
-            m.SetShaderParameter(PStripRed, GoreStreakRules.StripRed); m.SetShaderParameter(PSrgbOut, RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility"); m.SetShaderParameter(PProbe, _probe ?? -1f);
-        }
+        // the same values on both renderers (both blend in linear light before the tonemapper; Compatibility takes them in display form)
+        _mat.SetShaderParameter(PFil, Filament()); _mat.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f);
+        _mat.SetShaderParameter(PNearFrom, _nearFrom); _mat.SetShaderParameter(PNearTo, _nearTo);
+        _mat.SetShaderParameter(PSrgbOut, RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility"); _mat.SetShaderParameter(PProbe, _probe ?? -1f);
         _mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true, Mesh = StripMesh() };
         _mm.InstanceCount = GoreStreakRules.PoolSize * NB;
         _mm.VisibleInstanceCount = 0;
         for (int i = 0; i < _starts.Length; i++) _starts[i] = double.NegativeInfinity;
         _node = new MultiMeshInstance3D
         {
-            Name = "GoreStreaks", Multimesh = _mm, MaterialOverride = _stripMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, TopLevel = true,
+            Name = "GoreStreaks", Multimesh = _mm, MaterialOverride = _mat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, TopLevel = true,
             Layers = FxBatch.FxRenderLayer, CustomAabb = new Aabb(new Vector3(-5000f, -5000f, -5000f), new Vector3(10000f, 10000f, 10000f)),
         };
         AddChild(_node);
@@ -372,9 +350,9 @@ void fragment() {
 
     /// <summary>
     /// Starts one streak (Godot world, see <see cref="GoreStreakRules.Streak"/>) on <paramref name="victim"/> (0: none known), or joins the victim's running streak
-    /// (<see cref="GoreStreakRules.JoinOf"/>): a hit within <see cref="GoreStreakRules.MergeSeconds"/> of the victim's last one merges into it (held back to
-    /// <see cref="GoreStreakRules.HoldAge"/>, never restarted; a kill's streak is never replaced by a hit that did not kill), a killing hit on a running non-killing streak takes its slot
-    /// and starts over bigger; otherwise a new streak. Returns its slot.
+    /// (<see cref="GoreStreakRules.JoinOf"/>): one streak per victim at a time. A hit within <see cref="GoreStreakRules.MergeSeconds"/> of the victim's last one, or on a streak younger
+    /// than <see cref="GoreStreakRules.HoldUntilAge"/>, merges into it (held back to <see cref="GoreStreakRules.HoldAge"/>; a kill's streak is never replaced by a hit that did not
+    /// kill); a killing or heavier hit on a running non-killing streak, or any hit on a faded one, takes its slot and starts over; with none showing a new streak. Returns its slot.
     /// </summary>
     public int Spawn(in GoreStreakRules.Streak s, int victim = 0, bool own = false)
     {
@@ -383,7 +361,7 @@ void fragment() {
         int slot;
         if (victim != 0 && _victimSlot.TryGetValue(victim, out int vs) && _slotVictim[vs] == victim && vs != _prewarmSlot)
         {
-            switch (GoreStreakRules.JoinOf(_starts[vs], _lastHit[vs], _lethal[vs], _clock, s.Lethal))
+            switch (GoreStreakRules.JoinOf(_starts[vs], _lastHit[vs], _lethal[vs], _clock, s.Lethal, _scale[vs], s.Scale))
             {
                 case GoreStreakRules.Join.Merge:
                 {
@@ -418,6 +396,7 @@ void fragment() {
         _starts[slot] = start;
         _lastHit[slot] = _clock;
         _lethal[slot] = s.Lethal;
+        _scale[slot] = s.Scale;
         _own[slot] = own;
         _slotVictim[slot] = victim;
         if (victim != 0)
@@ -476,15 +455,63 @@ void fragment() {
         }
     }
 
+    /// <summary>
+    /// The light on the blood (gore round 4, exposure-aware: the gate-4 live clips showed unshaded red glowing on dark maps): the environment's ambient light plus the visible
+    /// directional lights (energy x colour's luminance x the wrapped facing share), in scene-linear units, clamped to <see cref="GoreStreakRules.SceneLightMin"/>..Max; the map's local
+    /// lights and the capture aid's fill light are left out, so it is the same on both renderers and in captures and live play. The suns are looked up every 10 s, the energies read
+    /// every half second.
+    /// </summary>
+    public float SceneLight => _sceneLight;
+    float _sceneLight = GoreStreakRules.SceneLight;
+    double _lightAt = double.NegativeInfinity, _sunsAt = double.NegativeInfinity;
+    DirectionalLight3D[] _suns = System.Array.Empty<DirectionalLight3D>();
+
+    void UpdateSceneLight()
+    {
+        if (_clock - _lightAt < 0.5) return;
+        _lightAt = _clock;
+        var world = GetViewport()?.World3D;
+        var env = world?.Environment ?? world?.FallbackEnvironment;
+        float amb = GoreStreakRules.AmbientFallback;
+        if (env is not null)
+        {
+            var c = env.AmbientLightColor.SrgbToLinear();
+            amb = env.AmbientLightSource switch
+            {
+                Godot.Environment.AmbientSource.Disabled => 0f,
+                Godot.Environment.AmbientSource.Color => GoreStreakRules.Luma(c.R, c.G, c.B) * env.AmbientLightEnergy,
+                _ => GoreStreakRules.SkyAmbientShare * env.AmbientLightEnergy * env.BackgroundEnergyMultiplier,   // sky or background: an estimate
+            };
+        }
+        if (_clock - _sunsAt >= 10.0)
+        {
+            _sunsAt = _clock;
+            var found = new List<DirectionalLight3D>();
+            foreach (var n in GetTree().Root.FindChildren("*", "DirectionalLight3D", true, false)) if (n is DirectionalLight3D d) found.Add(d);
+            _suns = found.ToArray();
+        }
+        float sun = 0f;
+        foreach (var d in _suns)
+            if (GodotObject.IsInstanceValid(d) && d.IsVisibleInTree())
+            {
+                var lc = d.LightColor.SrgbToLinear();
+                sun += d.LightEnergy * GoreStreakRules.Luma(lc.R, lc.G, lc.B);
+            }
+        float light = GoreStreakRules.LightOf(amb, sun);
+        if (MathF.Abs(light - _sceneLight) > 1e-3f) { _sceneLight = light; _mat.SetShaderParameter(PSceneLight, light); }
+        if (!_lightLogged) { _lightLogged = true; GD.Print($"gore streak: scene light {light:F2} (ambient {amb:F2}, suns {sun:F2} from {_suns.Length})"); }
+    }
+    bool _lightLogged;
+
     public override void _Process(double delta)
     {
         if (_mm is null) return;
         BeforeFrame?.Invoke();
         _watch.Restart();
         _clock += delta;
+        UpdateSceneLight();
         float now = (float)(_clock % ClockPeriod);
         _mat.SetShaderParameter(PNow, now);
-        _stripMat.SetShaderParameter(PNow, now);
         if (_prewarmSlot >= 0)
         {
             if (_clock >= _prewarmUntil) { Retire(_prewarmSlot); _prewarmSlot = -1; }

@@ -48,8 +48,8 @@ public partial class NetworkView
 
     /// <summary>
     /// Starts one streak at <paramref name="origin"/> (Godot world) along <paramref name="axis"/> on the plane of <paramref name="normal"/> (turned toward the camera,
-    /// <see cref="GoreStreakRules.CameraBias"/>), <paramref name="bodyHeight"/> m tall victim, <paramref name="scale"/>; on <paramref name="victim"/> (0: none known; a victim's streak younger
-    /// than <see cref="GoreStreakRules.ReplaceSeconds"/> is replaced, never stacked); <paramref name="unitCap"/> the largest metres per table unit.
+    /// <see cref="GoreStreakRules.CameraBias"/>), <paramref name="bodyHeight"/> m tall victim, <paramref name="scale"/>; on <paramref name="victim"/> (0: none known; one streak per victim at a time:
+    /// a later hit holds or replaces the victim's live streak, <see cref="GoreStreakRules.JoinOf"/>, never stacks a second); <paramref name="unitCap"/> the largest metres per table unit.
     /// </summary>
     void SpawnStreak(Vector3 origin, Vector3 axis, Vector3 normal, float bodyHeight, float scale, float preAge, float bend, bool lethal, bool heavy, int seed, GoreStreakRules.Source source = GoreStreakRules.Source.Gunfire,
         int victim = 0, bool own = false, float unitCap = GoreStreakRules.MaxUnitMetres)

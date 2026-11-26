@@ -37,7 +37,7 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
         Assert.Equal(1f, Keys[0].Branches);                           // one swipe: no side band yet
         Assert.True(Keys[0].Exit <= 1.65f);                            // frame 0: a short swipe (its tapered, eroded tip reads about 1.25 H)
         Assert.True(Keys[1].Exit > Keys[0].Exit && Keys[2].Exit >= Keys[1].Exit);
-        Assert.True(Keys[2].Width > 2.5f * Keys[0].Width);           // thin swipe, then wide bands
+        Assert.True(Keys[2].Width > 1.8f * Keys[0].Width);           // a narrow swipe, then wide bands
         Assert.True(Keys[2].Fan > Keys[0].Fan && Keys[2].Fan is >= 8f and <= 30f);   // the upper band rising off the main (12 to 15 degrees on screen at the reference's oblique view; ours 20 in the plane)
         Assert.True(Grow(Keys[2]) >= 1f && Grow(Keys[0]) == 0f);
         for (int i = 0; i < Keys.Length; i++) Assert.True(Keys[i].Entry <= 0.56f * Keys[i].Exit, $"frame {i}: entry at most about 0.55 of the exit");
@@ -55,7 +55,7 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
             Assert.True(Keys[i].Fill <= Keys[i - 1].Fill, $"frame {i}: the erosion never heals");
             Assert.True(Keys[i].Exit >= Keys[i - 1].Exit - 1e-4f, $"frame {i}: the blood hangs in place, the reach never shrinks");
         }
-        Assert.True(Keys[5].Fill > 0.65f && Keys[6].Fill < 0.7f);   // mostly whole bands through frame 5, patches from frame 6
+        Assert.True(Keys[5].Fill > 0.6f && Keys[6].Fill < 0.6f);    // mostly whole bands through frame 5 (a few large tears), patches from frame 6
         Assert.True(Keys[^1].Fill < 0.12f);
         Assert.Equal(0f, Sample(LifeSeconds).Opacity);
         Assert.Equal(0f, Sample(-0.01f).Opacity);
@@ -95,7 +95,7 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
                 Assert.True(mid.Length < main.Length && low.Length < main.Length && mid.Length > upper.Length);
                 Assert.InRange(MathF.Abs(entry.Angle) * 180f / MathF.PI, 172f, 188f);        // behind the wound
                 Assert.True(lower.Angle < main.Angle);                                         // the fourth band below
-                Assert.True(upper.HalfWidth < main.HalfWidth && entry.HalfWidth < main.HalfWidth);
+                Assert.True(upper.HalfWidth < main.HalfWidth && entry.HalfWidth <= 1.4f * main.HalfWidth);   // the entry: a short, broad stub
                 Assert.True(upper.Root > 0f && entry.Root == 0f);                             // the upper band leaves the main just past the wound
             }
     }
@@ -145,14 +145,14 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
         var fan = new float[Keys.Length];
         for (int f = 0; f < Keys.Length; f++)
         {
-            float sum = 0f, ex = 0f, en = 0f, al = 0f, hf = 0f, fl = 0f; int pa = 0;
+            float sum = 0f, ex = 0f, en = 0f, al = 0f, hf = 0f, fl = 0f, op = 0f; int pa = 0;
             for (int seed = 1; seed <= 4; seed++)
             {
                 var m = Measure(Keys[f].T, seed, 0f, false, Tex, FilamentSize);
-                sum += m.Area; ex += m.ExitReach; en += m.EntryReach; pa += m.MainPatches; al += m.MeanAlpha; hf += m.HalfFan; fl += m.Fill;
+                sum += m.Area; ex += m.ExitReach; en += m.EntryReach; pa += m.MainPatches; al += m.MeanAlpha; hf += m.HalfFan; fl += m.Fill; op += m.Opaque;
             }
             area[f] = sum / 4f; fan[f] = hf / 4f;
-            output.WriteLine($"f{f}: area {area[f]:F3} exit {ex / 4f:F2} entry {en / 4f:F2} ratio {en / MathF.Max(ex, 1e-3f):F2} half-fan {fan[f]:F1} fill {fl / 4f:F2} main patches {pa / 4f:F1} mean alpha {al / 4f:F2}");
+            output.WriteLine($"f{f}: area {area[f]:F3} exit {ex / 4f:F2} entry {en / 4f:F2} ratio {en / MathF.Max(ex, 1e-3f):F2} half-fan {fan[f]:F1} fill {fl / 4f:F2} main patches {pa / 4f:F1} mean alpha {al / 4f:F2} opaque {op / 4f:F2}");
         }
         Assert.InRange(area[0], 0.03f, 0.13f);
         for (int f = 1; f <= 5; f++) Assert.InRange(area[f], 0.18f, 0.55f);   // face-on; the plane's slant shows about 0.8 of it
@@ -166,7 +166,7 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
         Assert.True(m0.EntryReach < 0.6f * m0.ExitReach);
         // the exit holds near its reach through frame 9 (the tip hold), then falls
         var m9 = Measure(Keys[9].T, 2, 0f, false, Tex, FilamentSize);
-        Assert.True(m9.ExitReach > 0.75f * Keys[9].Exit, $"frame 9 exit {m9.ExitReach:F2}");
+        Assert.True(m9.ExitReach > 0.6f * Keys[9].Exit, $"frame 9 exit {m9.ExitReach:F2}");
         // from frame 6 the main band breaks into patches
         int patches = 0;
         for (int seed = 1; seed <= 6; seed++) patches += Measure(Keys[6].T, seed, 0f, false, Tex, FilamentSize).MainPatches;
@@ -175,46 +175,73 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
         var kill = Measure(Keys[4].T, 2, 0f, true, Tex, FilamentSize, new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, Scale(Weight.Normal, true), 2, 0f, 0f, true).WidthMul);
         var hit = Measure(Keys[4].T, 2, 0f, false, Tex, FilamentSize);
         Assert.True(kill.Area > hit.Area);
-        Assert.True(new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, Scale(Weight.Normal, true), 2, 0f, 0f, true).Unit >= 1.35f * new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, 1f, 2, 0f, 0f, false).Unit);
+        // gore round 4: bigger on a kill, but not the 2.2 times the reference's area gate 4 measured (metres squared: table area x unit squared)
+        float killUnit = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, Scale(Weight.Normal, true), 2, 0f, 0f, true).Unit, hitUnit = 2f;
+        float ratio = kill.Area * killUnit * killUnit / (hit.Area * hitUnit * hitUnit);
+        output.WriteLine($"kill area ratio {ratio:F2}");
+        Assert.InRange(ratio, 1.2f, 1.9f);
+        // translucent throughout (gate 4: 64 to 89 % of the streak's pixels fully opaque in frames 0 to 5; the reference translucent)
+        for (int f = 0; f <= 5; f++) Assert.True(Measure(Keys[f].T, 3, 0f, false, Tex, FilamentSize).Opaque < 0.3f, $"frame {f}: mostly translucent");
+        Assert.True(new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, Scale(Weight.Normal, true), 2, 0f, 0f, true).Unit >= 1.15f * new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, 1f, 2, 0f, 0f, false).Unit);
     }
 
     [Fact]
-    public void Cores_are_mottled_cells_in_a_soft_mist_body_with_a_feathered_edge()
+    public void The_spray_is_a_soft_translucent_body_with_a_ragged_edge_and_large_jagged_tears()
     {
+        // gore round 4 (owner 2026-11-26: translucent allowed; "more spread out instead of locked into straight hard lines"; "large jagged gaps the way the reference does")
         var k = Keys[2];
         var b = BandOf(Band.Main, k, 4, 0f);
-        float centre = 0f, edge = 0f, min = 1f, max = 0f; int n = 0, mistDrawn = 0, mistAll = 0, coreDrawn = 0;
+        float centre = 0f, edge = 0f; int n = 0, capped = 0, shown = 0;
         for (float u = 0.35f; u < 0.75f; u += 0.005f)
         {
             var c = TexelAt(k, b, Band.Main, u, 0.05f, 4, Tex, FilamentSize);
-            var e = TexelAt(k, b, Band.Main, u, 0.95f, 4, Tex, FilamentSize);
-            centre += c.Core; edge += e.Core; n++;
-            min = MathF.Min(min, c.Core); max = MathF.Max(max, c.Core);
-            if (Drawn(c.Alpha, c.Cut) >= 1f) coreDrawn++;
-            foreach (float v in new[] { 1.4f, 1.8f })
+            var e = TexelAt(k, b, Band.Main, u, 0.85f, 4, Tex, FilamentSize);
+            centre += c.Alpha; edge += e.Alpha; n++;
+            if (c.Alpha >= 0.98f * AlphaMax) capped++;
+            if (Shows(c.Alpha)) shown++;
+            Assert.True(c.Alpha <= AlphaMax + 1e-5f, "translucent: the ground always shows through");
+        }
+        output.WriteLine($"centre {centre / n:F2} edge {edge / n:F2} capped {capped}/{n} shown {shown}/{n}");
+        Assert.True(centre / n > 1.6f * edge / n, $"a soft body: thicker in the middle ({centre / n:F2}) than at the edge ({edge / n:F2})");
+        Assert.InRange(centre / n, 0.3f, 0.75f);                         // translucent, not a solid strip
+        Assert.True(capped < 0.35f * n, $"mostly below the cap ({capped}/{n})");
+        Assert.True(shown > 0.6f * n, "the body shows along its middle (the tears take the rest)");
+        Assert.Equal(0f, TexelAt(k, b, Band.Main, 0.5f, EdgePad, 4, Tex, FilamentSize).Alpha, 2);   // past the ragged edge: nothing
+        Assert.True(MeanderWidth > 0f && Meander(b, 0f) == 0f && MathF.Abs(Meander(b, 1f)) < 1e-4f);  // the middle line waves, not at the root or the tip
+
+        // the ragged edge: where the body ends moves along the band (not a straight line)
+        var ends = new List<float>();
+        for (float u = 0.3f; u < 0.8f; u += 0.01f)
+        {
+            float last = 0f;
+            for (float v = 0f; v < EdgePad; v += 0.02f) if (TexelAt(k with { Fill = 1f }, b, Band.Main, u, v, 4, Tex, FilamentSize).Body > 0.25f) last = v;
+            ends.Add(last);
+        }
+        float lo = ends.Min(), hi = ends.Max();
+        output.WriteLine($"edge {lo:F2}..{hi:F2}");
+        Assert.True(hi - lo > 0.3f, $"a ragged, lumpy edge ({lo:F2}..{hi:F2})");
+
+        // large jagged tears, not pinholes: at frame 5 the main band's middle line breaks into a few long runs with long gaps between
+        var k5 = Keys[5];
+        int runs = 0, gaps = 0, longestGap = 0, gap = 0; bool on = true;
+        int samples = 0;
+        for (int seed = 1; seed <= 6; seed++)
+        {
+            var b5 = BandOf(Band.Main, k5, seed, 0f);
+            on = true; gap = 0;
+            for (int i = 0; i < 200; i++)
             {
-                var m = TexelAt(k, b, Band.Main, u, v, 4, Tex, FilamentSize);
-                mistAll++;
-                if (Drawn(m.Alpha, m.Cut) >= 1f) mistDrawn++;
-                Assert.True(m.Core < 0.05f, "outside the core's edge only the mist");
+                float u = 0.32f + 0.6f * i / 200f;
+                bool s = TexelAt(k5, b5, Band.Main, u, 0f, seed, Tex, FilamentSize).Keep > 0.5f;
+                samples++;
+                if (s && !on) { runs++; longestGap = Math.Max(longestGap, gap); gap = 0; }
+                if (!s) { if (on) gaps++; gap++; }
+                on = s;
             }
         }
-        output.WriteLine($"centre {centre / n:F2} edge {edge / n:F2} core {min:F2}..{max:F2} core drawn {coreDrawn}/{n} mist drawn {mistDrawn}/{mistAll}");
-        Assert.True(centre / n > 2f * edge / n, $"centre {centre / n:F2} vs edge {edge / n:F2}");
-        Assert.True(max - min > 0.15f, $"the cells vary the core ({min:F2}..{max:F2})");
-        Assert.True(coreDrawn > 0.75f * n, "the cores are drawn (a few cracks open)");
-        // the mist: a body 2 to 3 times the core's width, broken into clumps toward its edge (neither empty nor a solid slab)
-        Assert.InRange(mistDrawn / (float)mistAll, 0.08f, 0.85f);
-        Assert.Equal(0f, Drawn(TexelAt(k, b, Band.Main, 0.5f, MistTo + 0.7f, 4, Tex, FilamentSize).Alpha, CutLo), 3);   // past the mist: nothing
-        Assert.True(MistTo >= 1.8f && MistTo <= 3.5f && EdgePad >= MistTo + 0.2f);   // a soft body 2 to 3.5 times the core's width
-        // the feathered edge: drawn clumps thin out with distance from the core
-        int near = 0, far = 0;
-        for (float u = 0.2f; u < 0.8f; u += 0.004f)
-        {
-            var a1 = TexelAt(k, b, Band.Main, u, 1.2f, 4, Tex, FilamentSize); if (Drawn(a1.Alpha, a1.Cut) >= 0.5f) near++;
-            var a2 = TexelAt(k, b, Band.Main, u, 2.1f, 4, Tex, FilamentSize); if (Drawn(a2.Alpha, a2.Cut) >= 0.5f) far++;
-        }
-        Assert.True(near > far, $"near {near} far {far}");
+        output.WriteLine($"frame 5 tears: {gaps} gaps over 6 seeds, longest {longestGap} of 200 samples");
+        Assert.InRange(gaps / 6f, 0.5f, 6f);                             // a few tears per band, not dozens of pinholes
+        Assert.True(longestGap >= 12, $"a large gap ({longestGap} samples, about {longestGap * 0.6f * k5.Exit / 200f:F2} H)");
     }
 
     [Fact]
@@ -238,13 +265,10 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
             inside += Math.Abs(Tex[(y * FilamentSize + 100) * 4] - Tex[(y * FilamentSize + 101) * 4]);
         }
         Assert.True(seam < inside * 2 + FilamentSize * 4, $"seam {seam} vs inside {inside}");
-        // cells: soft bright centres with dark cracks between (a minority of texels bright), a little longer along the spray than across, never a long stripe (repair round 3)
-        int bright = 0;
-        for (int i = 0; i < Tex.Length; i += 4) if (Tex[i] > 160) bright++;
-        Assert.InRange(bright / (float)(Tex.Length / 4), 0.05f, 0.5f);
-        float aspect = CellAlongH / CellAcrossH;
-        Assert.InRange(aspect, 1.2f, 2.2f);
-        Assert.InRange(CellAlongH / SmallCells, 0.02f, 0.05f);   // a small cell about 0.03 H along
+        // gore round 4: soft flow streaks several times longer than wide (never beads or cells), tears far larger than the grain
+        Assert.InRange(FlowAlongH / FlowAcrossH, 4f, 9f);
+        Assert.True(GapAlongH / 12f >= 0.3f && GapAcrossH / 12f >= 0.08f, "tear blotches about 0.4 H by 0.12 H");
+        Assert.True(GrainAlongH < GapAlongH / 4f && GrainAcrossH < GapAcrossH / 4f);
     }
 
     [Fact]
@@ -300,7 +324,8 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
         Assert.Equal(1.35f, Scale(Weight.Heavy, false));
         foreach (var w in Enum.GetValues<Weight>()) Assert.True(Scale(w, true) > Scale(w, false));
         Assert.True(Scale(Weight.Heavy, true) <= MaxScale);
-        Assert.Equal(1.4f, Scale(Weight.Normal, true), 4);
+        Assert.Equal(LethalScale, Scale(Weight.Normal, true), 4);
+        Assert.InRange(LethalScale, 1.15f, 1.35f);   // gore round 4: bigger on a kill, not twice the area
     }
 
     [Theory]
@@ -396,61 +421,72 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
     [InlineData(0.55f, 0.75f, 1f)]    // light blue armour
     [InlineData(1f, 0.9f, 0.6f)]      // a bright warm light / a power weapon's flash on screen
     [InlineData(0.57f, 0.565f, 0.55f)]// the grey backdrop as drawn
+    [InlineData(0.3f, 0.45f, 0.25f)]  // an Ork's green
     [InlineData(0.05f, 0.05f, 0.05f)] // dark
-    public void Inside_a_streak_the_colour_is_red_or_darker_never_white_or_pink(float r, float g, float b)
+    public void Inside_a_streak_the_colour_is_red_or_pink_never_white(float r, float g, float b)
     {
-        // repair round 3 (reviewer): in display values, a drawn texel's green and blue at most a fifth of its red (the same model on both renderers: both blend in linear before the
-        // tonemapper), over any ground; never lighter than a mid red; from frame 0 to frame 10 (the key's red) and from the mist (no blood) to the densest core
-        foreach (var key in Keys)
-            foreach (float core in new[] { 0f, 0.3f, 0.7f, 1f })
-                foreach (float dens in new[] { 0.2f, 0.6f, 1f })
+        // gore round 4 (owner 2026-11-26: "Allow translucent and opaque that is pink"): a translucent red over any ground stays red or pink - its red above its green and blue by a
+        // visible margin wherever the blood shows (from the mask's opacity up), its blue never above its green by much (red to salmon, not purple), never white; dimly and brightly lit
+        // a ground drawn bright on screen is brightly lit, so is the blood in front of it; a dark one may be dim; the density follows the opacity (the dense streaks are the opaque ones)
+        float[] lights = MathF.Max(r, MathF.Max(g, b)) > 0.5f ? [SceneLight, 1.6f * SceneLight] : [0.5f * SceneLight, SceneLight, 1.6f * SceneLight];
+        foreach (float light in lights)
+            foreach (float a in new[] { MaskAlpha, 0.3f, 0.55f, AlphaMax })
+                foreach (float dens in new[] { 0f, a / AlphaMax })
                 {
-                foreach (float granule in new[] { GranuleFloor, GranuleFloor + GranuleGain })
-                {
-                    var f = Composite((r, g, b), 1f, core, dens, key.Red * granule);
-                    string at = $"red {key.Red} x {granule} core {core}: ({f.R:F3},{f.G:F3},{f.B:F3}) over ({r},{g},{b})";
-                    Assert.True(MathF.Max(f.G, f.B) <= 0.2f * f.R + 0.004f, at);
-                    Assert.True(f.R > 0.25f, "a visible red: " + at);
-                    Assert.True(f.R <= 0.62f, "our darker red, never a light one: " + at);
-                }
+                    var f = Composite((r, g, b), a, dens, light);
+                    var under = (r, g, b);
+                    string at = $"alpha {a:F2} dens {dens} light {light}: ({f.R:F3},{f.G:F3},{f.B:F3}) over ({r},{g},{b})";
+                    // redder than the ground: the red's lead over green and blue grows with the opacity
+                    float lead = f.R - MathF.Max(f.G, f.B), leadUnder = r - MathF.Max(g, b);
+                    bool neutral = MathF.Abs(r - g) < 0.05f && MathF.Abs(g - b) < 0.05f;   // white, grey or black: the blood alone makes the hue
+                    if (neutral) Assert.True(lead > leadUnder + (a >= 0.45f ? 0.04f : 0.01f), "redder than the ground: " + at);
+                    else Assert.True(f.G / MathF.Max(f.R, 1e-3f) < g / r - (a >= 0.3f ? 0.02f : 0.005f), "redder than the coloured ground: " + at);
+                    if (neutral && a >= 0.3f)
+                    {
+                        Assert.True(lead >= 0.035f, "never white or grey (a faint edge over white reads a pale pink): " + at);
+                        Assert.True(MathF.Min(f.G, f.B) <= 0.9f || lead >= 0.08f, "never near white: " + at);
+                        Assert.True(MathF.Max(f.G, f.B) <= (a >= 0.55f ? 0.93f : 0.96f) * f.R, "red or pink: " + at);
+                    }
+                    Assert.True(ToLinear(f.B) - ToLinear(f.G) <= MathF.Max(0f, ToLinear(b) - ToLinear(g)) * (1f - a) + 0.005f, "red to salmon, not purple: " + at);
                 }
     }
 
     [Fact]
-    public void Every_drawn_texel_is_stripped_at_full_strength_and_the_red_falls_as_it_fades()
+    public void Over_the_grey_backdrop_the_blood_matches_the_references_translucent_salmon_red()
     {
+        // the reference's streak pixels over its grey (scoring tools' red mask): median about (158, 113, 110), the 10th and 90th percentiles about (110, 72, 70) and (185, 122, 120);
+        // green over red about 0.7 (ours: a translucent red over the ground). The model leaves out the tonemapper; the captures check the drawn colour.
         var grey = (0.57f, 0.565f, 0.55f);
-        Assert.Equal(grey, Composite(grey, 0f, 1f, 0.7f));   // not drawn: the ground as it was
-        Assert.Equal(0f, Drawn(CutLo - DrawRamp, CutLo));
-        Assert.Equal(1f, Drawn(CutLo + DrawRamp, CutLo));
-        var early = Composite(grey, 1f, 0.6f, 0.7f, Keys[1].Red);
-        var late = Composite(grey, 1f, 0.6f, 0.7f, Keys[9].Red);
-        output.WriteLine($"over grey: early ({early.R * 255:F0},{early.G * 255:F0},{early.B * 255:F0}) late ({late.R * 255:F0},{late.G * 255:F0},{late.B * 255:F0})");
-        Assert.True(early.R - MathF.Max(early.G, early.B) > 0.3f, "red-dominant over grey");
-        // the opacity proxy (red excess) falls as it fades: darker, never pinker
-        Assert.True(late.R - MathF.Max(late.G, late.B) < 0.9f * (early.R - MathF.Max(early.G, early.B)), $"the red falls ({early.R:F2} -> {late.R:F2})");
-        Assert.True(MathF.Max(late.G, late.B) <= 0.2f * late.R);
-        // the same over white and over grey (the ground no longer shows through the red): nothing to bleach
-        var white = Composite((1f, 1f, 1f), 1f, 0.6f, 0.7f, 1f);
-        Assert.True(MathF.Abs(white.R - early.R) < 0.03f, $"white {white.R:F3} grey {early.R:F3}");
-        // the cores (blood) are darker than the mist (strip only)
-        Assert.True(Composite(grey, 1f, 1f, 0.7f).R < Composite(grey, 1f, 0f, 0.7f).R);
+        var thin = Composite(grey, 0.45f, 0.1f, SceneLight);
+        var dense = Composite(grey, 0.75f, 0.9f, SceneLight);
+        output.WriteLine($"thin ({thin.R * 255:F0},{thin.G * 255:F0},{thin.B * 255:F0}) dense ({dense.R * 255:F0},{dense.G * 255:F0},{dense.B * 255:F0})");
+        Assert.InRange(thin.R * 255f, 135f, 200f);
+        Assert.InRange(thin.G / thin.R, 0.45f, 0.8f);
+        Assert.InRange(dense.R * 255f, 70f, 150f);
+        Assert.InRange(dense.G / dense.R, 0.3f, 0.75f);
+        Assert.True(dense.R < thin.R, "the dense streaks deeper than the thin spray");
+        // the ground shows through: the same texel over white is lighter (pink), over black darker; never the same solid red over everything
+        var white = Composite((1f, 1f, 1f), 0.45f, 0.1f, SceneLight);
+        var black = Composite((0.02f, 0.02f, 0.02f), 0.45f, 0.1f, SceneLight);
+        Assert.True(white.G > thin.G + 0.1f && black.G < thin.G - 0.1f);
+        var none = Composite(grey, 0f, 0.5f);                                // nothing drawn: the ground as it was
+        Assert.True(MathF.Abs(none.R - grey.Item1) < 1e-4f && MathF.Abs(none.G - grey.Item2) < 1e-4f && MathF.Abs(none.B - grey.Item3) < 1e-4f);
     }
 
     [Fact]
-    public void The_blood_colour_is_our_darker_red_the_same_on_both_renderers()
+    public void The_blood_colour_is_a_red_from_salmon_to_deep_and_lit_by_the_scene()
     {
         foreach (float d in new[] { 0f, 0.5f, 1f })
         {
             var c = Colour(d);
-            Assert.True(ClassicBloodRules.IsBloodOnly(c, ClassicBloodRules.BloodRgb.R));
-            Assert.True(c.G <= 0.03f * c.R && c.B <= 0.03f * c.R, "almost no green or blue (the tonemapper keeps a fifth of the red at most)");
+            Assert.True(c.G <= 0.3f * c.R && c.B <= c.G, $"a red albedo ({c.R:F2},{c.G:F2},{c.B:F2})");
+            Assert.True(c.R * SceneLight <= 1f, "never brighter than the light on it (no glow of its own)");
         }
-        // on screen (both renderers blend in linear before the tonemapper: one set of values): the cores between about 90 and 160 of 255
-        float lo = ToSrgb(DisplayGain * Colour(0f).R) * 255f, hi = ToSrgb(DisplayGain * Colour(1f).R) * 255f;
-        output.WriteLine($"blood on screen {lo:F0}..{hi:F0}, strip red {ToSrgb(DisplayGain * StripRed) * 255f:F0}");
-        Assert.InRange(lo, 70f, 160f);
-        Assert.InRange(hi, 90f, 170f);
+        Assert.True(Colour(1f).R < Colour(0f).R);
+        Assert.InRange(LightWrap, 0.2f, 0.8f);
+        // lit: a dim level draws it darker (exposure-aware: no glow on a dark map)
+        var grey = (0.3f, 0.3f, 0.3f);
+        Assert.True(Composite(grey, 0.6f, 0.3f, 0.3f * SceneLight).R < Composite(grey, 0.6f, 0.3f, SceneLight).R - 0.1f);
     }
 
     // ---- pool and budget ----
@@ -468,19 +504,27 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Sustained_fire_merges_into_one_held_streak_and_a_kill_is_never_replaced_by_a_lesser_hit()
+    public void One_streak_per_victim_bursts_hold_it_heavier_hits_and_kills_restart_it_bigger()
     {
-        // nothing showing, or a pause after the last hit: a new streak
+        // nothing showing: a new streak
         Assert.Equal(Join.New, JoinOf(double.NegativeInfinity, double.NegativeInfinity, false, 10.0, false));
-        Assert.Equal(Join.New, JoinOf(10.0, 10.0, false, 10.0 + MergeSeconds, false));
         Assert.Equal(Join.New, JoinOf(10.0, 10.9, false, 10.0 + LifeSeconds, false));   // the old one is spent
         // a hit within a quarter second of the last joins the running streak (no restart)
-        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, false, 10.1, false));
-        Assert.Equal(Join.Merge, JoinOf(10.0, 10.6, false, 10.8, false));                // sustained fire: still the first streak
+        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, false, 10.1, false, 1f, 1f));
+        Assert.Equal(Join.Merge, JoinOf(10.0, 10.6, false, 10.8, false, 1f, 1f));          // sustained fire: still the first streak
+        // gore round 4 (gate-4 finding): hits 0.25 to 1.1 s apart never stack several streaks on one victim: held while the streak is young, else replaced in its slot
+        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, false, 10.0 + MergeSeconds, false, 1f, 1f));
+        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, false, 10.0 + HoldUntilAge - 0.01, false, 1f, 1f));
+        Assert.Equal(Join.Upgrade, JoinOf(10.0, 10.0, false, 10.0 + HoldUntilAge + 0.05, false, 1f, 1f));
+        Assert.Equal(Join.Upgrade, JoinOf(10.0, 10.3, false, 11.0, false, 1f, 1f));
         // a kill on a running non-killing streak takes it over, bigger; any hit after a kill joins the kill's streak
-        Assert.Equal(Join.Upgrade, JoinOf(10.0, 10.0, false, 10.1, true));
-        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, true, 10.1, false));
-        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, true, 10.1, true));
+        Assert.Equal(Join.Upgrade, JoinOf(10.0, 10.0, false, 10.1, true, 1f, 1.25f));
+        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, true, 10.1, false, 1.25f, 1f));
+        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, true, 10.1, true, 1.25f, 1.25f));
+        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, true, 10.9, false, 1.25f, 1.35f));     // a kill's streak is never replaced, even by a heavier hit
+        // a heavier joining hit restarts it at its own, bigger size (as a kill does); a lighter or equal one merges
+        Assert.Equal(Join.Upgrade, JoinOf(10.0, 10.0, false, 10.1, false, 1f, HeavyScale));
+        Assert.Equal(Join.Merge, JoinOf(10.0, 10.0, false, 10.1, false, HeavyScale, 1f));
         // a merged streak is held back to frame 4 (it grows again while fading) and never made younger than it is
         Assert.Equal(10.5 - HoldAge, HoldStart(10.0, 10.5), 6);
         Assert.Equal(10.4, HoldStart(10.4, 10.5), 6);
@@ -489,10 +533,19 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
         double start = 0.0, last = 0.0;
         for (double t = 0.1; t < 2.0; t += 0.1)
         {
-            Assert.Equal(Join.Merge, JoinOf(start, last, false, t, false));
+            Assert.Equal(Join.Merge, JoinOf(start, last, false, t, false, 1f, 1f));
             last = t; start = HoldStart(start, t);
             Assert.True(t - start <= HoldAge + 1e-9);
         }
+        // hits every 0.4 s for 3 s on one victim: at most one streak showing at any time (each hit holds or replaces the one slot)
+        double s0 = double.NegativeInfinity, l0 = double.NegativeInfinity; int slots = 0;
+        for (double t = 0.0; t < 3.0; t += 0.4)
+        {
+            var j = JoinOf(s0, l0, false, t, false, 1f, 1f);
+            if (j == Join.New) slots++;
+            s0 = j == Join.Merge ? HoldStart(s0, t) : t; l0 = t;
+        }
+        Assert.Equal(1, slots);
     }
 
     [Fact]

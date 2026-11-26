@@ -33,8 +33,18 @@ public partial class NetworkView
 
     bool ClassicStreak(ClassicContact c)
     {
-        if (Excluded(c.Wargear)) { _streakExcluded++; return false; }
-        if (_client is not null && c.Victim == _client.PlayerId && c.Victim > 0) return false;   // enemies only: never on the own body (lead decision 4)
+        if (Excluded(c.Wargear))
+        {
+            _streakExcluded++;
+            if (LogHitDir) HitDirPrint($"HITDIR streak none P{c.Attacker}->P{c.Victim}: excluded wargear {c.Wargear} (plasma, melta or flamer) (t {_connectedFor:F2})");
+            return false;
+        }
+        if (_client is not null && c.Victim == _client.PlayerId && c.Victim > 0)
+        {
+            // enemies only: never on the own body (lead decision 4)
+            if (LogHitDir) HitDirPrint($"HITDIR streak none P{c.Attacker}->P{c.Victim}: the own body (t {_connectedFor:F2})");
+            return false;
+        }
         var src = c.Gunfire ? Source.Gunfire : c.Charge ? Source.Charge : c.Exit ? Source.Thrust : Source.Sweep;
         var weight = WeightOf(src, c.Wargear, c.Heavy);
         float scale = GoreStreakRules.Scale(weight, c.Lethal);

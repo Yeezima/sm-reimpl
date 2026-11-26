@@ -46,7 +46,11 @@ public partial class NetworkView
 
     partial void ExtrasClassicBlood(ClassicContact c, ref bool drawn)
     {
-        if (!HitDirLook.HasFlag(ClassicHitDirRules.DirLook.BloodSpray)) return;
+        if (!HitDirLook.HasFlag(ClassicHitDirRules.DirLook.BloodSpray))
+        {
+            if (LogHitDir) HitDirPrint($"HITDIR streak none P{c.Attacker}->P{c.Victim}: the blood spray look is off (t {_connectedFor:F2})");
+            return;
+        }
         if (StreakDraws) { drawn = ClassicStreak(c); return; }   // gore-streak (owner 2026-11-25): the reference sequence's streak
         if (!OldGoreStreakFlag) return;                           // --no-gore-streak: no spray
         var kind = c.Gunfire ? ClassicBloodRules.RibbonKind.Gunfire : c.Charge ? ClassicBloodRules.RibbonKind.Charge : c.Exit ? ClassicBloodRules.RibbonKind.Thrust : ClassicBloodRules.RibbonKind.Sweep;
