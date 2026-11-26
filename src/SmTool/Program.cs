@@ -14,7 +14,6 @@ return args switch
     ["synth-fixture", var output] => SynthFixture(output),
     ["graph-dump", .. var rest] => SmTool.GraphDump.Run(rest),
     ["sync-kills", .. var rest] => SmTool.SyncKillsCommand.Run(rest),
-    ["exec-cues", .. var rest] => SmTool.ExecutionCuesCommand.Run(rest),
     ["weapon-parts", .. var rest] => SmTool.WeaponCommands.Parts(rest),
     ["bot-posts", var gameDir, .. var rest] => SmTool.NavCommands.Posts(gameDir, Opt(rest, "--map") ?? "mp_tdm_09", Opt(rest, "--cache"), rest.Contains("--grid")),
     ["nav-around", var gameDir, .. var rest] => SmTool.NavAroundCommand.Run(gameDir, rest),
@@ -37,6 +36,7 @@ return args switch
     ["stalker-confirm-preview", .. var rest] => SmTool.StalkerConfirmPreviewCommand.Run(rest),
     ["listen-page", .. var rest] => SmTool.ListenPageCommand.Run(rest),
 #if SM_EXTRAS
+    ["exec-cues", .. var execRest] => SmTool.ExecutionCuesCommand.Run(execRest),   // executions sound (src/SmTool/Extras/Executions/; Fable review 2: inside SM_EXTRAS)
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
     ["map", .. var mapRest] => SmTool.MapCommand.Run(mapRest),
     ["dreadnought-dump", .. var dreadRest] => SmTool.DreadnoughtDumpCommand.Run(dreadRest),

@@ -55,6 +55,19 @@ public partial class NetworkView
     readonly List<ExecutionCueTimeline.RunKey> _execCueGone = new();
     Task<(Dictionary<string, CSystem> Systems, Dictionary<string, byte[]> Decals, List<string> Failures)>? _execCueFxLoad;
     bool _execCueFxReady;
+    int _execCueFxNames;
+
+    /// <summary>
+    /// The connection is gone (the core's frame returns before the extras run from then on): every run's cues are interrupted at once, so no grind or loop keeps sounding (Fable review 6).
+    /// Reached through <c>ExtrasConnectionGone</c> (NetworkView.Executions.cs).
+    /// </summary>
+    void ExecutionCuesInterruptAll()
+    {
+        _execCueSteps.Clear();
+        _execCues.InterruptAll(_execCueSteps);
+        foreach (var step in _execCueSteps) ExecCueApply(step, default, []);
+        _execCueSteps.Clear();
+    }
 
     /// <summary>Once a frame from the presenter (also for an observer): starts, advances, finishes and interrupts each run's cues.</summary>
     void ExecutionCuesFrame(PlayerState me, IReadOnlyList<PlayerState> others)
@@ -66,6 +79,7 @@ public partial class NetworkView
         {
             if (catalogue.AtWire(run.Wire) is not { } row) continue;
             var key = new ExecutionCueTimeline.RunKey(run.Executor, run.StartTick);
+            if (_execCues.IsClosed(key)) continue;   // a run ended for silence and revived by the live list stays closed: no second set of cues or streak (Fable review 5)
             if (!_execCueRuns.TryGetValue(key, out var cr))
             {
                 var executor = FindPlayer(run.Executor, me, others);
@@ -74,9 +88,10 @@ public partial class NetworkView
                 _execCueRuns[key] = cr = new ExecCueRun
                 {
                     Run = run, Row = row, Cues = _execLib.Cues.For(row.Id, wield), Wargear = wargear,
-                    Attacker = new SoundEmitter { Label = $"execution P{run.Executor} attacker" },
-                    Victim = new SoundEmitter { Label = $"execution P{run.Executor} victim" },
-                    Wound = new SoundEmitter { Label = $"execution P{run.Executor} wound" },
+                    // One-shot emitters: the sound system forgets their container histories once their voices end (Fable review 3), a live grind keeps them until its stop.
+                    Attacker = new SoundEmitter { Label = $"execution P{run.Executor} attacker", OneShot = true },
+                    Victim = new SoundEmitter { Label = $"execution P{run.Executor} victim", OneShot = true },
+                    Wound = new SoundEmitter { Label = $"execution P{run.Executor} wound", OneShot = true },
                 };
                 cr.Attacker.Follow = () => ExecAttackerAt(cr);
                 cr.Victim.Follow = () => ExecVictimAt(cr, head: false);
@@ -290,21 +305,23 @@ public partial class NetworkView
         }
         else if (cue.Side == ExecutionCueSide.Victim && ExecProxyViewer(cr) is { Skeleton: { } vs } && vs.FindBone(marker) is int vb and >= 0)
             follow = () => IsInstanceValid(vs) && vs.IsInsideTree() ? ((vs.GlobalTransform * vs.GetBoneGlobalPose(vb)).Origin, Basis.Identity) : null;
-        bool head = ExecHeadCue(cue);
+        bool head = ExecHeadCue(cue), atWound = follow is null;
         follow ??= () => ExecWoundAt(cr, head) is { } w ? (w, Basis.Identity) : null;   // a marker this body or blade lacks (the chainsword's teeth on a sword): at the wound
         if (follow() is not { } at) return "no place";
         float life = p.Lifetime > 0f ? p.Lifetime : cue.Until > cue.At ? cue.Until - cue.At + 0.2f : 0f;
         var e = fx.Play(cue.Event, at.Position, at.Axes, p.Scale <= 0f ? 1f : p.Scale, null, p.Attached ? follow : null, life, 0.0, priority: 1);
         if (e is null) return "effect not compiled";
         cr.Effects.Add(e);
-        return $"effect at {(marker.Length > 0 ? marker : "the wound")}";
+        return atWound ? $"effect at the wound ({(marker.Length > 0 ? $"no {marker} on this {(cue.Side == ExecutionCueSide.Attacker ? "blade or body" : "body")}" : "no marker")})" : $"effect at {marker}";
     }
 
     /// <summary>The kill's streak (ours, the current gore streak reused): one at the wound when the clock passes the row's kill frame, where the streak and the gore draw.</summary>
     void ExecCueStreak(ExecCueRun cr, PlayerState me)
     {
-        if (cr.Streaked || ExecCueClock(cr) < cr.Row.KillSeconds) return;
+        float clock = ExecCueClock(cr);
+        if (cr.Streaked || clock < cr.Row.KillSeconds) return;
         cr.Streaked = true;
+        if (clock - cr.Row.KillSeconds > ExecutionCueTimeline.LateSkipSeconds) return;   // first seen past the kill frame (a late join): no streak, as the cues' late skip (Fable review 10)
         if (!StreakDraws || !ExecutionCueRules.BloodAllowed(MatchExtras, NoExecGore) || ExecWoundAt(cr, false) is not { } wound || ExecAttackerAt(cr) is not { } a) return;
         var axis = wound - a; axis.Y = 0f;
         if (axis.LengthSquared() < 1e-4f) axis = Vector3.Forward;
@@ -320,9 +337,12 @@ public partial class NetworkView
     void ExecCueFxLoad()
     {
         if (_execCueFxReady || _fx is not { IsReady: true, Library: { } library } || !_execLib.Ready) return;
-        var names = _execLib.Cues.All.SelectMany(x => x.Cues).Where(c => c.Kind == ExecutionCueKind.Effect).Select(c => c.Event).Distinct(StringComparer.Ordinal).ToArray();
+        var sheet = _execLib.Cues;
         _execCueFxLoad ??= Task.Run(() =>
         {
+            // The names on the worker, once (Fable review 8: not every frame until the compile ends).
+            var names = sheet.All.SelectMany(x => x.Cues).Where(c => c.Kind == ExecutionCueKind.Effect).Select(c => c.Event).Distinct(StringComparer.Ordinal).ToArray();
+            _execCueFxNames = names.Length;
             var failures = new List<string>();
             var systems = CompileSystems(library, names, failures);
             var decals = library.Textures(FxPlayer.DecalNames(systems.Values));
@@ -333,6 +353,6 @@ public partial class NetworkView
         if (_execCueFxLoad.IsFaulted) { GD.PrintErr("execution cues: effects: " + _execCueFxLoad.Exception?.GetBaseException().Message); return; }
         var (compiled, decalBytes, failed) = _execCueFxLoad.Result;
         _fx.Preload(compiled, decalBytes);
-        GD.Print($"execution cues: {compiled.Count} of {names.Length} effects compiled{(failed.Count > 0 ? "; failed: " + string.Join(", ", failed.Take(6)) : "")}");
+        GD.Print($"execution cues: {compiled.Count} of {_execCueFxNames} effects compiled{(failed.Count > 0 ? "; failed: " + string.Join(", ", failed.Take(6)) : "")}");
     }
 }

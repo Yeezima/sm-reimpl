@@ -184,6 +184,65 @@ public class ExecutionCueTests
         Assert.False(t.Has(key));
     }
 
+    [Fact]
+    public void Motor_roles_follow_the_real_event_names()
+    {
+        // Fable review 1: the knife graph's whoosh is a swing, its stab a hit, its draw-out no second hit.
+        Assert.Equal(ExecutionMotorRole.Swing, ExecutionCueRules.RoleOf("play_combat_knife_whoosh"));
+        Assert.Equal(ExecutionMotorRole.Hit, ExecutionCueRules.RoleOf("play_combat_knife_stab"));
+        Assert.Equal(ExecutionMotorRole.Rev, ExecutionCueRules.RoleOf("play_combat_knife_remove"));
+        Assert.Equal(ExecutionMotorRole.Swing, ExecutionCueRules.RoleOf("play_sm_chainsword_swing_x4"));
+        Assert.Equal(ExecutionMotorRole.Grind, ExecutionCueRules.RoleOf("play_sm_sk_chainsword_grind_flesh"));
+        Assert.Equal(ExecutionMotorRole.Grind, ExecutionCueRules.RoleOf("play_sm_chainsword_sk_cut_start"));
+        Assert.Equal(ExecutionMotorRole.Rev, ExecutionCueRules.RoleOf("play_sm_chainsword_rev_x4"));
+        Assert.Equal(ExecutionMotorRole.Hit, ExecutionCueRules.RoleOf("play_sm_sk_chainsword_hit_armor"));
+        // Review 9: the daemon's limb vanish and burn are not blood; the chainsword's sprays are.
+        Assert.False(ExecutionCueRules.IsBlood("bloodletter_limb_vanish"));
+        Assert.False(ExecutionCueRules.IsBlood("bloodletter_burn"));
+        Assert.True(ExecutionCueRules.IsBlood("chainsword_blood_grind_long"));
+    }
+
+    [Fact]
+    public void A_borrowed_move_drops_the_graph_motor_from_the_wielded_file_and_echoed_lines()
+    {
+        // The knife's arm break (O4.combat_knife on the chainsword's sequencer): the knife file's own leftover chainsword cut bed and trail are the graph weapon's motor (Fable review 4).
+        var files = new Dictionary<string, ExecutionCueFile>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["vanguard"] = File("vanguard"),
+            ["chainsword_new"] = File("chainsword_new", [Snd("TAG_Swing", "play_sm_chainsword_swing_x4")]),
+            ["combat_knife"] = File("combat_knife", [Snd("SFX_SM_SK_Cut_Duration", "play_sm_chainsword_sk_cut_start", "play_sm_chainsword_sk_cut_end"), Snd("SFX_SM_SK_Cut_Duration", "play_sm_gear_move")],
+                [Say("SFX_SM_SK_Cut_Duration", "damage_big", "")], [Fx("SFX_SM_SK_Cut_Duration", "chainsword_swing_heavy", "fx_swing")]),
+            ["boy"] = File("boy", [], [Say("TAG_Hurt", "damage_big")], character: "ork_voice"),
+        };
+        var sheet = ExecutionCueLoader.Build([Row("O4.combat_knife")], _ => [A("TAG_Swing", 0.5f), A("SFX_SM_SK_Cut_Duration", 0.7f, 1.4f)], _ => [A("TAG_Hurt", 0.733f)], files);
+        var cues = sheet.For("O4.combat_knife");
+        Assert.DoesNotContain(cues, c => c.Kind is ExecutionCueKind.Sound or ExecutionCueKind.Stop && c.Event.Contains("chainsword"));
+        Assert.Equal(ExecutionMotorRole.Grind, Assert.Single(cues, c => c.Event == "play_sm_chainsword_sk_cut_start").Motor);
+        Assert.DoesNotContain(cues, c => c.Event == "chainsword_swing_heavy");
+        Assert.Contains(cues, c => c.Event == "play_sm_gear_move");                                 // the knife file's other cues stay
+        // The swing motor plays on the attacker (the sheet as the playback; review 9).
+        Assert.Equal(ExecutionCuePlace.Attacker, Assert.Single(cues, c => c.Kind == ExecutionCueKind.Motor && c.Motor == ExecutionMotorRole.Swing).Place);
+        // Review 7: the attacker file's damage_big at 0.700 s echoes the boy's own at 0.733 s: only the victim's own plays.
+        Assert.Single(cues, c => c.Kind == ExecutionCueKind.Speech && c.Speech!.Type == "damage_big");
+        Assert.Equal(ExecutionCueSide.Victim, Assert.Single(cues, c => c.Kind == ExecutionCueKind.Speech).Side);
+    }
+
+    [Fact]
+    public void A_closed_run_never_plays_again()
+    {
+        IReadOnlyList<ExecutionCue> cues = [Cue(0.1f, "a"), Cue(1.0f, "b")];
+        var key = new ExecutionCueTimeline.RunKey(4, 50);
+        var t = new ExecutionCueTimeline();
+        var steps = new List<ExecutionCueTimeline.Step>();
+        t.Advance(key, cues, 0.2f, steps);
+        t.Interrupt(key, steps);   // ended Invalid for silence
+        Assert.True(t.IsClosed(key));
+        steps.Clear();
+        t.Advance(key, cues, 1.1f, steps);   // the live list revives it: nothing again (Fable review 5)
+        Assert.Empty(steps);
+        Assert.False(t.Has(key));
+    }
+
     // ---- the crossover rows ----
 
     static readonly SimConfig Config = new();

@@ -18,8 +18,8 @@ Those entries hold three kinds of command:
 - `post_speech_exertion_event`: the grunts, roars and pain lines;
 - `play_fx`: blood sprays, sparks, the decap geyser, and swing trails at weapon or body markers.
 
-The client builds 871 cues over 39 row and weapon lists (722 original bindings, 149 ours). Every sound but 3 is in the banks the match client already loads. The 3 exceptions: `play_sm_sk01_throatgrab` is in no bank of the install, and
-`play_sm_chain_sword_grind_pre` is missing twice. 29 of the 30 effects compile.
+The client builds 866 cues over 39 row and weapon lists (720 original bindings, 146 ours). Every sound but 2 is in the banks the match client already loads. The 2 exceptions: `play_sm_sk01_throatgrab` is in no bank of the install, and
+`play_sm_chain_sword_grind_pre` (the chainsword's O4) is in none of the client's banks. 29 of the 30 effects compile.
 
 Tools (read-only):
 - `smtool exec-cues [--row id] [--all-banks] [--weapon-file f]` prints each row's tags and every file's reaction to them.
@@ -46,6 +46,7 @@ Nothing from the install is committed. Like the catalogue rows, this file holds 
   attacker.
 - **Speech moved to the victim.** Two kinds of attacker line play on the victim, in the victim's voice: a line in a named character (the grind's `ork_boy_2` effort), and a
   `damage_*` line with no character.
+- **No echoed lines.** A line moved from an attacker file is dropped when the victim's own line of the same type plays within 0.1 s (the knife's 0.700 s `damage_big` beside the boy's 0.733 s).
 - **Speech fallbacks.** When a character has no recording of a line, the nearest one plays instead. `roar` becomes `effort_big_pull` (the MP marines have no roar). `damage_big` and
   `damage_long` become `damage_small`.
 - **Borrowed blades.** This covers the power sword on the chainsword's rows (owner 2026-11-25), the knife on them (owner 2026-11-26), and the knife's arm-break crossover.
@@ -54,6 +55,8 @@ Nothing from the install is committed. Like the catalogue rows, this file holds 
     - a swing plays the MP wargear's `swing_x1`, else `actn_snd_ck_swing`;
     - a hit or a grind plays the light strike's hit events, repeated every 0.4 s along a grind;
     - a rev or wind-up plays nothing.
+  - The same motor rule applies to the wielded weapon's own file on a borrowed move (the knife file keeps a leftover chainsword cut bed, `play_sm_chainsword_sk_cut_start`, and trail).
+  - A whoosh is a swing; a blade drawn out (`remove`, `release`) adds no second hit. Swings play on the attacker, hits and grinds at the wound.
   - The chainsword's teeth trails are not drawn. Its blood effects stay, placed at the wound when the blade lacks the chainsword's marker.
   - A power sword on a chainsword move therefore sounds like a power sword (`play_sm_power_sword_hit`).
 - **Blood.** Blood effects and one gore streak at the kill frame draw only where the match's gore allows: Warfront, or Classic with the Extended gore
@@ -61,7 +64,8 @@ Nothing from the install is committed. Like the catalogue rows, this file holds 
   `--no-gore-streak`). `--no-execution-gore` turns both off for executions. The general blood redesign is untouched.
 - **Once everywhere, cancelled on interruption** (`ExecutionCueTimeline`).
   - Each client fires each cue of a run once, whether it is the attacker's, the victim's or an observer's client.
-  - A run first seen late skips the cues more than 0.25 s behind the clock. A clock that steps back fires nothing again.
+  - A run first seen late skips the cues more than 0.25 s behind the clock, and the kill streak too. A clock that steps back fires nothing again. A closed run revived by the live list plays nothing again.
+  - A lost connection interrupts every run (the core's `ExtrasConnectionGone`). The emitters are one-shot, so the sound system forgets them once their voices end.
   - Any end other than Done (Killed, Invalid, Disconnect, MatchEnd), or a run that vanishes, stops all three emitters at once: grinds, motor loops and pending voices. The run's
     effects end with it.
   - A run that ends Done plays its remaining cues out (the victim's half runs longer), then its loops end.
@@ -74,8 +78,8 @@ The worksheet's candidates are a list only; nobody has watched them.
 
 | Candidate | Source | Status | Reason |
 |---|---|---|---|
-| O4 arm break with the combat knife, on the Ork Boy kinds | the brief's first trial; Support worksheet (medium) | **candidate row** (`O4.combat_knife`, wire 25): passed my playback checks; waits for the lead's footage review | Played in the raw-clip test view beside O4 with the chainsword, at normal and quarter speed. Grip: the knife sits in the right hand where the chainsword was; the left hand does the grab, the wrestle and the overhand hit (`ACTN_Ork_Sync_OverhandHit`, `body_smash` at `rig_prop_lhand`). Clearance: the raised blade never meets the Ork. Pose, scale and contact: the same victim half; the slam to the ground reads the same. The chainsword's cut window (0.70-1.40 s) shows no visible blade contact with either weapon, so with the knife its blood plays at the wound (the knife has no `fx_chainsword_spray`). Terrain: the arm break's own footprint and checks, unchanged. |
-| O8 stab with the chainsword (and so the power sword), on the Ork Boy kinds | Support worksheet (medium); lead 42 "do try" | **candidate row** (`O8.chainsword`, wire 26): passed my playback checks; waits for the footage review | Played in the test view at normal and quarter speed. The kill blow is the left hand's strike to the head; the right hand keeps the blade back and low, never through the Ork. The Ork then staggers away on its own clip. Grip: the chainsword in the right hand as in its own moves. Clearance and contact hold; the move reads as a fist blow with the blade held back, not a stab. Scale and terrain: unchanged from the knife's O8. |
+| O4 arm break with the combat knife, on the Ork Boy kinds | the brief's first trial; Support worksheet (medium) | **accepted** (`O4.combat_knife`, wire 25; lead 42's Fable review of 80b49e09) | Played in the raw-clip test view beside O4 with the chainsword, at normal and quarter speed. Grip: the knife sits in the right hand where the chainsword was; the left hand does the grab, the wrestle and the overhand hit (`ACTN_Ork_Sync_OverhandHit`, `body_smash` at `rig_prop_lhand`). Clearance: the raised blade never meets the Ork. Pose, scale and contact: the same victim half; the slam to the ground reads the same. The chainsword's cut window (0.70-1.40 s) shows no visible blade contact with either weapon, so with the knife its blood plays at the wound (the knife has no `fx_chainsword_spray`). Terrain: the arm break's own footprint and checks, unchanged. |
+| O8 stab with the chainsword (and so the power sword), on the Ork Boy kinds | Support worksheet (medium); lead 42 "do try" | **accepted** (`O8.chainsword`, wire 26; lead 42's Fable review of 80b49e09, on condition of the motor fix) | Played in the test view at normal and quarter speed. The weapon hand drives the blade into the base of the Ork's skull (`ACTN_Sync_Head_Stab` at 0.567 s) and draws it out at the kill (`ACTN_Sync_Head_Remove`, 1.200 s); the Ork then staggers away on its own clip. Grip: the chainsword in the right hand as in its own moves. Contact holds; the longer blade stays buried about 0.6 s with no motor under load (the knife file has none to borrow; noted for the owner's ear). Sounds: the knife graph's whoosh plays as the wielder's swing, the stab as its hit, the draw-out as nothing (one hit, not two; Fable review 1). Scale and terrain: unchanged from the knife's O8. |
 | O6 axe hack with the chainsword (and so the power sword), on the Ork Boy kinds | Support worksheet (medium-low); lead 42 "do try" | **rejected** (weapon clearance), row removed | Played in the test view at normal and quarter speed. The chop buries the weapon in the Ork's chest and holds it there while turning him (2.6-3.6 s). The axe's short head stays inside the body; the chainsword's long blade sticks out of the Ork's back for most of that hold. Clips: `testview-O6-chainsword-*` beside `testview-O6-power_axe-*`. |
 | O3, O9, R1 for the Devastator / Havoc | Support worksheet (high) | rejected (scope) | It would give a finisher to a class that has none today. That changes eligibility, which is outside this brief. It would also need the heavy weapon stowed. |
 | O1/O2 grinds, O5 decap, O7 head pop, C1-C3, B1-B3 on other families | Support worksheet, "not recommended" | rejected (desk check) | Each motion depends on its own weapon: grinding teeth, the axe, the two-handed hammer. |
@@ -142,9 +146,9 @@ Columns:
 | 3.083-3.163 | attacker | effect | attacker | `ACTN_Bloodletter_Sync_HeadSawOff` | `chainsword_swipe_fire at fx_swing` | chainsword_new |  |
 | 3.083-3.163 | attacker | effect | attacker | `ACTN_Bloodletter_Sync_HeadSawOff` | `chainsword_swing_heavy at fx_swing` | chainsword_new |  |
 | 3.100 | victim | sound | victim | `ACTN_Death_Vanish` | `play_ch_bloodletter_death` | chaos_bloodletter |  |
-| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand (blood)` | chaos_bloodletter |  |
-| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf (blood)` | chaos_bloodletter |  |
-| 3.109-3.614 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head (blood)` | chaos_bloodletter |  |
+| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand` | chaos_bloodletter |  |
+| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf` | chaos_bloodletter |  |
+| 3.109-3.614 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head` | chaos_bloodletter |  |
 | 3.267 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 3.400 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 3.833 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
@@ -156,7 +160,7 @@ Columns:
 | 0.106 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Antic` | `play_sm_chainsword_rev_x4 -> the wielder's rev` | chainsword_new |  |
 | 0.133 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 0.159 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
-| 0.159-0.505 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 0.159-0.505 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 0.292-0.558 | attacker | sound | attacker | `fx_BL_Sync_SwingHit` | `play_sm_sk_foley_movement` | chainsword_new |  |
 | 0.292 | attacker | speech (ours) | victim | `fx_BL_Sync_SwingHit` | `speech  damage_long` | chainsword_new |  |
 | 0.292-0.558 | attacker | effect | attacker | `fx_BL_Sync_SwingHit` | `chainsword_swing_blood at fx_swing (blood)` | chainsword_new |  |
@@ -173,9 +177,9 @@ Columns:
 | 2.206-3.163 | attacker | motor (ours) | wound | `ACTN_Bloodletter_Sync_SwordGrind` | `play_sm_sk_chainsword_grind_flesh -> the wielder's grind` | chainsword_new |  |
 | 3.083 | attacker | speech | attacker | `ACTN_Bloodletter_Sync_HeadSawOff` | `speech autodetect roar` | chainsword_new |  |
 | 3.100 | victim | sound | victim | `ACTN_Death_Vanish` | `play_ch_bloodletter_death` | chaos_bloodletter |  |
-| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand (blood)` | chaos_bloodletter |  |
-| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf (blood)` | chaos_bloodletter |  |
-| 3.109-3.614 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head (blood)` | chaos_bloodletter |  |
+| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand` | chaos_bloodletter |  |
+| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf` | chaos_bloodletter |  |
+| 3.109-3.614 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head` | chaos_bloodletter |  |
 | 3.267 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 3.400 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 3.833 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
@@ -187,7 +191,7 @@ Columns:
 | 0.106 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Antic` | `play_sm_chainsword_rev_x4 -> the wielder's rev` | chainsword_new |  |
 | 0.133 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 0.159 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
-| 0.159-0.505 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 0.159-0.505 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 0.292-0.558 | attacker | sound | attacker | `fx_BL_Sync_SwingHit` | `play_sm_sk_foley_movement` | chainsword_new |  |
 | 0.292 | attacker | speech (ours) | victim | `fx_BL_Sync_SwingHit` | `speech  damage_long` | chainsword_new |  |
 | 0.292-0.558 | attacker | effect | attacker | `fx_BL_Sync_SwingHit` | `chainsword_swing_blood at fx_swing (blood)` | chainsword_new |  |
@@ -204,9 +208,9 @@ Columns:
 | 2.206-3.163 | attacker | motor (ours) | wound | `ACTN_Bloodletter_Sync_SwordGrind` | `play_sm_sk_chainsword_grind_flesh -> the wielder's grind` | chainsword_new |  |
 | 3.083 | attacker | speech | attacker | `ACTN_Bloodletter_Sync_HeadSawOff` | `speech autodetect roar` | chainsword_new |  |
 | 3.100 | victim | sound | victim | `ACTN_Death_Vanish` | `play_ch_bloodletter_death` | chaos_bloodletter |  |
-| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand (blood)` | chaos_bloodletter |  |
-| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf (blood)` | chaos_bloodletter |  |
-| 3.109-3.614 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head (blood)` | chaos_bloodletter |  |
+| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand` | chaos_bloodletter |  |
+| 3.100 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf` | chaos_bloodletter |  |
+| 3.109-3.614 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head` | chaos_bloodletter |  |
 | 3.267 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 3.400 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 3.833 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
@@ -223,7 +227,7 @@ Columns:
 | 1.643 | attacker | sound | attacker | `ACTN_Sync_Poweraxe_Antic` | `play_sm_power_axe_antic` | poweraxe |  |
 | 1.643 | attacker | effect | attacker | `ACTN_Sync_Poweraxe_Antic` | `poweraxe_antic_light at fx_swing` | poweraxe |  |
 | 1.643 | attacker | effect | attacker | `ACTN_Sync_Poweraxe_Antic` | `poweraxe_face_glow_charge at fx_face` | poweraxe |  |
-| 1.976-2.598 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head (blood)` | chaos_bloodletter |  |
+| 1.976-2.598 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head` | chaos_bloodletter |  |
 | 2.100-2.200 | attacker | sound | attacker | `ACTN_Sync_ Poweraxe _Swing` | `play_sm_power_axe_swing` | poweraxe |  |
 | 2.100 | attacker | speech | attacker | `ACTN_Sync_ Poweraxe _Swing` | `speech autodetect effort_short_stab` | poweraxe |  |
 | 2.100-2.200 | attacker | effect | attacker | `ACTN_Sync_ Poweraxe _Swing` | `poweraxe_swing_light at fx_swing` | poweraxe |  |
@@ -233,8 +237,8 @@ Columns:
 | 2.200 | attacker | effect | attacker | `ACTN_Bloodletter_Sync_AxHit` | `chainsword_blood_rip_out at fx_swing (blood)` | poweraxe |  |
 | 2.200 | attacker | effect | attacker | `ACTN_Bloodletter_Sync_AxHit` | `poweraxe_dmg_body at fx_swing` | poweraxe |  |
 | 2.562 | victim | sound | victim | `ACTN_Death_Vanish` | `play_ch_bloodletter_death` | chaos_bloodletter |  |
-| 2.562 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand (blood)` | chaos_bloodletter |  |
-| 2.562 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf (blood)` | chaos_bloodletter |  |
+| 2.562 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand` | chaos_bloodletter |  |
+| 2.562 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf` | chaos_bloodletter |  |
 | 2.896-3.287 | attacker | sound (ours) | wound | `ACTN_Bloodletter_Sync_AxRelease` | `play_sm_sk_power_axe_release_flesh` | poweraxe |  |
 | 2.896-3.287 | attacker | sound | attacker | `ACTN_Bloodletter_Sync_AxRelease` | `play_sm_power_axe_swing` | poweraxe |  |
 | 2.896 | attacker | speech | attacker | `ACTN_Bloodletter_Sync_AxRelease` | `speech autodetect effort_short_stab` | poweraxe |  |
@@ -254,7 +258,7 @@ Columns:
 | 0.043 | attacker | effect | attacker | `ACTN_Sync_Thunderhammer_Antic` | `thunderhammer_antic_light_side at fx_side01` | thunderhammer_new |  |
 | 0.043 | attacker | effect | attacker | `ACTN_Sync_Thunderhammer_Antic` | `thunderhammer_antic_light_center at fx_swing` | thunderhammer_new |  |
 | 0.129 | attacker | sound | attacker | `EVT_Gear_Move` | `play_sm_gear_move_01` | vanguard |  |
-| 0.440-2.102 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head (blood)` | chaos_bloodletter |  |
+| 0.440-2.102 | victim | effect | victim | `ACTN_Death_Start` | `bloodletter_limb_burn at rig_head` | chaos_bloodletter |  |
 | 0.700 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 0.733 | attacker | sound (ours) | wound | `ACTN_Bloodletter_Sync_HammerImpact` | `play_sm_sk_thunderhammer_hit_flesh` | thunderhammer_new |  |
 | 0.733 | attacker | effect | attacker | `ACTN_Bloodletter_Sync_HammerImpact` | `thunderhammer_dmg_body_secondary at fx_swing` | thunderhammer_new |  |
@@ -272,8 +276,8 @@ Columns:
 | 2.300 | attacker | effect | attacker | `ACTN_Bloodletter_Sync_HammerImpact` | `thunderhammer_dmg_body_secondary at fx_swing` | thunderhammer_new |  |
 | 2.300 | attacker | effect | attacker | `ACTN_Bloodletter_Sync_HammerImpact` | `thunderhammer_dmg_body at fx_swing` | thunderhammer_new |  |
 | 2.433 | victim | sound | victim | `ACTN_Death_Vanish` | `play_ch_bloodletter_death` | chaos_bloodletter |  |
-| 2.433 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand (blood)` | chaos_bloodletter |  |
-| 2.433 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf (blood)` | chaos_bloodletter |  |
+| 2.433 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish at rig_lhand` | chaos_bloodletter |  |
+| 2.433 | victim | effect | victim | `ACTN_Death_Vanish` | `bloodletter_limb_vanish_disable at rig_lcalf` | chaos_bloodletter |  |
 | 3.167 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 
 #### C1.chainsword (kill 4.367 s, end 6.333 s)
@@ -342,7 +346,7 @@ Columns:
 |---|---|---|---|---|---|---|---|
 | 0.071 | attacker | sound | attacker | `ACTN_Sync_GearMove` | `play_sm_sk_foley_movement` | vanguard |  |
 | 0.533 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
-| 0.533-0.700 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 0.533-0.700 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 0.676 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Antic` | `play_sm_chainsword_rev_x4 -> the wielder's rev` | chainsword_new |  |
 | 0.700 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 0.700 | attacker | effect | attacker | `ACTN_CSM_Sync_Sword_Impact_Chaos` | `cl_talon_stab at fx_chainsword_spray` | chainsword_new |  |
@@ -362,7 +366,7 @@ Columns:
 | 1.933 | attacker | sound | attacker | `EVT_Gear_Move` | `play_sm_gear_move_01` | vanguard |  |
 | 2.000 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Antic` | `play_sm_chainsword_rev_x4 -> the wielder's rev` | chainsword_new |  |
 | 2.267 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
-| 2.267-2.533 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 2.267-2.533 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 2.533 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 2.533 | attacker | effect | attacker | `ACTN_CSM_Sync_Sword_Impact_Chaos` | `cl_talon_stab at fx_chainsword_spray` | chainsword_new |  |
 | 2.533 | attacker | motor (ours) | wound | `ACTN_CSM_Sync_Sword_Impact_Chaos` | `play_sm_sk_chainsword_hit_armor -> the wielder's hit` | chainsword_new |  |
@@ -389,7 +393,7 @@ Columns:
 |---|---|---|---|---|---|---|---|
 | 0.071 | attacker | sound | attacker | `ACTN_Sync_GearMove` | `play_sm_sk_foley_movement` | vanguard |  |
 | 0.533 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
-| 0.533-0.700 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 0.533-0.700 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 0.676 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Antic` | `play_sm_chainsword_rev_x4 -> the wielder's rev` | chainsword_new |  |
 | 0.700 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 0.700 | attacker | effect | attacker | `ACTN_CSM_Sync_Sword_Impact_Chaos` | `cl_talon_stab at fx_chainsword_spray` | chainsword_new |  |
@@ -409,7 +413,7 @@ Columns:
 | 1.933 | attacker | sound | attacker | `EVT_Gear_Move` | `play_sm_gear_move_01` | vanguard |  |
 | 2.000 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Antic` | `play_sm_chainsword_rev_x4 -> the wielder's rev` | chainsword_new |  |
 | 2.267 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
-| 2.267-2.533 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 2.267-2.533 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 2.533 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 2.533 | attacker | effect | attacker | `ACTN_CSM_Sync_Sword_Impact_Chaos` | `cl_talon_stab at fx_chainsword_spray` | chainsword_new |  |
 | 2.533 | attacker | motor (ours) | wound | `ACTN_CSM_Sync_Sword_Impact_Chaos` | `play_sm_sk_chainsword_hit_armor -> the wielder's hit` | chainsword_new |  |
@@ -601,7 +605,7 @@ Columns:
 | 0.393 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.430 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Antic` | `play_sm_chainsword_rev_x4 -> the wielder's rev` | chainsword_new |  |
 | 0.433 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
-| 0.433-0.633 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 0.433-0.633 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 0.567 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 0.633 | victim | speech | victim | `ACTN_SND_Vox_Sync_Damage_Big` | `speech autodetect damage_big` | boy |  |
 | 0.667-2.900 | attacker | sound | attacker | `SFX_SM_SK_Cut_Duration` | `play_sm_sk_foley_movement` | chainsword_new |  |
@@ -628,7 +632,7 @@ Columns:
 | 2.900 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
 | 2.900-3.300 | attacker | effect | attacker | `ACTN_Ork_GrindSync_BloodPullout` | `chainsword_swing_blood at fx_swing (blood)` | chainsword_new |  |
 | 2.900-3.300 | attacker | effect | attacker | `ACTN_Ork_GrindSync_BloodPullout` | `chainsword_blood_swipe at fx_chainsword_spray (blood)` | chainsword_new |  |
-| 2.900-3.300 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 2.900-3.300 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 3.000 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 3.933 | attacker | sound (ours) | wound | `ACTN_Ork_Sync_Kick_Hit` | `play_sm_sk_kick_hit` | chainsword_new |  |
 | 3.933 | attacker | sound | attacker | `ACTN_Sync_GearMove` | `play_sm_sk_foley_movement` | vanguard |  |
@@ -739,12 +743,12 @@ Columns:
 | s | side | kind | place | tag | event / effect | file | |
 |---|---|---|---|---|---|---|---|
 | 0.057 | attacker | sound | attacker | `EVT_Gear_Move` | `play_sm_gear_move_01` | vanguard |  |
-| 0.300-0.433 | attacker | sound (ours) | wound | `EVT_GrindStart` | `play_sm_chain_sword_grind_pre` | powersword_new | not in the client's banks |
 | 0.300 | attacker | speech | attacker | `EVT_GrindStart` | `speech autodetect roar` | powersword_new |  |
 | 0.300-0.433 | attacker | effect | attacker | `EVT_GrindStart` | `blood_pre_grind at fx_chainsword_spray (blood)` | powersword_new |  |
+| 0.300-0.433 | attacker | motor (ours) | wound | `EVT_GrindStart` | `play_sm_chain_sword_grind_pre -> the wielder's grind` | powersword_new |  |
 | 0.450 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.500 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
-| 0.500-0.700 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 0.500-0.700 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 0.540 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.633 | attacker | speech | attacker | `SFX_SM_SK_Cut_Start` | `speech autodetect effort_build` | chainsword_new |  |
 | 0.633-0.700 | attacker | effect | attacker | `SFX_SM_SK_Cut_Start` | `chainsword_blood_grind_long at fx_chainsword_spray (blood)` | chainsword_new |  |
@@ -768,18 +772,15 @@ Columns:
 | 0.300-0.433 | attacker | effect | attacker | `EVT_GrindStart` | `body_smash at rig_r_hand` | combat_knife |  |
 | 0.450 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.500 | attacker | speech | attacker | `ACTN_Sync_Chainsword_Swing` | `speech autodetect effort_short_stab` | chainsword_new |  |
-| 0.500-0.700 | attacker | motor (ours) | wound | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
+| 0.500-0.700 | attacker | motor (ours) | attacker | `ACTN_Sync_Chainsword_Swing` | `play_sm_chainsword_swing_x4 -> the wielder's swing` | chainsword_new |  |
 | 0.540 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.633 | attacker | speech | attacker | `SFX_SM_SK_Cut_Start` | `speech autodetect effort_build` | chainsword_new |  |
 | 0.633-0.700 | attacker | effect | attacker | `SFX_SM_SK_Cut_Start` | `chainsword_blood_grind_long at fx_chainsword_spray (blood)` | chainsword_new |  |
 | 0.700 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 0.700-1.400 | attacker | sound (ours) | wound | `SFX_SM_SK_Cut_Duration` | `play_sm_chainsword_sk_cut_start` | combat_knife |  |
 | 0.700-1.400 | attacker | sound | attacker | `SFX_SM_SK_Cut_Duration` | `play_sm_gear_move` | combat_knife |  |
-| 0.700 | attacker | speech (ours) | victim | `SFX_SM_SK_Cut_Duration` | `speech  damage_big` | combat_knife |  |
 | 0.700 | attacker | speech | attacker | `SFX_SM_SK_Cut_Duration` | `speech autodetect roar` | combat_knife |  |
-| 0.700-1.400 | attacker | effect | attacker | `SFX_SM_SK_Cut_Duration` | `chainsword_swing_heavy at fx_swing` | combat_knife |  |
+| 0.700-1.400 | attacker | motor (ours) | wound | `SFX_SM_SK_Cut_Duration` | `play_sm_chainsword_sk_cut_start -> the wielder's grind` | combat_knife |  |
 | 0.733 | victim | speech | victim | `ACTN_SND_Vox_Sync_Damage_Big` | `speech autodetect damage_big` | boy |  |
-| 1.400 | attacker | sound | wound | `SFX_SM_SK_Cut_Duration` | `play_sm_chainsword_sk_cut_end` | combat_knife |  |
 | 1.400 | attacker | sound | attacker | `SFX_SM_SK_Cut_Duration` | `play_sm_gear_move` | combat_knife |  |
 | 1.400 | attacker | speech | attacker | `SFX_SM_SK_Cut_End` | `speech autodetect effort_short_stab` | chainsword_new |  |
 | 1.433 | attacker | sound (ours) | wound | `ACTN_Ork_Sync_OverhandHit` | `play_sm_sk_fist_hit` | vanguard |  |
@@ -804,7 +805,6 @@ Columns:
 | 0.567-0.733 | attacker | effect | attacker | `ACTN_Sync_ Poweraxe _Swing` | `poweraxe_face_glow_charge at fx_face` | poweraxe |  |
 | 0.700 | attacker | sound (ours) | wound | `ACTN_Ork_Decap_AxBackHit` | `play_sm_sk_power_axe_hit_flesh` | poweraxe |  |
 | 0.700 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 0.700 | attacker | speech (ours) | victim | `ACTN_Ork_Decap_AxBackHit` | `speech ork_boy_2 damage_big` | poweraxe |  |
 | 0.700 | attacker | speech | attacker | `ACTN_Ork_Decap_AxBackHit` | `speech autodetect roar` | poweraxe |  |
 | 0.700 | attacker | effect | attacker | `ACTN_Ork_Decap_AxBackHit` | `chainsword_blood_rip_out at fx_edge_blood_1 (blood)` | poweraxe |  |
 | 0.700 | attacker | effect | attacker | `ACTN_Ork_Decap_AxBackHit` | `poweraxe_dmg_body at fx_edge_blood_1` | poweraxe |  |
@@ -887,7 +887,6 @@ Columns:
 | 0.524-0.629 | attacker | effect | attacker | `ACTN_Sync_ Poweraxe _Swing` | `poweraxe_face_glow_charge at fx_face` | poweraxe |  |
 | 0.567 | victim | speech | victim | `ACTN_SND_Vox_Sync_Damage_Big` | `speech autodetect damage_big` | boy |  |
 | 0.594 | attacker | sound (ours) | wound | `ACTN_Ork_Decap_AxBackHit` | `play_sm_sk_power_axe_hit_flesh` | poweraxe |  |
-| 0.594 | attacker | speech (ours) | victim | `ACTN_Ork_Decap_AxBackHit` | `speech ork_boy_2 damage_big` | poweraxe |  |
 | 0.594 | attacker | speech | attacker | `ACTN_Ork_Decap_AxBackHit` | `speech autodetect roar` | poweraxe |  |
 | 0.594 | attacker | effect | attacker | `ACTN_Ork_Decap_AxBackHit` | `chainsword_blood_rip_out at fx_edge_blood_1 (blood)` | poweraxe |  |
 | 0.594 | attacker | effect | attacker | `ACTN_Ork_Decap_AxBackHit` | `poweraxe_dmg_body at fx_edge_blood_1` | poweraxe |  |
@@ -966,7 +965,7 @@ Columns:
 | 0.097 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.367 | attacker | speech | attacker | `ACTN_SND_CK_Swing` | `speech autodetect effort_short_stab` | combat_knife |  |
 | 0.367-0.567 | attacker | effect | attacker | `ACTN_SND_CK_Swing` | `choppa_swing at fx_swing` | combat_knife |  |
-| 0.367-0.567 | attacker | motor (ours) | wound | `ACTN_SND_CK_Swing` | `play_combat_knife_whoosh -> the wielder's hit` | combat_knife |  |
+| 0.367-0.567 | attacker | motor (ours) | attacker | `ACTN_SND_CK_Swing` | `play_combat_knife_whoosh -> the wielder's swing` | combat_knife |  |
 | 0.467 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 0.483 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.567 | victim | speech | victim | `ACTN_SND_Vox_Sync_Damage_Small` | `speech autodetect damage_small` | boy |  |
@@ -977,9 +976,9 @@ Columns:
 | 0.709 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
 | 1.167 | attacker | speech | attacker | `ACTN_SND_CK_Swing` | `speech autodetect effort_short_stab` | combat_knife |  |
 | 1.167-1.467 | attacker | effect | attacker | `ACTN_SND_CK_Swing` | `choppa_swing at fx_swing` | combat_knife |  |
-| 1.167-1.467 | attacker | motor (ours) | wound | `ACTN_SND_CK_Swing` | `play_combat_knife_whoosh -> the wielder's hit` | combat_knife |  |
+| 1.167-1.467 | attacker | motor (ours) | attacker | `ACTN_SND_CK_Swing` | `play_combat_knife_whoosh -> the wielder's swing` | combat_knife |  |
 | 1.200 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 1.200 | attacker | motor (ours) | wound | `ACTN_Sync_Head_Remove` | `play_combat_knife_remove -> the wielder's hit` | combat_knife |  |
+| 1.200 | attacker | motor (ours) | wound | `ACTN_Sync_Head_Remove` | `play_combat_knife_remove -> the wielder's rev` | combat_knife |  |
 | 1.224-1.804 | victim | sound | victim | `ACTN_SND_Vox_Roar_H_M` | `play_or_bo_2_roar` | boy |  |
 | 1.257 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
 | 1.450 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
@@ -992,7 +991,7 @@ Columns:
 | 0.097 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.367 | attacker | speech | attacker | `ACTN_SND_CK_Swing` | `speech autodetect effort_short_stab` | combat_knife |  |
 | 0.367-0.567 | attacker | effect | attacker | `ACTN_SND_CK_Swing` | `choppa_swing at fx_swing` | combat_knife |  |
-| 0.367-0.567 | attacker | motor (ours) | wound | `ACTN_SND_CK_Swing` | `play_combat_knife_whoosh -> the wielder's hit` | combat_knife |  |
+| 0.367-0.567 | attacker | motor (ours) | attacker | `ACTN_SND_CK_Swing` | `play_combat_knife_whoosh -> the wielder's swing` | combat_knife |  |
 | 0.467 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 | 0.483 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
 | 0.567 | victim | speech | victim | `ACTN_SND_Vox_Sync_Damage_Small` | `speech autodetect damage_small` | boy |  |
@@ -1003,9 +1002,9 @@ Columns:
 | 0.709 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
 | 1.167 | attacker | speech | attacker | `ACTN_SND_CK_Swing` | `speech autodetect effort_short_stab` | combat_knife |  |
 | 1.167-1.467 | attacker | effect | attacker | `ACTN_SND_CK_Swing` | `choppa_swing at fx_swing` | combat_knife |  |
-| 1.167-1.467 | attacker | motor (ours) | wound | `ACTN_SND_CK_Swing` | `play_combat_knife_whoosh -> the wielder's hit` | combat_knife |  |
+| 1.167-1.467 | attacker | motor (ours) | attacker | `ACTN_SND_CK_Swing` | `play_combat_knife_whoosh -> the wielder's swing` | combat_knife |  |
 | 1.200 | attacker | sound | attacker | `EVT_Right_Foot` | `play_sm_footfalls_normal` | vanguard |  |
-| 1.200 | attacker | motor (ours) | wound | `ACTN_Sync_Head_Remove` | `play_combat_knife_remove -> the wielder's hit` | combat_knife |  |
+| 1.200 | attacker | motor (ours) | wound | `ACTN_Sync_Head_Remove` | `play_combat_knife_remove -> the wielder's rev` | combat_knife |  |
 | 1.224-1.804 | victim | sound | victim | `ACTN_SND_Vox_Roar_H_M` | `play_or_bo_2_roar` | boy |  |
 | 1.257 | victim | sound | victim | `EVT_Right_Foot` | `play_or_boy_footstep` | boy |  |
 | 1.450 | victim | sound | victim | `EVT_Left_Foot` | `play_or_boy_footstep` | boy |  |
@@ -1177,4 +1176,4 @@ Columns:
 | 1.233 | attacker | speech | attacker | `ACTN_Renegade_Sync_Punch` | `speech autodetect effort_short_stab` | vanguard |  |
 | 2.400 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 
-Counts: 39 row-wield lists, 871 cues: 722 original bindings, 149 ours; 3 sound posts not in the client's banks.
+Counts: 39 row-wield lists, 866 cues: 720 original bindings, 146 ours; 2 sound posts not in the client's banks.

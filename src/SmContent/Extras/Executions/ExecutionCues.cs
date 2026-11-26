@@ -179,13 +179,16 @@ public static class ExecutionCueRules
         _ => [],
     };
 
-    /// <summary>The role of a dropped motor sound by its event name (ours): a swing, a grind or cut, a rev or wind-up, a hit (anything else is a hit).</summary>
+    /// <summary>
+    /// The role of a dropped motor sound by its event name (ours): a swing or whoosh, a grind or cut, a rev or wind-up, a blade drawn out (<c>remove</c>, <c>release</c>: dropped, as a rev: the
+    /// hit has already sounded; Fable review 1), a hit (anything else).
+    /// </summary>
     public static ExecutionMotorRole RoleOf(string evt)
     {
         string e = evt.ToLowerInvariant();
-        if (e.Contains("swing")) return ExecutionMotorRole.Swing;
+        if (e.Contains("swing") || e.Contains("whoosh")) return ExecutionMotorRole.Swing;
         if (e.Contains("grind") || e.Contains("cut")) return ExecutionMotorRole.Grind;
-        if (e.Contains("rev") || e.Contains("antic")) return ExecutionMotorRole.Rev;
+        if (e.Contains("rev") || e.Contains("antic") || e.Contains("remove") || e.Contains("release")) return ExecutionMotorRole.Rev;
         return ExecutionMotorRole.Hit;
     }
 
@@ -203,7 +206,8 @@ public static class ExecutionCueRules
     public static bool Disabled(string fx) => fx.EndsWith("xx", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>A blood effect (by name): drawn only where the match's gore allows.</summary>
-    public static bool IsBlood(string fx) => fx.Contains("blood", StringComparison.OrdinalIgnoreCase) || fx.Contains("gore", StringComparison.OrdinalIgnoreCase);
+    public static bool IsBlood(string fx) =>
+        !fx.StartsWith("bloodletter", StringComparison.OrdinalIgnoreCase) && (fx.Contains("blood", StringComparison.OrdinalIgnoreCase) || fx.Contains("gore", StringComparison.OrdinalIgnoreCase));   // the daemon's limb vanish and burn are not blood (Fable review 9)
 
     /// <summary>Tags that are no cue (rewards, kills, camera, alignment): their commands are not sound, speech or effect anyway; skipped by name for a clear sheet.</summary>
     public static bool Skipped(string tag)
@@ -299,7 +303,8 @@ public static class ExecutionCueLoader
                 {
                     if (files.GetValueOrDefault(ExecutionCueRules.AttackerBlueprint) is { } body) Add(cues, row, wield, ExecutionCueSide.Attacker, t, body, borrowedFrom: null);
                     var mine = files.GetValueOrDefault(wieldFile);
-                    if (mine is not null && mine.Reacts(t.Name)) Add(cues, row, wield, ExecutionCueSide.Attacker, t, mine, borrowedFrom: null);
+                    // The wielded file's own cues; on a borrowed move the graph weapon's motor and trails are dropped from it too (the knife file's leftover chainsword cut bed; Fable review 4).
+                    if (mine is not null && mine.Reacts(t.Name)) Add(cues, row, wield, ExecutionCueSide.Attacker, t, mine, borrowed ? graphFile : null);
                     else if (files.GetValueOrDefault(graphFile) is { } graph) Add(cues, row, wield, ExecutionCueSide.Attacker, t, graph, borrowed ? graphFile : null);
                 }
                 foreach (var t in Actions(vic))
@@ -310,7 +315,7 @@ public static class ExecutionCueLoader
                 }
             }
         }
-        return new ExecutionCueSheet(Dedupe(cues), notes)
+        return new ExecutionCueSheet(DropEchoes(Dedupe(cues).ToList()), notes)
         {
             Characters = files.Values.Where(f => f.Character is not null).ToDictionary(f => f.Name, f => f.Character!, StringComparer.OrdinalIgnoreCase),
         };
@@ -333,8 +338,11 @@ public static class ExecutionCueLoader
             {
                 if (Motor(b.StartEvent) && b.StartEvent.StartsWith("stop_", StringComparison.OrdinalIgnoreCase)) { }   // a borrowed motor's stop: the wielder's replacement has its own length
                 else if (Motor(b.StartEvent))
-                    into.Add(new ExecutionCue(row.Id, wield, side, ExecutionCueKind.Motor, ExecutionCuePlace.Wound, at + delay, windowed ? until : at + delay, tag.Name, b.StartEvent, file.Name,
-                        Ours: true, Motor: ExecutionCueRules.RoleOf(b.StartEvent)));
+                {
+                    var role = ExecutionCueRules.RoleOf(b.StartEvent);   // a swing plays on the attacker (the blade in his hand), a hit or grind at the wound (the sheet as the playback; Fable review 9)
+                    into.Add(new ExecutionCue(row.Id, wield, side, ExecutionCueKind.Motor, role == ExecutionMotorRole.Swing ? ExecutionCuePlace.Attacker : ExecutionCuePlace.Wound, at + delay,
+                        windowed ? until : at + delay, tag.Name, b.StartEvent, file.Name, Ours: true, Motor: role));
+                }
                 else
                 {
                     bool stop = b.StartEvent.StartsWith("stop_", StringComparison.OrdinalIgnoreCase);
@@ -365,6 +373,15 @@ public static class ExecutionCueLoader
             into.Add(new ExecutionCue(row.Id, wield, side, ExecutionCueKind.Effect, own, at, until, tag.Name, p.Name, file.Name, Fx: p, Blood: blood));
         }
     }
+
+    /// <summary>How close the victim's own line of a type must be for a line of the same type moved from an attacker file to be dropped (seconds, ours; Fable review 7).</summary>
+    public const float EchoSeconds = 0.1f;
+
+    /// <summary>A victim line moved from an attacker file is dropped when the victim's own line of the same type plays within <see cref="EchoSeconds"/> (the knife's 0.700 s damage_big beside the boy's 0.733 s).</summary>
+    static IEnumerable<ExecutionCue> DropEchoes(List<ExecutionCue> cues) =>
+        cues.Where(c => !(c is { Kind: ExecutionCueKind.Speech, Side: ExecutionCueSide.Attacker, Place: ExecutionCuePlace.Victim } && cues.Any(v =>
+            v.Kind == ExecutionCueKind.Speech && v.Side == ExecutionCueSide.Victim && v.RowId == c.RowId && v.Wield == c.Wield
+            && string.Equals(v.Speech?.Type, c.Speech?.Type, StringComparison.OrdinalIgnoreCase) && MathF.Abs(v.At - c.At) <= EchoSeconds)));
 
     /// <summary>The same event at the same time and place from two files (the blueprint's and the weapon's <c>play_sm_sk_fist_hit</c>) plays once.</summary>
     static IEnumerable<ExecutionCue> Dedupe(List<ExecutionCue> cues) =>
@@ -417,6 +434,8 @@ public sealed class ExecutionCueTimeline
     public int Count => _tracks.Count;
     public IEnumerable<RunKey> Runs => _tracks.Keys;
     public bool Has(RunKey key) => _tracks.ContainsKey(key);
+    /// <summary>Whether <paramref name="key"/> finished or was interrupted: a revived run (a live-list repeat after an Invalid end for silence) stays closed and plays nothing again (Fable review 5).</summary>
+    public bool IsClosed(RunKey key) => _closed.Contains(key);
 
     /// <summary>Advances <paramref name="key"/> to clock <paramref name="clock"/> (seconds of the move) with <paramref name="cues"/> (taken at the first call), adding the due cues to <paramref name="steps"/>.</summary>
     public void Advance(RunKey key, IReadOnlyList<ExecutionCue> cues, float clock, List<Step> steps)
