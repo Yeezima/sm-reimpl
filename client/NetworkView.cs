@@ -470,6 +470,7 @@ public partial class NetworkView : Node3D
             if (_connectedFor > 0 && !_goneNoted)
             {
                 _goneNoted = true;
+                ExtrasConnectionGone();   // EXTRAS-HOOK: execution cues: interrupt every run's cues (no grind keeps sounding once the frame stops reaching the extras)
                 GD.PrintErr(ConnectionGoneText() + (_bot ? " The bot ends." : ""));   // fix/stall-keepalive: a freeze of the client or a silent server (NetworkView.Stall.cs)
                 if (_bot) GetTree().Quit(3);
             }
@@ -1217,6 +1218,9 @@ public partial class NetworkView : Node3D
 
     /// <summary>Hook for added content (executions X5): <paramref name="handled"/> set when the character is a live executor posed by its paired clip (locomotion, upper-body and turn layers skipped).</summary>
     partial void ExtrasExecutionPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled);
+
+    /// <summary>Hook for added content (execution cues, Fable review 6): once, when a connection that was up is gone (the frame returns before the extras from then on); executions stop their sounds.</summary>
+    partial void ExtrasConnectionGone();
     /// <summary>Hook for added content (executions X6): the mouse's yaw and pitch (radians) while alive; <paramref name="used"/> set when a locked executor's camera orbit took them.</summary>
     partial void ExtrasExecutionOrbitLook(float yaw, float pitch, ref bool used);
     /// <summary>Hook for added content (executions X6): the right stick while alive; <paramref name="used"/> set when a locked executor's camera orbit took it (the view does not turn).</summary>

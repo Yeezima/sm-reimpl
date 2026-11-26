@@ -80,6 +80,11 @@ public partial class NetworkView
         if (ExecutionsOn && ExecutionsState.LiveExecutor(state.PlayerId, state.Alive)) stowed = true;
     }
 
+    partial void ExtrasConnectionGone()
+    {
+        if (ExecutionsOn) ExecutionCuesInterruptAll();   // execution cues (Fable review 6): the sounds of every run stop with the connection
+    }
+
     partial void ExtrasDeathHold(int id, CharacterViewer character, PlayerState state, bool own, ref bool hold)
     {
         if (ExecutionsOn) ExecutionsDeathHold(id, character, state, own, ref hold);

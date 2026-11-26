@@ -35,6 +35,8 @@ public sealed class ExecutionClipLibrary
 
     /// <summary>The install's catalogue (null until <see cref="Ready"/>; empty without an install).</summary>
     public ExecutionCatalogue? Catalogue { get; private set; }
+    /// <summary>The rows' cues (<see cref="ExecutionCueLoader"/>; empty until <see cref="Ready"/> or without an install).</summary>
+    public ExecutionCueSheet Cues { get; private set; } = ExecutionCueSheet.Empty;
     public bool Ready => _load is { IsCompleted: true };
     /// <summary>Notes of the load (rows left out, clips missing), printed once.</summary>
     public List<string> Notes { get; } = new();
@@ -79,6 +81,11 @@ public sealed class ExecutionClipLibrary
                 if (victim is not null && !_victim.ContainsKey((row.Target.ToLowerInvariant(), row.VictimClip)))
                     _victim[(row.Target.ToLowerInvariant(), row.VictimClip)] = Read(victim, row.VictimClip);
             }
+            // Executions sound and gore (2026-11-27): the rows' original cues, from the same install (read-only).
+            try { Cues = ExecutionCueLoader.Load(gameDir, catalogue.Rows, Notes); }
+            catch (Exception e) when (e is System.IO.IOException or System.IO.InvalidDataException or NotSupportedException or KeyNotFoundException or UnauthorizedAccessException)
+            { Notes.Add($"executions: the cues could not be read ({e.Message}); the moves play silent"); }
+            Notes.Add($"executions: {Cues.Count} cues for {Cues.All.Count()} row and weapon lists ({Cues.All.SelectMany(x => x.Cues).Count(c => c.Ours)} ours)");
             Catalogue = catalogue;
             Notes.Add($"executions: {catalogue.Rows.Count} of {ExecutionRows.All.Count} rows in this install ({string.Join(", ", catalogue.Rows.Select(r => r.Id))}); {_attacker.Count(a => a.Value is not null)} attacker and {_victim.Count(v => v.Value is not null)} victim clips decoded");
         }

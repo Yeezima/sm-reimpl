@@ -122,7 +122,7 @@ public class ExecutionWireTests
     public void The_rules_give_the_owners_values()
     {
         var c = new SimConfig();
-        Assert.Equal(4, ExecutionRules.Version);   // X3: the state machine, Classic and the Start extension; X4: Warfront on Orks; X4b: Warfront on Chaos, the knife on the chainsword rows (no wire change)
+        Assert.Equal(5, ExecutionRules.Version);   // 5: the crossover rows (execution cues, 2026-11-27); X3: the state machine, Classic and the Start extension; X4: Warfront on Orks; X4b: Warfront on Chaos, the knife on the chainsword rows (no wire change)
         Assert.Equal(0.8f, c.ExecutionWindowSeconds);
         Assert.Equal(24, ExecutionRules.WindowTicks(c));   // 30 Hz
         Assert.Equal(300, ExecutionRules.CooldownTicks(c));
