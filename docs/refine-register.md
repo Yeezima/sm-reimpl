@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4534 spec table rows: **3379 tagged**, 756 not tagged (read from data with high confidence), 399 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 858 rows of the changes document.
+Scanned 4535 spec table rows: **3380 tagged**, 756 not tagged (read from data with high confidence), 399 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 858 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 4534 spec table rows: **3379 tagged**, 756 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 110 | 104 | 76 | 17 | 0 |
-| Sound mix (critical) | 286 | 268 | 202 | 64 | 0 |
+| Sound mix (critical) | 287 | 269 | 203 | 64 | 0 |
 | Effects (critical) | 122 | 110 | 96 | 50 | 0 |
 | Game modes | 48 | 44 | 46 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,15 +53,15 @@ Scanned 4534 spec table rows: **3379 tagged**, 756 not tagged (read from data wi
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
 | General game design | 347 | 345 | 115 | 143 | 0 |
 | Ork faction | 303 | 282 | 182 | 74 | 0 |
-| **All areas** | **3379** | 3062 | 2366 | 1034 | 37 |
+| **All areas** | **3380** | 3063 | 2367 | 1034 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2153 |
+| kind: ours | 2154 |
 | confidence: medium | 1153 |
-| confidence: low | 1102 |
+| confidence: low | 1103 |
 | notes: ours | 490 |
 | kind: interpretation | 474 |
 | notes: estimate | 370 |
@@ -2124,7 +2124,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-E18568FD` | Duel HUD (C5c) | for everyone while the relay runs: the dark steel strip across the top of the 1920 x 1080 space (y 70, or 190 under the Battle HUD's line; 152 tall), `CHAMPION: NAME` (heading level, gold), `NEXT: NAME` or `LAST CHALLENGER` with `CHALLENGERS WAITING: n` (none… (px) | kind: ours; notes: provisional | plan (C5c); layout and wording ours; owner 2026-11-15 (one style per level) | Duel HUD (C5c): compare with SM1 with side-by-side screenshots in the same spot. Ours: for everyone while the relay runs: the dark steel strip across the… | ☐ |
 
-### Sound mix (gameplay-critical) (286)
+### Sound mix (gameplay-critical) (287)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2556,7 +2556,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6ED148FD` | Garrison loss retreat in lanes | **kept**: a garrison still retreats on its own past **50 %** losses (owner 2026-11-25 "Keep 50 % retreat"), now to the fall-back place instead of the base; it rallies by the broken-push rule below (share) | kind: ours; notes: estimate | owner 2026-11-25 | Garrison loss retreat in lanes: compare with SM1 by listening A/B at the same distance and state. Ours: kept: a garrison still retreats on its own past 50 % losses (owner… | ☐ |
 | `R-F5514381` | Proximity rally in lanes | **off** (was a human within 15 m, once a minute); replaced by the broken-push rally | kind: ours | owner 2026-11-25 | Proximity rally in lanes: compare with SM1 by listening A/B at the same distance and state. Ours: off (was a human within 15 m, once a minute); replaced by the… | ☐ |
 | `R-E5E740F1` | Push broken | pressure at most max(**6**, **0.25** x the pressure at the break or retreat) for **5** steps, the point still Imperial; anyone may break it (humans, retainers, reinforcements, Guardsmen fire) (weight, share, s) | kind: ours; notes: estimate | owner 2026-11-25 (any broken push) | Push broken: compare with SM1 by listening A/B at the same distance and state. Ours: pressure at most max(6, 0.25 x the pressure at the break or retreat)… | ☐ |
-| `R-182DFE2B` | Rally | after at least **8 s** withdrawn and a broken push, the same squads walk back to their own point; on arrival (radius + 14 m) field squads are posted there and garrison squads rejoin its garrison (room permitting, else the field); a squad that stopped short is… (s) | kind: ours; notes: estimate | owner 2026-11-25 | Rally: compare with SM1 by listening A/B at the same distance and state. Ours: after at least 8 s withdrawn and a broken push, the same squads walk… | ☐ |
+| `R-8F7D23FA` | Rally ring quiet | the push counts as broken for an automatic rally (a line's record and a retreating Guard army) only while the weighted enemies within **70 m** (the approach ring, the same weights) are at or below the same floor as the 40 m push (lead 42, 2026-11-27: a… (weight, m) | kind: ours; confidence: low | ours (lead 42, round 3) | Rally ring quiet: compare with SM1 by listening A/B at the same distance and state. Ours: the push counts as broken for an automatic rally (a line's record and… | ☐ |
+| `R-182DFE2B` | Rally | after at least **8 s** withdrawn and a broken push, the same squads walk back to their own point; on arrival (radius + 14 m) field squads are posted there and garrison squads rejoin its garrison (room permitting, else the field); a squad back at its point… (s) | kind: ours; notes: estimate | owner 2026-11-25 | Rally: compare with SM1 by listening A/B at the same distance and state. Ours: after at least 8 s withdrawn and a broken push, the same squads walk… | ☐ |
 | `R-8072B843` | Origin falls | the record ends: its squads stay at the place they fell back to (field squads posted there, garrison squads into its garrison), no rally | kind: ours; notes: estimate | owner 2026-11-25 | Origin falls: compare with SM1 by listening A/B at the same distance and state. Ours: the record ends: its squads stay at the place they fell back to… | ☐ |
 | `R-001D8575` | Lockout after re-forming | **45**: no new withdrawal from the point; a collapse in it holds to the end, as before (s) | kind: ours; notes: estimate | ours (owner brief 2026-11-24 rev 1; design-guardsmen-1125) | Lockout after re-forming: compare with SM1 by listening A/B at the same distance and state. Ours: 45: no new withdrawal from the point; a collapse in it holds to the… | ☐ |
 | `R-0E5EA8E1` | Reinforce anyway | a fallen-back point keeps its reinforcement share (no need zeroed) and the field's reserves top up while its survivors are away (withheld squads are not field squads); field squads may still be posted there (no threat hook) | kind: ours | owner 2026-11-25 "Reinforce anyway" | Reinforce anyway: compare with SM1 by listening A/B at the same distance and state. Ours: a fallen-back point keeps its reinforcement share (no need zeroed)… | ☐ |
