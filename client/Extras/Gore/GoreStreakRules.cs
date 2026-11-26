@@ -57,16 +57,16 @@ public static class GoreStreakRules
     [
         //   T      Exit   Entry  Fan   Width   Fill   Opac   Grit   Br    Outer  Root   Mist   Red
         new(0.00f, 1.50f, 0.44f,  4f, 0.010f, 1.00f, 0.95f, 0.00f, 1.0f, 0.00f, 1.00f, 0.30f, 1.00f),
-        new(0.05f, 1.90f, 0.81f, 12f, 0.025f, 1.00f, 0.90f, 0.05f, 1.7f, 0.00f, 1.00f, 0.80f, 1.00f),
-        new(0.10f, 2.20f, 0.88f, 16f, 0.028f, 1.00f, 0.86f, 0.10f, 2.0f, 0.00f, 1.00f, 1.00f, 1.00f),
-        new(0.18f, 2.20f, 0.90f, 16f, 0.028f, 0.90f, 0.76f, 0.15f, 2.0f, 0.55f, 0.90f, 0.50f, 0.88f),
-        new(0.27f, 2.40f, 0.95f, 20f, 0.033f, 0.90f, 0.70f, 0.20f, 2.0f, 0.20f, 0.70f, 1.00f, 0.92f),
-        new(0.37f, 2.52f, 1.02f, 19f, 0.034f, 0.78f, 0.62f, 0.28f, 2.0f, 0.12f, 0.40f, 0.85f, 0.85f),
-        new(0.48f, 2.66f, 1.07f, 18f, 0.035f, 0.64f, 0.56f, 0.36f, 2.0f, 0.06f, 0.00f, 0.72f, 0.78f),
-        new(0.60f, 2.74f, 1.00f, 18f, 0.035f, 0.54f, 0.50f, 0.44f, 2.0f, 0.04f, 0.00f, 0.60f, 0.72f),
-        new(0.72f, 2.82f, 0.95f, 17f, 0.035f, 0.46f, 0.44f, 0.50f, 2.0f, 0.04f, 0.00f, 0.48f, 0.66f),
-        new(0.85f, 2.84f, 0.13f, 16f, 0.034f, 0.33f, 0.38f, 0.56f, 2.0f, 0.08f, 0.00f, 0.30f, 0.60f),
-        new(0.98f, 2.84f, 0.07f, 13f, 0.033f, 0.07f, 0.26f, 0.60f, 2.0f, 0.70f, 0.00f, 0.08f, 0.55f),
+        new(0.05f, 1.90f, 0.81f, 12f, 0.032f, 1.00f, 0.90f, 0.05f, 1.7f, 0.00f, 1.00f, 0.80f, 1.00f),
+        new(0.10f, 2.20f, 0.88f, 16f, 0.036f, 1.00f, 0.86f, 0.10f, 2.0f, 0.00f, 1.00f, 1.00f, 1.00f),
+        new(0.18f, 2.20f, 0.90f, 16f, 0.036f, 0.90f, 0.76f, 0.15f, 2.0f, 0.55f, 0.90f, 0.50f, 0.88f),
+        new(0.27f, 2.40f, 0.95f, 20f, 0.042f, 0.90f, 0.70f, 0.20f, 2.0f, 0.20f, 0.70f, 1.00f, 0.92f),
+        new(0.37f, 2.52f, 1.02f, 19f, 0.044f, 0.78f, 0.62f, 0.28f, 2.0f, 0.12f, 0.40f, 0.85f, 0.85f),
+        new(0.48f, 2.66f, 1.07f, 18f, 0.045f, 0.64f, 0.56f, 0.36f, 2.0f, 0.06f, 0.00f, 0.72f, 0.78f),
+        new(0.60f, 2.74f, 1.00f, 18f, 0.045f, 0.54f, 0.50f, 0.44f, 2.0f, 0.04f, 0.00f, 0.60f, 0.72f),
+        new(0.72f, 2.82f, 0.95f, 17f, 0.045f, 0.46f, 0.44f, 0.50f, 2.0f, 0.04f, 0.00f, 0.48f, 0.66f),
+        new(0.85f, 2.84f, 0.13f, 16f, 0.044f, 0.33f, 0.38f, 0.56f, 2.0f, 0.08f, 0.00f, 0.30f, 0.60f),
+        new(0.98f, 2.84f, 0.07f, 13f, 0.042f, 0.07f, 0.26f, 0.60f, 2.0f, 0.70f, 0.00f, 0.08f, 0.55f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -374,7 +374,7 @@ public static class GoreStreakRules
     /// <summary>A band's width along its length (share <paramref name="u"/> of its reach): narrow where it leaves the wound, widest past the middle, then a tapered tip.</summary>
     public static float Profile(float u) => (0.7f + 0.3f * Smooth(0f, 0.5f, u)) * (1f - 0.6f * Smooth(0.82f, 1.0f, u));
     /// <summary>The strip is this much wider than the core's nominal half width: room for the mist (out to <see cref="MistTo"/>) and its lumps.</summary>
-    public const float EdgePad = 3.5f;
+    public const float EdgePad = 2.5f;
     /// <summary>The strip's segments along its length (vertices = 2 x (segments + 1)).</summary>
     public const int Segments = 12;
 
@@ -397,13 +397,13 @@ public static class GoreStreakRules
     /// <summary>The texture's size (texels a side).</summary>
     public const int FilamentSize = 256;
     /// <summary>The cells a tile side (R channel: small cells; B channel: the large ones).</summary>
-    public const int SmallCells = 16, BigCells = 6;
+    public const int SmallCells = 16, BigCells = 10;
     /// <summary>
     /// The texture's mapping onto the plane (repair round 3: cellular mottle, not filament stripes): one tile spans <see cref="CellAlongH"/> body heights along a band and
     /// <see cref="CellAcrossH"/> across, so a small cell is about 0.03 by 0.02 H (a little longer along the spray, never a long stripe); the large cells (the mist's clumps and the
     /// dither of its edge) span <see cref="BigTileH"/> a tile.
     /// </summary>
-    public const float CellAlongH = 0.5f, CellAcrossH = 0.32f, BigTileH = 0.38f;
+    public const float CellAlongH = 0.5f, CellAcrossH = 0.32f, BigTileH = 0.32f;
     /// <summary>The patch noise's tile (H, isotropic on the plane): the late bands break into blobs about a fifth of H across, not full-width dashes.</summary>
     public const float ErodeTileH = 2.2f;
 
@@ -503,7 +503,7 @@ public static class GoreStreakRules
     /// The mist body under each core (repair round 3: a soft body 2 to 3 times the core's width): <see cref="MistAlpha"/> of the band's opacity times the key's <see cref="Key.Mist"/>,
     /// fading from <see cref="MistFrom"/> to <see cref="MistTo"/> core half widths, clumped by the large cells, eroding later than the core (a haze that outlasts it).
     /// </summary>
-    public const float MistAlpha = 0.48f, MistFrom = 0.7f, MistTo = 3.2f;
+    public const float MistAlpha = 0.6f, MistFrom = 0.6f, MistTo = 2.1f;
     /// <summary>The soft step of the patch erosion.</summary>
     public const float ErodeSoft = 0.06f;
     /// <summary>The root (frames 0 to 4): the first <see cref="RootShare"/> of every band is held whole by the key's root strength, so the bands leave the wound as one mass.</summary>
