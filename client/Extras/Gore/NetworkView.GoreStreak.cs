@@ -7,7 +7,7 @@ using Num = System.Numerics;
 namespace SmClient;
 
 /// <summary>
-/// gore-streak (added content: gore; owner 2026-11-25): the shared part of the blood streak for Classic PvP with the Extended gore and for Warfront Ã¢â‚¬â€ the switches, the one
+/// gore-streak (added content: gore; owner 2026-11-25): the shared part of the blood streak for Classic PvP with the Extended gore and for Warfront - the switches, the one
 /// <see cref="GoreStreakView"/> per match, the spawn helper (camera bias, Godot to the rules' vectors) and the <c>gore streak:</c> log line. Faithful and Musou alone never make the view.
 /// Classic's wiring is in NetworkView.ClassicBlood.cs, Warfront's in NetworkView.WarfrontStreak.cs, the capture aid in NetworkView.GoreStreakCapture.cs.
 /// </summary>

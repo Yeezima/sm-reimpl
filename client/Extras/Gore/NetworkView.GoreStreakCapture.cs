@@ -16,12 +16,15 @@ namespace SmClient;
 /// (<see cref="ClassicStreak"/>, or the explosion's radial streak), then holds it at each key time of the table (<see cref="GoreStreakView.AgeOverride"/>) and saves the view as
 /// <c>0.png .. 10.png</c> plus <c>capture.json</c> (wound, body height and exit axis on screen, case, SHA; the scoring tools' contract) into <c>--gore-streak-frames &lt;dir&gt;</c>
 /// (default %LOCALAPPDATA%\sm-reimpl\tmp\gore-streak\&lt;case&gt;), and quits. Cases: <c>sweep-lr</c>, <c>sweep-rl</c>, <c>overhead</c>, <c>thrust</c>, <c>bolt</c>,
-/// <c>lascannon</c>, <c>explosion</c>, <c>kill</c> (a lethal left-to-right chainsword sweep). <c>--capture-backdrop grey</c> puts an unshaded grey wall 6 m behind the victim.
-/// <c>--gore-streak-sha &lt;sha&gt;</c> is written into capture.json. Needs a rendering (windowed) client: <c>godot.cmd --windowed</c>.
+/// <c>lascannon</c>, <c>explosion</c>, <c>kill</c> (a lethal left-to-right chainsword sweep). <c>--capture-backdrop grey|white|dark</c> puts an unshaded wall 6 m behind the victim and a
+/// floor under him (mid grey, white or near black) and hides the map's own geometry (no foreground beam across the spray). <c>--gore-streak-probe</c> draws every band's core solid
+/// at core opacity k / 10 in frame k instead of the table's look (the colour model's check, <see cref="GoreStreakRules.Composite"/>). The capture window is made borderless at
+/// 1920x1080 (true 1080p frames). <c>--gore-streak-sha &lt;sha&gt;</c> is written into capture.json. Needs a rendering (windowed) client: <c>godot.cmd --windowed</c>.
 /// </summary>
 public partial class NetworkView
 {
     static readonly string? StreakCaptureCase = CmdFlag("gore-streak-capture") ? (CmdArg("gore-streak-capture") ?? "sweep-lr") : null;
+    static readonly bool StreakProbe = CmdFlag("gore-streak-probe");
     GoreStreakTicker? _streakCaptureTicker;
     int _streakCapturePhase = -1, _streakCaptureFrame, _streakCaptureWait;
     double _streakCaptureAt;
@@ -46,6 +49,11 @@ public partial class NetworkView
         AddChild(_streakCaptureTicker);
         _streakCapturePhase = 0;
         _streakCaptureAt = _connectedFor;
+        // true 1080p frames (a decorated window lost its title bar's height: 1920x1061)
+        var win = GetWindow();
+        win.Borderless = true;
+        win.Position = Vector2I.Zero;
+        win.Size = new Vector2I(1920, 1080);
         GD.Print($"gore-streak-capture: case {StreakCaptureCase}, frames to {StreakCaptureDir()}");
     }
 
@@ -69,7 +77,7 @@ public partial class NetworkView
                 }
                 if (first == 0) return;
                 _streakCaptureVictim = first;
-                if (CmdArg("capture-backdrop") == "grey") StreakBackdrop(camera, first);
+                if (CmdArg("capture-backdrop") is "grey" or "white" or "dark") StreakBackdrop(camera, first, CmdArg("capture-backdrop")!);
                 _streakCapturePhase = 1; _streakCaptureAt = _connectedFor;
                 return;
             case 1:   // the backdrop drawn for half a second, then the streak
@@ -77,7 +85,8 @@ public partial class NetworkView
                 if (!StreakCaseDraw(camera)) { GD.Print("gore-streak-capture: the case drew nothing (is this Classic Extended?)"); GetTree().Quit(1); return; }
                 Directory.CreateDirectory(StreakCaptureDir());
                 _streakCapturePhase = 2; _streakCaptureFrame = 0; _streakCaptureWait = 0;
-                GoreStreaks().AgeOverride = GoreStreakRules.Keys[0].T + 0.0005f;
+                GoreStreaks().AgeOverride = StreakProbe ? GoreStreakRules.Keys[2].T : GoreStreakRules.Keys[0].T + 0.0005f;
+                if (StreakProbe) GoreStreaks().Probe = 0f;
                 return;
             case 2:   // each key time: hold it for four frames (the shader and any temporal filter settle), save, next
                 if (++_streakCaptureWait < 5) return;
@@ -86,7 +95,12 @@ public partial class NetworkView
                 img.SavePng(path);
                 AppendStreakFrame(camera);
                 _streakCaptureFrame++; _streakCaptureWait = 0;
-                if (_streakCaptureFrame < GoreStreakRules.Keys.Length) { GoreStreaks().AgeOverride = GoreStreakRules.Keys[_streakCaptureFrame].T + 0.0005f; return; }
+                if (_streakCaptureFrame < GoreStreakRules.Keys.Length)
+                {
+                    if (StreakProbe) GoreStreaks().Probe = _streakCaptureFrame / 10f;
+                    else GoreStreaks().AgeOverride = GoreStreakRules.Keys[_streakCaptureFrame].T + 0.0005f;
+                    return;
+                }
                 WriteStreakCaptureJson(camera, img.GetWidth(), img.GetHeight());
                 GoreStreaks().AgeOverride = null;
                 GD.Print($"gore-streak-capture: {GoreStreakRules.Keys.Length} frames and capture.json written to {StreakCaptureDir()}");
@@ -213,14 +227,16 @@ public partial class NetworkView
         return ClassicStreak(c);
     }
 
-    /// <summary>An unshaded mid-grey wall 6 m behind the victim, facing the camera (the scoring tools' backdrop).</summary>
-    void StreakBackdrop(Camera3D camera, int victim)
+    /// <summary>An unshaded wall 6 m behind the victim, facing the camera, and a floor under him (the scoring tools' backdrop: mid grey; white and near black for the colour checks); the map's own geometry hidden.</summary>
+    void StreakBackdrop(Camera3D camera, int victim, string kind)
     {
         if (!_remotes.TryGetValue(victim, out var model)) return;
+        if (_gameSpace is not null) foreach (var child in _gameSpace.GetChildren()) if (child is MapView mv) mv.Visible = false;
+        float level = kind switch { "white" => 1f, "dark" => 0.05f, _ => 0.5f };
         var at = model.GlobalPosition + Vector3.Up * 1.2f;
         var away = at - camera.GlobalPosition; away.Y = 0f;
         away = away.LengthSquared() > 1e-4f ? away.Normalized() : Vector3.Forward;
-        var mat = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(0.5f, 0.5f, 0.5f), CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+        var mat = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(level, level, level), CullMode = BaseMaterial3D.CullModeEnum.Disabled };
         var wall = new MeshInstance3D { Name = "GoreStreakBackdrop", Mesh = new QuadMesh { Size = new Vector2(40f, 24f) }, MaterialOverride = mat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         AddChild(wall);
         wall.GlobalTransform = new Transform3D(Basis.LookingAt(away, Vector3.Up), at + away * 6f);
@@ -269,6 +285,8 @@ public partial class NetworkView
   "case": "{{StreakCaptureCase}}",
   "sha": "{{sha}}",
   "renderer": "{{renderer}}",
+  "backdrop": "{{CmdArg("capture-backdrop") ?? "none"}}",
+  "probe": {{(StreakProbe ? "true" : "false")}},
   "size": [{{width}}, {{height}}],
   "streak_unit_m": {{J(_lastStreakUnit)}},
   "plane_facing": {{J(_lastStreakFacing)}},

@@ -17,8 +17,8 @@ namespace SmClient;
 /// hit is an explosion (radial from it; a plasma blast none), else the shooter's last weapon decides (plasma, melta or any cone weapon: none) and it runs along shooter to enemy.
 /// A Death event for the same enemy in the same batch makes it lethal (bigger, a fourth band). The body height is the enemy type's chest height / 0.6 (the unit capped at
 /// <see cref="GoreStreakRules.WarfrontUnitMetres"/>). Budget (lead decisions; <see cref="GoreStreakRules.AdmitStreaks"/>): one streak per enemy every 0.15 s, a killing hit always (it
-/// replaces that enemy's streak, finding M1); the frame's hits wait for the view's frame and are admitted own first, killing first, nearest first: the own ones at most 7 per 0.15 s
-/// and 48 showing, the others through a per-second token bucket taken last (finding L2), all under 64 showing (finding M2); within 45 m and none for a body under 12 px on screen.
+/// replaces that enemy's streak, finding M1); the frame's hits wait for the view's frame and are admitted own first, killing first, nearest first: a killing hit always (repair round 3), the
+/// other own ones at most 7 per 0.15 s and 48 showing, the others through a per-second token bucket taken last (finding L2), all under 64 showing (finding M2); within 45 m and none for a body under 12 px on screen.
 /// Musou Mode alone never draws it (<see cref="NetworkView.StreakDraws"/>); the Ork blood keeps playing beside it.
 /// </summary>
 public partial class NetworkView
@@ -36,6 +36,8 @@ public partial class NetworkView
     readonly record struct WfPending(ushort Enemy, bool Own, bool Lethal, float Distance, Vector3 Chest, Vector3 Axis, Vector3 Normal, float H, float Scale, bool Heavy, int Seed, Source Src);
     readonly List<WfPending> _wfPending = new();
     readonly List<StreakAsk> _wfAsks = new();
+    readonly List<int> _wfAdmitted = new();
+    readonly List<ushort> _wfStale = new();
     readonly HashSet<ushort> _wfFlushEnemies = new();
     double _wfOwnWindowAt = double.NegativeInfinity;
     int _wfOwnInWindow;
@@ -148,7 +150,8 @@ public partial class NetworkView
                 if (p.Lethal != (pass == 0) || !_wfFlushEnemies.Add(p.Enemy)) continue;
                 _wfAsks.Add(new StreakAsk(p.Own, p.Lethal, p.Distance, i));
             }
-        var admitted = AdmitStreaks(_wfAsks, _wfOwnInWindow, view.LiveOwn, view.Live, _wfBucket, _connectedFor);
+        AdmitStreaks(_wfAsks, _wfOwnInWindow, view.LiveOwn, view.Live, _wfBucket, _connectedFor, _wfAdmitted);
+        var admitted = _wfAdmitted;
         foreach (int i in admitted)
         {
             var p = _wfPending[i];
@@ -157,8 +160,16 @@ public partial class NetworkView
             _wfEnemyLast[p.Enemy] = _connectedFor;
         }
         view.NoteDropped(_wfPending.Count - admitted.Count);
-        if (_wfEnemyLast.Count > 2048) _wfEnemyLast.Clear();
+        if (_wfEnemyLast.Count > 2048) StreakWarfrontPrune();
         _wfPending.Clear();
+    }
+
+    /// <summary>Forgets the enemies whose last streak is past the per-enemy wait (lows: a full clear dropped every enemy's rate limit at once); the ones still waiting keep theirs.</summary>
+    void StreakWarfrontPrune()
+    {
+        _wfStale.Clear();
+        foreach (var (enemy, last) in _wfEnemyLast) if (EnemyReady(last, _connectedFor)) _wfStale.Add(enemy);
+        foreach (var enemy in _wfStale) _wfEnemyLast.Remove(enemy);
     }
 
     /// <summary>The nearest recent detonation to <paramref name="chest"/> that the shooter's own weapon can have made (finding L4: the snapshot names no owner, so the shooter's last weapon must match the blast's; a thrown item, wargear "", matches any).</summary>
