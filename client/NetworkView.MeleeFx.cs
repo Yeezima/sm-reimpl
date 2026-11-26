@@ -303,7 +303,13 @@ public partial class NetworkView
         }
         // fx/power-flash: the layered blue flash and cloud for every power weapon (the old small star and spark effect, powersword_dmg, is replaced).
         PowerHit(attacker.PlayerId, wargear, contact, outward + Vector3.Up * 0.3f, $"hit on P{victim.PlayerId}", slam);
-        if (PowerBlade.IsPowerSword(wargear)) { _fx!.Play(PowerBlade.FlareName, contact, AxesFromY(outward), 1f, null, null, 0f, 0.0, false, 2); _swordFlareAt[attacker.PlayerId] = _connectedFor; }
+        if (PowerBlade.IsPowerSword(wargear) && ImpactRules.PowerFlashRules.SwordContactFlare(OldPowerFlashStrength))
+        {
+            // the sword's blue contact flare is part of the power weapon's hit flash: the same strength and see-through (owner 2026-11-24, series 37 answers 2 and 3); since the owner's
+            // 2026-11-25 instruction (only the hammer and the maul flash) it plays only with --old-power-flash-strength, and so does the blade's hit flare
+            if (_fx!.Play(PowerBlade.FlareName, contact, AxesFromY(outward), 1f, null, null, 0f, 0.0, false, 2) is { } flare && !OldPowerFlashStrength) { flare.Opacity = ImpactRules.PowerFlashRules.FlashOpacity; flare.OpacityOnce = true; }
+            _swordFlareAt[attacker.PlayerId] = _connectedFor;
+        }
         _swordHits++;
         _fxLastShotAt = _connectedFor; _fxLastEnd = contact; _fxLastFrom = onBlade;
         if (_bot || CmdFlag("log-melee-fx")) GD.Print($"t {_connectedFor:F1} s: P{attacker.PlayerId} {wargear} hit on P{victim.PlayerId} at {contact.X:F1},{contact.Y:F1},{contact.Z:F1} (power hits shown {_swordHits})");

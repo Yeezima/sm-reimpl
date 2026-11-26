@@ -9,7 +9,8 @@ namespace SmClient.ImpactRules;
 /// headshot's wall decal.
 /// <list type="bullet">
 /// <item><see cref="RibbonPath"/>: the curve the blood is laid along, from the weapon's recorded samples on both sides of the contact (owner answer 4, 2026-11-24: "Redesign it"), with
-/// <see cref="RibbonReach"/>, <see cref="RibbonCount"/> and <see cref="RibbonEnvelope"/> (the look's timing, mirrored by the shader of <c>ClassicBloodRibbons</c>).</item>
+/// <see cref="RibbonReach"/>, <see cref="RibbonCount"/> and <see cref="RibbonEnvelope"/> (the look's timing, mirrored by the shader of <c>ClassicBloodRibbons</c>); the bands' opacity, width
+/// and draw order (<see cref="RibbonOpacity"/>, <see cref="RibbonHalfWidth"/>, <see cref="RibbonRenderPriority"/>; the visibility pass of 2026-11-24, owner answer 6).</item>
 /// <item><see cref="DecalTrace"/>: extend the shot's real trajectory from the head contact; the first blocking surface along it, if it is an eligible wall (<see cref="IsWall"/>) within
 /// <see cref="Reach"/> m, takes the decal at the exact intersection; otherwise none (no fallback surface). Only a fatal head shot by gunfire qualifies. Cosmetic: it does not touch the shot.</item>
 /// <item><see cref="DecalShape"/>: the splash's alpha and shade, made in code from a seed (never from a texture): a dense core with a ragged, noisy outline, pronounced uneven lobes, fine
@@ -34,14 +35,308 @@ public static class ClassicBloodRules
     public const float RibbonDecay = 5.4f;
     /// <summary>The slower fade of the last faint wisps after <see cref="RibbonTailFrom"/> s (1/s; the reference's last red about 0.95 s).</summary>
     public const float RibbonTailDecay = 3f, RibbonTailFrom = 0.6f;
-    /// <summary>The additive brightness of the ribbons (ours).</summary>
-    public const float RibbonGlow = 0.8f;
-    /// <summary>The most opaque the blood gets where bands stack (mixed, not added: heavy, lethal, stacked thrusts and automatic fire stay blood red; review 3, finding 5).</summary>
-    public const float RibbonMaxAlpha = 0.85f;
+    /// <summary>
+    /// A band's opacity at its middle while held (ours; was 0.8 before the visibility pass of 2026-11-24, owner answer 6). The bands are MIXED over the scene (<c>blend_mix</c>), never added:
+    /// the colour can never be brighter than the blood tint, however many bands, sprays or lights stack, which is the brightness cap of review 3 (finding 5) and owner answer 5. Stacked bands
+    /// only grow more opaque (toward solid blood red), never white.
+    /// </summary>
+    public const float RibbonOpacity = 0.95f;
+    /// <summary>
+    /// How the band's mottled score is weighted (ours; was the weakest patch's opacity, 0.35 then 0.6; 0.25 since repair 3, the re-review of 50ae0bd7, finding 1: at 0.6 every interior
+    /// texel scored above the held threshold, so the core stayed solid to about 0.45 s): the score of a texel is its shape (1 in the middle to 0 at the ragged edge and the staggered ends)
+    /// times this to 1 by the mottle noise; it decides which texels stay blood as the band erodes (<see cref="RibbonScore"/>).
+    /// </summary>
+    public const float RibbonMottleFloor = 0.25f;
+    /// <summary>
+    /// The darkest and the brightest a band's colour gets by its mottle, as shares of the blood tint (ours; 0.8 to 1 at 3570b719, 0.3 to 0.55 since the repair of review 5): the same hue,
+    /// a deeper blood red. Near-full red unshaded goes through the filmic/AgX tonemapper toward orange (measured p95 G/R 0.25 to 0.30 on screen at 0.55 to 0.92); at 0.3 to 0.55 it
+    /// measured 0.06 to 0.12 at the hold (the owner's "red or darker").
+    /// </summary>
+    public const float RibbonShadeFloor = 0.3f, RibbonShadeTop = 0.55f;
+    /// <summary>The thinnest the blood gets inside a patch, as a share of <see cref="RibbonOpacity"/> (ours; repair of review 5): mottled in density as well as shade; the strip pass keeps it red.</summary>
+    public const float RibbonDensityFloor = 0.7f;
+    /// <summary>A band's half width at the body for a normal hit (m; ours; was 0.075): before the per-band x0.8 to x1.3, the narrowing to 0.6 at the ends and the growth while it hangs.</summary>
+    public const float RibbonHalfWidth = 0.12f;
+    /// <summary>How tall the stack of bands is across the stroke for a sweep at least (m; ours; was 0.3), scaled by the spread; more bands stand farther apart (<see cref="RibbonBundleFor"/>).</summary>
+    public const float RibbonBundle = 0.42f;
+    /// <summary>
+    /// The least distance between neighbouring bands' middles, as a share of a band's mean width at the body (ours; repair 3, finding 1: a lethal hit's 6 bands stood about 0.1 m apart
+    /// while each was 0.28 to 0.46 m wide, one opaque slab that hid the stroke's direction). At 1 the bands' ragged, eroding edges leave gaps between them.
+    /// </summary>
+    public const float RibbonPitchShare = 1f;
+    /// <summary>The most bands in one spray (ours; repair 3, finding 1: 3 for a normal hit, 4 for heavy and lethal ones, which also grow wider and longer).</summary>
+    public const int RibbonMaxBands = 4;
+    /// <summary>A band's mean full width at the body before the hang's growth (m): twice <see cref="RibbonHalfWidth"/> times the shader's mean per-band factor 0.8 + 0.5 x 0.5.</summary>
+    public const float RibbonMeanWidth = 2f * RibbonHalfWidth * 1.05f;
+    /// <summary>
+    /// The height of the stack of bands across the stroke (m; the shader's <c>bundle</c>): <see cref="RibbonSpreadHeight"/>, and never less than <paramref name="count"/> pitches
+    /// (<see cref="RibbonPitchShare"/> of <see cref="RibbonMeanWidth"/>), so neighbouring bands' middles are at least a band's width apart; times the hit's width scale
+    /// <paramref name="size"/>. The bands' offsets and widths grow together while they hang (<see cref="RibbonGrow"/>), so this ratio holds throughout. The spread drives the stack
+    /// through <paramref name="count"/> (<see cref="RibbonBands"/>; repair 4, re-review of 06ef6bc2 finding N1: with every kind at 3 or 4 bands the pitch rule made a thrust's and a
+    /// shot's stack as tall as a sweep's).
+    /// </summary>
+    public static float RibbonBundleFor(int count, float spread, float size) =>
+        MathF.Max(RibbonSpreadHeight(spread), Math.Max(1, count) * RibbonPitchShare * RibbonMeanWidth) * size;
+
+    /// <summary>The spread's height across the stroke (m): <see cref="RibbonBundle"/> by the spread, 0.35 to 1.25 of 0.42 m (a thrust's 0.14 rad: 0.147 m; a shot's 0.3: 0.3 m; a sweep's 0.42: 0.42 m).</summary>
+    public static float RibbonSpreadHeight(float spread) => RibbonBundle * Math.Clamp(spread / 0.42f, 0.35f, 1.25f);
+
+    /// <summary>
+    /// How many bands the spread holds (ours; repair 4, finding N1): one per half a band's mean width of <see cref="RibbonSpreadHeight"/> (the bands a full width apart, the outer
+    /// halves of the outer bands and their ragged rims past it), 1 to <see cref="RibbonMaxBands"/>: a thrust 1, a shot and a charge 2, a sweep 3, the widest sweep 4.
+    /// </summary>
+    public static int RibbonBandsFit(float spread) => Math.Clamp((int)MathF.Floor(RibbonSpreadHeight(spread) / (0.5f * RibbonPitchShare * RibbonMeanWidth)), 1, RibbonMaxBands);
+
+    /// <summary>
+    /// A spray's bands (the shader's <c>count</c>; repair 4, finding N1): what the spread holds (<see cref="RibbonBandsFit"/>), and for a heavier or lethal melee blow (a sweep or a
+    /// thrust, <paramref name="amount"/> above 1) one more, never more than <see cref="RibbonCount"/> for the amount. Gunfire and the charge keep their spread's count (a shot's exit
+    /// spray, a body slam): a normal thrust 1 and a heavy or lethal one 2, a shot and a charge 2, a normal sweep 3 and a heavy or lethal one 4.
+    /// </summary>
+    public static int RibbonBands(RibbonKind kind, float spread, float amount)
+    {
+        int fit = RibbonBandsFit(spread);
+        if (amount > 1f && kind is RibbonKind.Sweep or RibbonKind.Thrust) fit++;
+        return Math.Min(fit, RibbonCount(amount));
+    }
+
+    /// <summary>The tallest the stack of bands may stand across the stroke at any moment of its life, anywhere along it (m; ours: under a body's height; repair 4, finding N1).</summary>
+    public const float RibbonStackMax = 1.25f;
+    /// <summary>The widest a band gets for its seed (the shader's per-band factor 0.8 + 0.5 x its hash, at most 1.3).</summary>
+    const float RibbonWidestBand = 1.3f;
+    /// <summary>The bands' seeded offset across the stroke (m, either way; the shader's 0.06 x (h4 - 0.5)) and the most their lifts differ while they hang (m per second of hang at full growth; 0.2 x 0.8).</summary>
+    const float RibbonCrossJitter = 0.03f, RibbonLiftSpread = 0.16f;
+    /// <summary>The longest the hang's growth runs (s; the shader's <c>hold = min(age, 0.6)</c>) and its full share (the bundle and bands about 60 % taller, review 3).</summary>
+    public const float RibbonHangSeconds = 0.6f;
+
+    /// <summary>
+    /// The outer height of the stack across the stroke (m) at <paramref name="s"/> m along it (negative: behind the contact) after <paramref name="hold"/> s of hang
+    /// (<see cref="RibbonHangSeconds"/> at most) with the growth share <paramref name="grow"/> (<see cref="RibbonGrow"/>): of the bands that can reach <paramref name="s"/>
+    /// (<see cref="RibbonBandLayout"/> at its farthest), the top and bottom edges of their middles (slot x <paramref name="bundle"/>, x(1 + 0.1 grow s) toward the far end, x(1 + grow
+    /// hold) as it hangs), their seeded offsets and the spread of their lifts, each band at its widest (x1.3, its taper <see cref="RibbonStaggerWidth"/> applied), narrowing to 0.6 at
+    /// the full reach <paramref name="lenFwd"/> / <paramref name="lenBack"/>. The shader's geometry, the view left out.
+    /// </summary>
+    public static float RibbonStackHeight(int count, float bundle, float size, float grow, float hold, float s, float lenFwd, float lenBack)
+    {
+        hold = Math.Clamp(hold, 0f, RibbonHangSeconds);
+        float g = 1f + grow * hold;
+        float fan = 1f + 0.1f * grow * s;
+        float dn = s >= 0f ? s / MathF.Max(lenFwd, 1e-3f) : -s / MathF.Max(lenBack, 1e-3f);
+        float narrow = 1f + (0.6f - 1f) * MathF.Min(dn, 1f);
+        float top = float.NegativeInfinity, bottom = float.PositiveInfinity;
+        int present = 0;
+        for (int ri = 0; ri < Math.Max(1, count); ri++)
+        {
+            float slot = RibbonSlot(ri, count), c = 2f * MathF.Abs(slot);
+            float shiftHi = lenFwd * (RibbonStaggerOuter * c + RibbonStaggerEchelon * MathF.Abs(slot) + 0.5f * RibbonStaggerJitter);
+            float shiftLo = lenFwd * (RibbonStaggerOuter * c - RibbonStaggerEchelon * MathF.Abs(slot) - 0.5f * RibbonStaggerJitter);
+            float reachFwd = shiftHi + lenFwd * (1f - RibbonStaggerReach * c), reachBack = shiftLo - lenBack * (1f - 2f * RibbonStaggerReach * c);
+            if (s > reachFwd || s < reachBack) continue;
+            present++;
+            float mid = slot * bundle * fan * g;
+            float hw = (size * RibbonHalfWidth * RibbonWidestBand * (1f - RibbonStaggerWidth * c) * narrow + RibbonCrossJitter * fan) * g;
+            top = MathF.Max(top, mid + hw); bottom = MathF.Min(bottom, mid - hw);
+        }
+        if (present == 0) return 0f;
+        return top - bottom + (present > 1 ? RibbonLiftSpread * grow * hold : 0f);
+    }
+    /// <summary>
+    /// The share of the hang's growth (0..1; the shader's <c>grow</c>: offsets and widths x(1 + grow x hold)) that keeps the stack within <see cref="RibbonStackMax"/> over the whole hang
+    /// and the whole stroke (<see cref="RibbonStackHeight"/>, sampled from the far end of the near reach to the far end of the farthest band, <see cref="RibbonStaggerOuter"/> and
+    /// <see cref="RibbonStaggerEchelon"/> included); 1 (the full 60 %) where it fits. Repair 4, finding N1: a lethal stack of 1.14 m grew to about 1.8 m.
+    /// </summary>
+    public static float RibbonGrow(int count, float bundle, float size, float lenFwd, float lenBack)
+    {
+        float far = lenFwd * (1f + RibbonStaggerOuter + 0.5f * RibbonStaggerEchelon + 0.5f * RibbonStaggerJitter);
+        float Worst(float grow)
+        {
+            float w = RibbonStackHeight(count, bundle, size, grow, RibbonHangSeconds, 0f, lenFwd, lenBack);
+            for (int i = 0; i <= 256; i++) w = MathF.Max(w, RibbonStackHeight(count, bundle, size, grow, RibbonHangSeconds, -lenBack + (far + lenBack) * i / 256f, lenFwd, lenBack));
+            return w;
+        }
+        const float cap = RibbonStackMax - 0.01f;   // a margin for the sampling
+        if (Worst(1f) <= cap) return 1f;
+        if (Worst(0f) >= cap) return 0f;
+        // the height grows with grow at every s, so the worst over s does too: bisect
+        float lo = 0f, hi = 1f;
+        for (int k = 0; k < 20; k++) { float mid = 0.5f * (lo + hi); if (Worst(mid) <= cap) lo = mid; else hi = mid; }
+        return lo;
+    }
+    /// <summary>
+    /// The bands' stagger along the stroke (ours; repair 4, re-review of 06ef6bc2 finding N2: the bands were a regular ladder, four equal stripes): the outer bands' middles lie
+    /// this share of the far reach past the contact (x |slot| x 2), so the blood fans out past the body from the middle band; <see cref="RibbonStaggerEchelon"/>: one side of the stack
+    /// (seeded) leads by that share per slot, so the stack reads as one slanted stroke; <see cref="RibbonStaggerJitter"/>: each band's own seeded shift (share, either way).
+    /// The outer bands are also shorter (<see cref="RibbonStaggerReach"/> of the far reach and twice that of the near one) and narrower (<see cref="RibbonStaggerWidth"/>).
+    /// </summary>
+    public const float RibbonStaggerOuter = 0.25f, RibbonStaggerEchelon = 0.2f, RibbonStaggerJitter = 0.12f, RibbonStaggerReach = 0.25f, RibbonStaggerWidth = 0.2f;
+
+    /// <summary>
+    /// One band's layout along the stroke (the shader's math): its shift along the stroke and its own reach past and behind its middle (m), and its width factor, from its slot
+    /// (-0.5..0.5 across the stack; 0 for a single band), its hashes <paramref name="h1"/>, <paramref name="h2"/>, <paramref name="h3"/> (0..1) and the spray's lead side
+    /// <paramref name="lead"/> (+1 or -1).
+    /// </summary>
+    public static (float Shift, float Fwd, float Back, float Width) RibbonBandLayout(float slot, float h1, float h2, float h3, float lead, float lenFwd, float lenBack)
+    {
+        float c = 2f * MathF.Abs(slot);
+        float shift = lenFwd * (RibbonStaggerOuter * c + RibbonStaggerEchelon * slot * lead + RibbonStaggerJitter * (h2 - 0.5f));
+        float fwd = lenFwd * (0.6f + 0.4f * h1) * (1f - RibbonStaggerReach * c);
+        float back = lenBack * (0.45f + 0.55f * h2) * (1f - 2f * RibbonStaggerReach * c);
+        return (shift, fwd, back, (0.8f + 0.5f * h3) * (1f - RibbonStaggerWidth * c));
+    }
+
+    /// <summary>A band's slot across the stack (the shader's <c>slot</c>): -0.5..0.5 between the outer bands' middles' share, 0 for a single band.</summary>
+    public static float RibbonSlot(int ri, int count) => count > 1 ? (ri + 0.5f) / count - 0.5f : 0f;
+    /// <summary>
+    /// The erosion threshold at the hold (ours; 0.04 at the repair of review 5, 0.35 since repair 3, finding 1): a texel is blood while its score is above
+    /// <c>1 - (1 - this) * envelope^<see cref="RibbonErodeCurve"/></c> (<see cref="RibbonThreshold"/>), so at the hold the band's middle and its denser mottle show, its soft rim not, and
+    /// as the envelope falls the band breaks into shrinking patches and specks from the edges inward. The band never fades through translucency (a translucent band over a light floor read
+    /// as pink); its covered area follows <see cref="RibbonEnvelope"/> (tested by <see cref="RibbonCoverage"/>).
+    /// </summary>
+    public const float RibbonErodeFloor = 0.35f;
+    /// <summary>
+    /// The power the envelope is raised to for the erosion threshold (ours; repair 3, finding 1; 1 before): the score's spread is narrower than its range, so a threshold straight on the
+    /// envelope cleared the band too late in the middle and too early in the tail; 0.7 makes the drawn area (the hang's growth included) follow the envelope (0.47 / 0.21 / 0.115 at 0.45 / 0.6 / 0.8 s; 0.55 left the measured screen red about 0.1 above it).
+    /// The early break-up term of the repair of review 5 (+0.1 x envelope from 0.22 to 0.45 s) is gone: the held band is already mottled.
+    /// </summary>
+    public const float RibbonErodeCurve = 0.7f;
+
+    /// <summary>The erosion threshold at <paramref name="age"/> s (the shader's <c>thr</c>): 1 before contact and after the life (nothing shows), <see cref="RibbonErodeFloor"/> at the hold.</summary>
+    public static float RibbonThreshold(float age) => 1f - (1f - RibbonErodeFloor) * MathF.Pow(RibbonEnvelope(age), RibbonErodeCurve);
+
+    /// <summary>A band texel's score (the shader's <c>score</c>) from its shape <paramref name="prof"/> across, <paramref name="taper"/> along, and its mottle and grain noise (0..1).</summary>
+    public static float RibbonScore(float prof, float taper, float n, float grain) =>
+        prof * taper * (RibbonMottleFloor + (1f - RibbonMottleFloor) * Smooth(0.15f, 0.85f, 0.75f * n + 0.25f * grain));
+    /// <summary>The half width is kept under this share of the curve's local radius (ours; repair of review 5, finding 2: a wide camera-facing strip on a bend folded into stepped edges).</summary>
+    public const float RibbonFoldShare = 0.7f;
+    /// <summary>The share of its width a band keeps when seen along its length (its tangent toward the camera; ours; repair of review 5, finding 2), smoothly up to all of it side-on.</summary>
+    public const float RibbonEndOnWidth = 0.35f;
+    /// <summary>
+    /// The ribbons' render priority (ours; 0 before the visibility pass, 10 at 3570b719, 1 since the repair of review 5): the strip pass at this, the blood at one more, so they draw just
+    /// after the effects batch (<c>FxBatch</c>: every effect sprite, the power weapons' hit flash and cloud among them, is one additive and one alpha draw at the default priority 0 with a
+    /// view-dependent sort depth), and the flash at the same contact lies under the blood. Anything at priority 3 or more still draws over the blood (2 shares the blood's priority and sorts
+    /// with it by depth). Depth-tested against the level and bodies.
+    /// </summary>
+    public const int RibbonRenderPriority = 1;
+    /// <summary>
+    /// The strip pass's strength (the shader's <c>strip</c>) for a band texel of coverage <paramref name="cov"/> (0..1: the patch's anti-aliased edge, 1 inside it; its density mottle
+    /// is not in it): the coverage cubed, so it is full wherever the patch covers the pixel and feathers out over the same pixel-wide rim as the blood, ahead of it (in proportion, the ground's green left before the blood's red arrived and the rim dipped about 0.03 in luminance; cubed, under 0.01) (repair 4, re-review
+    /// of 06ef6bc2 finding N3: full from 1/255 of opacity, it darkened the ground under the rim's faint blood to near black, a dark contour round every patch). Owner 2026-11-24,
+    /// series 37 answer 4 "Blood only": inside a patch no ground shows through as pink (the thinner mottle included); the rim is the ground and the blood blended, no other colour.
+    /// </summary>
+    public static float RibbonStrip(float cov) { float c = Math.Clamp(cov, 0f, 1f); return c * c * c; }
+
+    /// <summary>
+    /// The share of the red under a band that the strip pass keeps (ours; 1 before repair 3, finding 3: the full red of a bright surface under a band's thinner patches went orange
+    /// through the tonemapper; 0.4 at repair 3; 0.125 since repair 4, finding N4): inside a patch the red underneath is no brighter than the blood's own shade
+    /// (<see cref="RibbonShadeFloor"/> to <see cref="RibbonShadeTop"/>) over any surface up to <see cref="RibbonStripHdr"/> (an HDR glow, a power weapon's flash).
+    /// </summary>
+    public const float RibbonStripRed = 0.125f;
+    /// <summary>The brightest red under a band (HDR, linear) that still shows no brighter than the blood's brightest shade inside a patch (tested; ours).</summary>
+    public const float RibbonStripHdr = 4f;
+
+    /// <summary>A texel's opacity from its coverage <paramref name="cov"/> and density mottle <paramref name="density"/> (0..1; the shader's <c>a</c>).</summary>
+    public static float RibbonAlpha(float cov, float density) => RibbonOpacity * Math.Clamp(cov, 0f, 1f) * (RibbonDensityFloor + (1f - RibbonDensityFloor) * Math.Clamp(density, 0f, 1f));
+
+    /// <summary>
+    /// The final colour of a pixel of colour <paramref name="under"/> under a band texel of coverage <paramref name="cov"/>, density <paramref name="density"/> and mottle
+    /// <paramref name="n"/>, through both passes (the shader's math): the strip multiplies it by (<see cref="RibbonStripRed"/>, 0, 0) at <see cref="RibbonStrip"/> (part of its red
+    /// kept, its green and blue taken out), then the blood colour is mixed over it at <see cref="RibbonAlpha"/>, so inside a patch the only green and blue left are the blood's own.
+    /// </summary>
+    public static (float R, float G, float B) RibbonComposite((float R, float G, float B) under, float cov, float density, float n)
+    {
+        float s = RibbonStrip(cov), a = RibbonAlpha(cov, density);
+        var u = (under.R * (1f - s + s * RibbonStripRed), under.G * (1f - s), under.B * (1f - s));
+        var c = RibbonColour(n);
+        return (a * c.R + (1 - a) * u.Item1, a * c.G + (1 - a) * u.Item2, a * c.B + (1 - a) * u.Item3);
+    }
+
     /// <summary>How far each step of the curve turns toward the weapon's recorded path (share) and the most it turns per step (rad): it follows the swing without curling round the attacker (ours).</summary>
     public const float RibbonFollow = 0.75f, RibbonMaxTurn = 0.3f;
 
-    public static int RibbonCount(float amount) => Math.Clamp((int)MathF.Round(NormalRibbons * amount, MidpointRounding.AwayFromZero), 1, MaxRibbons);
+    /// <summary>The ribbons' blood red (0..1 linear RGB): today's Classic health-hit red, the same value as <c>ClassicHitSpray.BloodTint</c> (the colour the brief keeps).</summary>
+    public static readonly (float R, float G, float B) BloodRgb = (1f, 0.12f, 0.08f);
+
+    /// <summary>The most green or blue a blood colour may carry, as a share of its red (owner, 2026-11-24, series 37 answer 4 "Blood only": red or darker, never white or pink).</summary>
+    public const float BloodOnlyGreenBlue = 0.15f;
+
+    /// <summary>
+    /// Whether a colour is blood only: no channel above <paramref name="maxRed"/> (the blood's own red: nothing brighter than it), and green and blue at most
+    /// <see cref="BloodOnlyGreenBlue"/> of its red (no pink, no white). Owner 2026-11-24, series 37 answer 4.
+    /// </summary>
+    public static bool IsBloodOnly((float R, float G, float B) c, float maxRed) =>
+        c.R <= maxRed + 1e-5f && c.G <= BloodOnlyGreenBlue * c.R + 1e-5f && c.B <= BloodOnlyGreenBlue * c.R + 1e-5f && c.R >= 0f && c.G >= 0f && c.B >= 0f;
+
+    /// <summary>A ribbon texel's colour (the shader's <c>ALBEDO</c>) for its mottle noise <paramref name="n"/> (0..1): the blood red, darker in the dense patches, never brighter.</summary>
+    public static (float R, float G, float B) RibbonColour(float n)
+    {
+        float k = RibbonShadeFloor + (RibbonShadeTop - RibbonShadeFloor) * Smooth(0.15f, 0.85f, n);
+        return (BloodRgb.R * k, BloodRgb.G * k, BloodRgb.B * k);
+    }
+
+    /// <summary>A decal texel's colour from the blood colour <paramref name="blood"/> and its shade (<see cref="DecalValue"/>): the same red, darker in the core, never brighter.</summary>
+    public static (float R, float G, float B) DecalColour((float R, float G, float B) blood, float shade)
+    {
+        float s = DecalValue(shade);
+        return (blood.R * s, blood.G * s, blood.B * s);
+    }
+
+    /// <summary>Bands for a hit of <paramref name="amount"/>: 3 for a normal hit, more for heavier ones up to <see cref="RibbonMaxBands"/> (repair 3: was up to 6 for a lethal hit).</summary>
+    public static int RibbonCount(float amount) => Math.Clamp((int)MathF.Round(NormalRibbons * amount, MidpointRounding.AwayFromZero), 1, Math.Min(RibbonMaxBands, MaxRibbons));
+
+    /// <summary>
+    /// The engine-free model of a spray's covered area (repair 3, finding 1; the shader's fragment math with its value noise, sampled over a grid of every band's length and width,
+    /// weighted by the band's width there): the bands' blood area at <paramref name="age"/> s as a share of their geometric area at contact (so including the hang's growth: x(1 + grow x hold) wide, x(1 + 0.27 hold) long, hold = min(age, 0.6)), and the share of their middles (the inner 35 % across, the
+    /// inner 35 % of each band's reach) that is. <paramref name="seeds"/> sprays of <paramref name="count"/> sweep bands are averaged, each band laid out by <see cref="RibbonBandLayout"/>.
+    /// Used by the tests to hold the covered area to the envelope; it ignores the anti-aliased rim (a pixel wide) and the view.
+    /// </summary>
+    public static (float Area, float Core) RibbonCoverage(float age, int count = NormalRibbons, float grow = 1f, int seeds = 6, int along = 60, int across = 24)
+    {
+        float thr = RibbonThreshold(age);
+        double tot = 0, cov = 0, ctot = 0, ccov = 0;
+        var (lenBack, lenFwd) = RibbonReach(RibbonKind.Sweep, 1f);
+        for (int sd = 0; sd < seeds; sd++)
+        {
+            float seed = (float)((sd * 0.137) % 1.0);
+            var rng = new Random(5413 + sd);
+            float lead = sd % 2 == 0 ? 1f : -1f;
+            for (int ri = 0; ri < count; ri++)
+            {
+                float h1 = (float)rng.NextDouble(), h2 = (float)rng.NextDouble(), h3 = (float)rng.NextDouble();
+                var (shift, fwd, back, wf) = RibbonBandLayout(RibbonSlot(ri, count), h1, h2, h3, lead, lenFwd, lenBack);
+                for (int i = 0; i < along; i++)
+                {
+                    float sl = -back + (fwd + back) * (i + 0.5f) / along;
+                    float s = shift + sl;
+                    float dn = s >= 0f ? s / lenFwd : -s / lenBack;
+                    float end = sl >= 0f ? sl / fwd : -sl / back;
+                    float w = wf * (1f - 0.4f * MathF.Min(dn, 1f));
+                    for (int j = 0; j < across; j++)
+                    {
+                        float x = -1f + 2f * (j + 0.5f) / across;
+                        float edge = 0.62f + 0.38f * VNoise(s * 5f + ri * 7.3f + seed * 13f, ri * 3.1f + MathF.Sign(x) * 4.7f);
+                        float prof = 1f - Smooth(edge - 0.45f, edge, MathF.Abs(x));
+                        float taper = 1f - Smooth(0.4f, 1f, end);
+                        float n = 0.6f * VNoise(s * 2.4f + seed * 17f + ri * 5.3f, x * 1.1f + ri * 9.1f + age * 0.4f) + 0.4f * VNoise(s * 7.5f - seed * 7f + ri * 2.7f, x * 2.4f - age * 0.7f);
+                        float grain = VNoise(s * 16f + ri * 3.7f, x * 5f + seed * 11f);
+                        bool blood = RibbonScore(prof, taper, n, grain) > thr;
+                        tot += w; if (blood) cov += w;
+                        if (MathF.Abs(x) < 0.35f && end < 0.35f) { ctot++; if (blood) ccov++; }
+                    }
+                }
+            }
+        }
+        float hold = Math.Clamp(age, 0f, RibbonHangSeconds);
+        return ((float)(cov / Math.Max(tot, 1e-9) * (1f + grow * hold) * (1f + 0.27f * hold)), (float)(ccov / Math.Max(ctot, 1e-9)));
+    }
+
+    /// <summary>The shader's <c>vnoise</c> (its sine hash, in double precision: the same field up to rounding).</summary>
+    static float VNoise(float x, float y)
+    {
+        static double H(double px, double py) { double v = Math.Sin(px * 127.1 + py * 311.7) * 43758.5453; return v - Math.Floor(v); }
+        double ix = Math.Floor(x), iy = Math.Floor(y), fx = x - ix, fy = y - iy;
+        double ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+        double a = H(ix, iy), b = H(ix + 1, iy), c = H(ix, iy + 1), d = H(ix + 1, iy + 1);
+        return (float)((a + (b - a) * ux) + ((c + (d - c) * ux) - (a + (b - a) * ux)) * uy);
+    }
     public static float RibbonWidthScale(float amount) => 1f + 0.12f * MathF.Max(0f, amount - 1f);
 
     /// <summary>
@@ -195,6 +490,13 @@ public static class ClassicBloodRules
         if (!IsWall(f.Normal)) return (DecalResult.NotAWall, f);
         return (DecalResult.Placed, f);
     }
+
+    /// <summary>
+    /// Whether a fatal head shot and the server's headshot kill belong together, whichever arrived first: the shot is the killer's own (<paramref name="shooter"/> is
+    /// <paramref name="killer"/>) and they are at most <paramref name="window"/> s apart (<paramref name="apart"/>). Every decal path asks this (review 4, finding 8: the kill-first path took any
+    /// shooter's head shot).
+    /// </summary>
+    public static bool HeadshotPairs(int shooter, int killer, double apart, double window) => shooter == killer && apart >= 0.0 && apart <= window;
 
     /// <summary>How far the caller traces (a little past the cutoff, so a wall just beyond it reads as too far rather than absent).</summary>
     public const float SearchDistance = Reach + 1.5f;

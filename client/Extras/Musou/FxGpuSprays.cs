@@ -458,7 +458,7 @@ void vertex() {
         if ((flags & 1) != 0) col.rgb = s4.rgb * max(col.r, max(col.g, col.b));
         if ((flags & 2) != 0) col.rgb = srgb_to_linear(col.rgb);
         float o = clamp(s2.w, 0.0, 1.0);
-        if (o < 1.0) col *= o;
+        if (o < 1.0) { if ((flags & 8) != 0) col.a *= o; else col *= o; }   // flag 8: FxEffect.OpacityOnce (PowerFlashRules.ShadeOnce: alpha only)
         hide = hide || col.a <= 0.003;
     }
     if (hide) {
