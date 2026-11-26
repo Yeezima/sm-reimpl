@@ -56,17 +56,17 @@ public static class GoreStreakRules
     public static readonly Key[] Keys =
     [
         //   T      Exit   Entry  Fan   Width   Fill   Opac   Grit   Br    Outer  Root   Mist   Red
-        new(0.00f, 1.40f, 0.44f,  4f, 0.012f, 1.00f, 0.95f, 0.00f, 1.0f, 0.00f, 1.00f, 0.30f, 1.00f),
-        new(0.05f, 1.90f, 0.81f, 12f, 0.028f, 1.00f, 0.90f, 0.05f, 1.7f, 0.00f, 1.00f, 0.80f, 1.00f),
-        new(0.10f, 2.20f, 0.88f, 16f, 0.032f, 1.00f, 0.86f, 0.10f, 2.0f, 0.00f, 1.00f, 1.00f, 1.00f),
-        new(0.18f, 2.20f, 0.90f, 16f, 0.032f, 0.90f, 0.76f, 0.15f, 2.0f, 0.55f, 0.90f, 0.50f, 0.88f),
-        new(0.27f, 2.40f, 0.95f, 20f, 0.037f, 0.90f, 0.70f, 0.20f, 2.0f, 0.20f, 0.70f, 1.00f, 0.92f),
-        new(0.37f, 2.52f, 1.02f, 19f, 0.039f, 0.70f, 0.62f, 0.28f, 2.0f, 0.12f, 0.40f, 0.70f, 0.85f),
-        new(0.48f, 2.66f, 1.07f, 18f, 0.040f, 0.52f, 0.56f, 0.36f, 2.0f, 0.06f, 0.00f, 0.55f, 0.78f),
-        new(0.60f, 2.74f, 1.00f, 18f, 0.040f, 0.42f, 0.50f, 0.44f, 2.0f, 0.04f, 0.00f, 0.42f, 0.72f),
-        new(0.72f, 2.82f, 0.95f, 17f, 0.040f, 0.34f, 0.44f, 0.50f, 2.0f, 0.04f, 0.00f, 0.30f, 0.66f),
-        new(0.85f, 2.84f, 0.13f, 16f, 0.039f, 0.24f, 0.38f, 0.56f, 2.0f, 0.08f, 0.00f, 0.18f, 0.60f),
-        new(0.98f, 2.84f, 0.07f, 13f, 0.037f, 0.07f, 0.26f, 0.60f, 2.0f, 0.70f, 0.00f, 0.08f, 0.55f),
+        new(0.00f, 1.50f, 0.44f,  4f, 0.010f, 1.00f, 0.95f, 0.00f, 1.0f, 0.00f, 1.00f, 0.30f, 1.00f),
+        new(0.05f, 1.90f, 0.81f, 12f, 0.025f, 1.00f, 0.90f, 0.05f, 1.7f, 0.00f, 1.00f, 0.80f, 1.00f),
+        new(0.10f, 2.20f, 0.88f, 16f, 0.028f, 1.00f, 0.86f, 0.10f, 2.0f, 0.00f, 1.00f, 1.00f, 1.00f),
+        new(0.18f, 2.20f, 0.90f, 16f, 0.028f, 0.90f, 0.76f, 0.15f, 2.0f, 0.55f, 0.90f, 0.50f, 0.88f),
+        new(0.27f, 2.40f, 0.95f, 20f, 0.033f, 0.90f, 0.70f, 0.20f, 2.0f, 0.20f, 0.70f, 1.00f, 0.92f),
+        new(0.37f, 2.52f, 1.02f, 19f, 0.034f, 0.78f, 0.62f, 0.28f, 2.0f, 0.12f, 0.40f, 0.85f, 0.85f),
+        new(0.48f, 2.66f, 1.07f, 18f, 0.035f, 0.64f, 0.56f, 0.36f, 2.0f, 0.06f, 0.00f, 0.72f, 0.78f),
+        new(0.60f, 2.74f, 1.00f, 18f, 0.035f, 0.54f, 0.50f, 0.44f, 2.0f, 0.04f, 0.00f, 0.60f, 0.72f),
+        new(0.72f, 2.82f, 0.95f, 17f, 0.035f, 0.46f, 0.44f, 0.50f, 2.0f, 0.04f, 0.00f, 0.48f, 0.66f),
+        new(0.85f, 2.84f, 0.13f, 16f, 0.034f, 0.33f, 0.38f, 0.56f, 2.0f, 0.08f, 0.00f, 0.30f, 0.60f),
+        new(0.98f, 2.84f, 0.07f, 13f, 0.033f, 0.07f, 0.26f, 0.60f, 2.0f, 0.70f, 0.00f, 0.08f, 0.55f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -374,7 +374,7 @@ public static class GoreStreakRules
     /// <summary>A band's width along its length (share <paramref name="u"/> of its reach): narrow where it leaves the wound, widest past the middle, then a tapered tip.</summary>
     public static float Profile(float u) => (0.7f + 0.3f * Smooth(0f, 0.5f, u)) * (1f - 0.6f * Smooth(0.82f, 1.0f, u));
     /// <summary>The strip is this much wider than the core's nominal half width: room for the mist (out to <see cref="MistTo"/>) and its lumps.</summary>
-    public const float EdgePad = 3.1f;
+    public const float EdgePad = 3.5f;
     /// <summary>The strip's segments along its length (vertices = 2 x (segments + 1)).</summary>
     public const int Segments = 12;
 
@@ -503,7 +503,7 @@ public static class GoreStreakRules
     /// The mist body under each core (repair round 3: a soft body 2 to 3 times the core's width): <see cref="MistAlpha"/> of the band's opacity times the key's <see cref="Key.Mist"/>,
     /// fading from <see cref="MistFrom"/> to <see cref="MistTo"/> core half widths, clumped by the large cells, eroding later than the core (a haze that outlasts it).
     /// </summary>
-    public const float MistAlpha = 0.48f, MistFrom = 0.7f, MistTo = 2.8f;
+    public const float MistAlpha = 0.48f, MistFrom = 0.7f, MistTo = 3.2f;
     /// <summary>The soft step of the patch erosion.</summary>
     public const float ErodeSoft = 0.06f;
     /// <summary>The root (frames 0 to 4): the first <see cref="RootShare"/> of every band is held whole by the key's root strength, so the bands leave the wound as one mass.</summary>
@@ -514,6 +514,8 @@ public static class GoreStreakRules
     public const float CoreGain = 1.25f;
     /// <summary>The blood (the darker red over the strip) follows the cracks between the small cells: its opacity x (floor + (1 - floor) x (1 - cell)), so the cores read as lighter cells with darker seams (the reference's cellular grit).</summary>
     public const float BloodCrack = 0.25f;
+    /// <summary>The strip red's granules: x (floor + gain x small cell), so the cell centres read a lighter red (never past a deep pure red) and the seams darker; mean about 1.</summary>
+    public const float GranuleFloor = 0.75f, GranuleGain = 0.55f;
 
     /// <summary>
     /// The texel at (<paramref name="u"/> along 0..1, <paramref name="v"/> across: 1 at the core's nominal edge) of band <paramref name="band"/> at key <paramref name="k"/> (the fragment
@@ -541,14 +543,14 @@ public static class GoreStreakRules
         float tipHeld = TipHold * (1f - k.Root) * Smooth(0.7f, 0.85f, u) * Smooth(0.3f, 0.6f, big) * Smooth(0f, 0.1f, k.Fill);
         cov = MathF.Max(cov, MathF.Max(rootHeld, tipHeld));
         float open = Smooth(0.2f, 0.0f, small - 0.35f * k.Grit) * k.Grit * (1f - rootHeld);   // the cracks between the cells open as it fades
-        cov *= 1f - 0.8f * open;
+        cov *= 1f - 0.5f * open;
         float solid = SwipeSolid * (1f - Grow(k));
         float mf = MottleFloor + solid;
         float band0 = k.Opacity * b.Alpha * along * outer;
         float core = MathF.Min(1f, band0 * edge * cov * (mf + (1f - mf) * mottle) * CoreGain);
         float mistCov = Smooth(thr - 0.12f, thr + 0.05f, 0.6f * e + 0.4f * big);
         float mist = band0 * k.Mist * MistAlpha * (1f - Smooth(MistFrom, MistTo, av + 0.6f * (lump - 0.5f))) * mistCov * (0.35f + 0.65f * big);
-        float cut = CutLo + (CutHi - CutLo) * (1f - (0.6f * big + 0.4f * small));
+        float cut = CutLo + (CutHi - CutLo) * (1f - big);
         float blood = MathF.Min(1f, band0 * edge * cov * (BloodCrack + (1f - BloodCrack) * (1f - small)));   // darker cracks, lighter cell centres
         return new Texel(MathF.Max(core, mist), core, cov, mottle * (1f - 0.4f * MathF.Min(av, 1f)), cut, blood);
     }

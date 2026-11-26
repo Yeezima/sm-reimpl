@@ -172,7 +172,7 @@ void fragment() {
     float tip = {{F(GoreStreakRules.TipHold)}} * (1.0 - v_r.x) * smoothstep(0.7, 0.85, u) * smoothstep(0.3, 0.6, big) * smoothstep(0.0, 0.1, v_k.y);
     cov = max(cov, max(held, tip));
     float opn = smoothstep(0.2, 0.0, small - 0.35 * v_k.z) * v_k.z * (1.0 - held);
-    cov *= 1.0 - 0.8 * opn;
+    cov *= 1.0 - 0.5 * opn;
     float mf = {{F(GoreStreakRules.MottleFloor)}} + {{F(GoreStreakRules.SwipeSolid)}} * (1.0 - v_r.w);   // frame 0: one solid swipe
     float band0 = v_k.x * along * outer;
     float core = min(1.0, band0 * edge * cov * (mf + (1.0 - mf) * mottle) * {{F(GoreStreakRules.CoreGain)}});
@@ -182,9 +182,9 @@ void fragment() {
     float nearf = smoothstep(near_from, near_to, v_depth);
     float shp = max(core, mist) * nearf;
     float dens = mottle * (1.0 - 0.4 * min(av, 1.0));   // lighter in the cell centres
-    float red = v_m.y;
+    float red = v_m.y * ({{F(GoreStreakRules.GranuleFloor)}} + {{F(GoreStreakRules.GranuleGain)}} * small);   // lighter granules in the cell centres, darker seams
     // the feathered edge: drawn where the shape clears a threshold the large cells set (GoreStreakRules.Drawn); every drawn texel fully stripped, never a half-stripped pink fringe
-    float cut = {{F(GoreStreakRules.CutLo)}} + {{F(GoreStreakRules.CutHi - GoreStreakRules.CutLo)}} * (1.0 - (0.6 * big + 0.4 * small));
+    float cut = {{F(GoreStreakRules.CutLo)}} + {{F(GoreStreakRules.CutHi - GoreStreakRules.CutLo)}} * (1.0 - big);
     float blood = min(1.0, band0 * edge * cov * ({{F(GoreStreakRules.BloodCrack)}} + {{F(1f - GoreStreakRules.BloodCrack)}} * (1.0 - small)));   // darker cracks, lighter cells
     if (probe >= 0.0) { shp = (av < 1.0 && u > 0.1 && u < 0.9) ? 1.0 : 0.0; blood = probe; dens = 0.7; red = 1.0; cut = 0.5; nearf = 1.0; }
     float dr = smoothstep(cut - {{F(GoreStreakRules.DrawRamp)}}, cut + {{F(GoreStreakRules.DrawRamp)}}, shp);
