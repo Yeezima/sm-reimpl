@@ -191,15 +191,18 @@ public partial class MapmakerDock
             else if (hidden.Count > SceneRowCap) { var more = _objectTree.CreateItem(root); more.SetText(0, $"... {hidden.Count - SceneRowCap} more (not listed)"); more.SetMetadata(0, ""); more.SetSelectable(0, false); }
             return;
         }
+        // children and ids looked up once (a scan per object made the list cost the square of the map: about 0.1 s for 2000 objects after every placement)
+        var ids = doc.Objects.Select(o => o.Id).ToHashSet();
+        var children = doc.Objects.Where(o => o.Parent is not null).ToLookup(o => o.Parent!);
         void Add(TreeItem parent, MapObject o, int depth)
         {
             if (count >= SceneRowCap || depth > 200) return;
             count++;
             var item = AddRow(parent, o);
-            foreach (var c in doc.ChildrenOf(o.Id)) Add(item, c, depth + 1);
+            foreach (var c in children[o.Id]) Add(item, c, depth + 1);
             item.Collapsed = _collapsed.Contains(o.Id);
         }
-        foreach (var o in doc.Objects.Where(o => o.Parent is null || doc.Find(o.Parent) is null)) Add(root, o, 0);
+        foreach (var o in doc.Objects.Where(o => o.Parent is null || !ids.Contains(o.Parent))) Add(root, o, 0);
         if (count >= SceneRowCap) { var more = _objectTree.CreateItem(root); more.SetText(0, $"... {doc.Objects.Count - count} more (not listed; use the 3D view)"); more.SetMetadata(0, ""); more.SetSelectable(0, false); }
     }
 

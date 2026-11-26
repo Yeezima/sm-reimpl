@@ -20,6 +20,8 @@ namespace SmMapmakerEditor;
 public sealed class PerfTest(MapmakerPlugin plugin)
 {
     public static bool Wanted => OS.GetCmdlineUserArgs().Contains("--mm-perf");
+    /// <summary>--mm-perf-old: placing aims and the Check route button take their pre-2026-11-27 paths (a fresh collision world per aim, the check at once), for the before numbers.</summary>
+    public static bool OldPaths => Wanted && OS.GetCmdlineUserArgs().Contains("--mm-perf-old");
     static string Arg(string name, string fallback) { var a = OS.GetCmdlineUserArgs(); int i = Array.IndexOf(a, name); return i >= 0 && i + 1 < a.Length ? a[i + 1] : fallback; }
     SceneTree Tree => (SceneTree)Engine.GetMainLoop();
     async Task Frames(int n) { for (int i = 0; i < n; i++) await plugin.ToSignal(Tree, SceneTree.SignalName.ProcessFrame); }
@@ -119,6 +121,50 @@ public sealed class PerfTest(MapmakerPlugin plugin)
         _rows.Add((label, n, typed, gizmo, undo));
     }
 
+    /// <summary>
+    /// Placing on the map: the aim point under the mouse (what the placement preview asks every mouse move, and a click before it places) and a click that places a cover block.
+    /// A ray straight down onto the middle of the SM1 map, so it meets the imported decoration.
+    /// </summary>
+    async Task Placing(string label, int n, string sm1)
+    {
+        if (MapHost.Sm1For(sm1)?.BoundsCore() is not { } b) { Log($"note: {label}: no SM1 bounds, placing not measured"); return; }
+        var mid = new Num.Vector3((b.Min.X + b.Max.X) / 2, (b.Min.Y + b.Max.Y) / 2, b.Max.Z + 50f);
+        var origin = Frame.ToGodot(new Vector3(mid.X, mid.Y, mid.Z));
+        var down = Frame.ToGodot(new Vector3(0, 0, -1));
+        Vector3 aim = default;
+        var first = await Time($"{label} aim (first)", n, () => aim = plugin.GamePointOnRay(origin, down), 0.5);
+        Log($"{label}: first aim point {aim} (the ground plane while the map's collision is still being built)");
+        var built = System.Diagnostics.Stopwatch.StartNew();
+        while (!OldPaths && !plugin.SolidWorldCurrent && built.Elapsed.TotalSeconds < 180) { plugin.GamePointOnRay(origin, down); await Frames(5); }
+        Log($"{label}: the aim's collision world was ready after {built.Elapsed.TotalSeconds:0.0} s more (in the background)");
+        var again = await Time($"{label} aim (again)", n, () => aim = plugin.GamePointOnRay(origin, down), 0.5);
+        Log($"{label}: the aim point {aim} (ray from z {mid.Z:0})");
+        var item = new LibraryItem(LibraryKind.Piece, "cover", "Cover block");
+        var click = await Time($"{label} click place", n, () => plugin.PlaceAt(item, plugin.GamePointOnRay(origin, down)), 1.0);
+        var after = await Time($"{label} aim after edit", n, () => aim = plugin.GamePointOnRay(origin, down), 0.5);
+        _place.Add((label, n, first.Call, again.Call, click.Call, after.Call));
+        if (budget) Check(Math.Max(Math.Max(first.Call, again.Call), Math.Max(click.Call, after.Call)) < 100, $"{label}: aiming and a placement click take under 100 ms each");
+        plugin.UndoLast();
+        await Frames(3);
+    }
+
+    /// <summary>The Check route button: the quick check and the route run off the main thread (the button's call returns at once and the result lands later).</summary>
+    async Task CheckButton(string label, int n)
+    {
+        var press = await Time($"{label} Check button", n, () => plugin.PressCheckRoute(), 0.5);
+        Check(plugin.Checking, $"{label}: the Check button shows checking while the check runs (headline: {plugin.Dock!.TestCheckHeadline})");
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while ((plugin.Checking || plugin.RouteChecking) && waited.Elapsed.TotalSeconds < 300) await Frames(5);
+        Log($"{label}: the check (and route) landed after {waited.Elapsed.TotalSeconds:0.0} s; headline: {plugin.LastCheck?.Headline}");
+        Check(plugin.LastCheck is not null && !plugin.Checking, $"{label}: the Check button's result landed");
+        _press = (label, n, press.Call, press.MaxFrame, waited.Elapsed.TotalSeconds);
+        if (budget) Check(press.Call < 100 && press.MaxFrame < 500, $"{label}: the Check button returns at once ({press.Call:0} ms, longest frame {press.MaxFrame:0} ms)");
+    }
+
+    bool budget = true;
+    readonly List<(string Label, int N, double First, double Again, double Click, double After)> _place = new();
+    (string Label, int N, double Call, double Frame, double Landed)? _press;
+
     readonly List<(string Label, int N, (double, double, double) Typed, (double, double, double) Gizmo, (double, double, double) Undo)> _rows = new();
 
     /// <summary>
@@ -144,7 +190,7 @@ public sealed class PerfTest(MapmakerPlugin plugin)
             for (int wait = 0; MapHost.Root is null; wait++) { plugin.EnsureSceneRoot(); await Frames(20); if (wait > 60) break; }
             await Frames(20);
             MapHost.Library = new MapLibrary(Arg("--mm-lib", Path.Combine(outDir, "lib")));
-            bool budget = !OS.GetCmdlineUserArgs().Contains("--mm-perf-nobudget");
+            budget = !OS.GetCmdlineUserArgs().Contains("--mm-perf-nobudget");
 
             // Snap starts off (owner 2026-11-27): every snap kind, every session.
             Check(!MapHost.SnapGrid && !MapHost.SnapAngle, $"snap starts off (grid {MapHost.SnapGrid}, angle {MapHost.SnapAngle})");
@@ -207,12 +253,16 @@ public sealed class PerfTest(MapmakerPlugin plugin)
                     await Time("settle", n, () => { }, 2.0);
                     var drawn = plugin.Session.Document.Objects.Where(o => o.Asset is not null).Select(o => o.Id).Take(2).ToArray();
                     if (drawn.Length == 2) await Triggers("sm1 " + sm1, n, drawn[0], drawn[1], budget);
+                    await Placing("sm1 " + sm1, n, sm1);
+                    await CheckButton("sm1 " + sm1, n);
                 }
                 else Log($"note: SM1 import of {sm1} not run ({plugin.Status})");
             }
 
             Log("summary (call / longest frame after / stalled ms):");
             foreach (var (label, n, t, g, u) in _rows) Log($"  {label,-16} N={n,5}  typed {t.Item1:0}/{t.Item2:0}/{t.Item3:0}  gizmo {g.Item1:0}/{g.Item2:0}/{g.Item3:0}  undo {u.Item1:0}/{u.Item2:0}/{u.Item3:0}");
+            foreach (var p in _place) Log($"  {p.Label,-16} N={p.N,5}  aim first {p.First:0} ms, aim again {p.Again:0} ms, click place {p.Click:0} ms, aim after the edit {p.After:0} ms");
+            if (_press is { } c) Log($"  {c.Label,-16} N={c.N,5}  Check button call {c.Call:0} ms, longest frame {c.Frame:0} ms, result after {c.Landed:0.0} s");
         }
         catch (Exception e) { Log("exception " + e); _failed = true; }
         EditCost.Enabled = false;

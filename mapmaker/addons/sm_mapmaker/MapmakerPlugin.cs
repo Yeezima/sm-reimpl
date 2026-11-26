@@ -32,6 +32,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     MapmakerDock? _dock;
     ObjectGizmoPlugin? _gizmo;
+    static readonly List<ObjectGizmoPlugin> RetiredGizmos = new();   // removed gizmo plugins, kept alive until the editor shuts down (see _ExitTree)
     readonly Dictionary<int, Step> _steps = new();
     int _stepId;
     (Step Step, string Label, int Hold)? _holdStep;   // the undo step a held spin arrow keeps folding its repeats into
@@ -81,6 +82,10 @@ public partial class MapmakerPlugin : EditorPlugin
     public override void _ExitTree()
     {
         _decorWorker?.Dispose(); _decorWorker = null;   // no background build is applied to a plugin that is gone
+        _closing = true;
+        // The background check and the placement world (2026-11-27) allocate heavily on worker threads; a collection they cause while the plugin tears down was seen to crash the
+        // gizmo plugin's release below (0xC0000005 at exit in some runs, base 40d64bfa 0 of 2). Give a running one a short, bounded chance to finish first.
+        WaitForBackground(TimeSpan.FromSeconds(5));
         if (PlayRunning) StopPlayTest();   // closing the editor mid-test stops that test's server and bots (only the processes it recorded)
         MapHost.RootChanged -= OnRootChanged;
         MapHost.Sm1Changed -= OnSm1Changed;
@@ -94,7 +99,14 @@ public partial class MapmakerPlugin : EditorPlugin
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
         // the gizmo plugin's handle is released here, on the main thread: left to the finalizer thread (any later GC, e.g. the material test's) its release removes the
         // gizmos from the scene's nodes off the main thread (Godot's thread guard: "can't call remove_gizmo()", M5 review)
-        if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo.Dispose(); _gizmo = null; }
+        if (_gizmo is not null)
+        {
+            RemoveNode3DGizmoPlugin(_gizmo);
+            // Not disposed here any more (2026-11-27): the explicit release crashed some editor exits on this branch (0xC0000005 inside Dispose, also with no background work running).
+            // The handle is kept alive instead, so the finalizer thread never releases it either (the M5 thread-guard errors); Godot's own shutdown releases what is left, on the main thread.
+            RetiredGizmos.Add(_gizmo);
+            _gizmo = null;
+        }
         Thumbs?.QueueFree(); Thumbs = null;
         MapHost.Shutdown();
         if (MapHost.Plugin == this) MapHost.Plugin = null;
@@ -405,6 +417,7 @@ public partial class MapmakerPlugin : EditorPlugin
         HookHistory();
         Session = s; Dirty = false;
         MapHost.ResetSnap();   // every map opened or started begins with snap off (owner 2026-11-27)
+        ForgetSolidWorld();
         foreach (var k in _steps.Where(x => x.Value.RootId == _activeRoot).Select(x => x.Key).ToList()) _steps.Remove(k);   // this scene's history is cleared below; other tabs keep theirs
         foreach (var n in _nodes.Values) if (GodotObject.IsInstanceValid(n)) { n.GetParent()?.RemoveChild(n); n.QueueFree(); }
         _nodes.Clear(); _contentKeys.Clear(); _viewed.Clear();
