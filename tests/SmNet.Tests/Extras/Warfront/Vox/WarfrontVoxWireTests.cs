@@ -52,7 +52,7 @@ public class WarfrontVoxWireTests
     {
         Assert.Equal(52, WarfrontWire.VoxTag);
         Assert.NotEqual(WarfrontChaosWire.Tag, WarfrontWire.VoxTag);
-        Assert.NotEqual(SmNet.Extras.Executions.ExecutionWire.Tag, WarfrontWire.VoxTag);
+        Assert.NotEqual(50, WarfrontWire.VoxTag);   // executions X1's tag (its namespace stays inside the executions folders)
         Assert.NotEqual(WarfrontBattleWire.EnvelopeTag, WarfrontWire.VoxTag);
         Assert.NotEqual(Protocol.WeatherStateTag, WarfrontWire.VoxTag);
     }
