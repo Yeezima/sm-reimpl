@@ -1,4 +1,5 @@
 using System.Numerics;
+using SmClient;
 using SmClient.Customizer.Model;
 using SmSim;
 
@@ -192,19 +193,29 @@ public class MeleeModeTests
     }
 
     [Theory]
-    [InlineData(true, false, false, MeleeMode.Change.Shot)]
-    [InlineData(false, true, false, MeleeMode.Change.Aimed)]
-    [InlineData(false, false, true, MeleeMode.Change.Reloaded)]
-    public void APressHeldAcrossTheEndStaysUntilReleasedAndPressedAgain(bool fire, bool aim, bool reload, MeleeMode.Change why)
+    [InlineData(true, false, MeleeMode.Change.Shot)]
+    [InlineData(false, true, MeleeMode.Change.Reloaded)]
+    public void APressHeldAcrossTheEndStaysUntilReleasedAndPressedAgain(bool fire, bool reload, MeleeMode.Change why)
     {
         var m = Entered();
-        m.Step(Locked(fire, aim, reload));
-        m.Step(Locked(fire, aim, reload));
-        for (int i = 0; i < 20; i++) Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: fire, aim: aim, reload: reload)));   // held past the End
+        m.Step(Locked(fire: fire, reload: reload));
+        m.Step(Locked(fire: fire, reload: reload));
+        for (int i = 0; i < 20; i++) Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: fire, reload: reload)));   // held past the End
         Assert.True(m.Active);
         Assert.Equal(MeleeMode.Change.None, m.Step(In()));   // released
         Assert.True(m.Active);
-        Assert.Equal(why, m.Step(In(fire: fire, aim: aim, reload: reload)));   // pressed again
+        Assert.Equal(why, m.Step(In(fire: fire, reload: reload)));   // pressed again
+        Assert.False(m.Active);
+    }
+
+    [Fact]
+    public void AimStillHeldWhenTheLockEndsLeavesAtOnce()
+    {
+        // Lead 41: the player is visibly aiming once the finisher (or a refused press's wait) lets go, so the mode ends on that tick; held during the lock it does nothing.
+        var m = Entered();
+        for (int i = 0; i < 10; i++) Assert.Equal(MeleeMode.Change.None, m.Step(Locked(aim: true)));
+        Assert.True(m.Active);
+        Assert.Equal(MeleeMode.Change.Aimed, m.Step(In(aim: true)));   // the End, Aim still held
         Assert.False(m.Active);
     }
 

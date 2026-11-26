@@ -14,8 +14,9 @@ namespace SmClient.Customizer.Model;
 /// </para>
 /// <para>
 /// A finisher (added content, executions; owner 2026-11-26, decision series-37-pre-ship-executions "Melee cam": "Ignore them"): while the own player's execution holds him
-/// (<see cref="Inputs.Locked"/>) Fire, Aim and Reload do nothing to the mode, so he comes out of the finisher still in it; a button held at any time during the lock counts
-/// as released until it is let go, so only a fresh press after the End leaves (a press held through the End does not). Death still ends the mode.
+/// (<see cref="Inputs.Locked"/>) Fire, Aim and Reload do nothing to the mode, so he comes out of the finisher still in it. Fire and Reload held at any time during the lock
+/// count as released until they are let go, so only a fresh press after the End leaves (a press held through the End does not); Aim still held when the lock ends counts at
+/// once (lead 41: the player is visibly aiming), so the mode never stays on while the simulation aims. Death still ends the mode.
 /// </para>
 /// Engine-free; the client steps it once per input tick with that tick's own buttons, so the tick that leaves the mode already carries the camera's yaw.
 /// </summary>
@@ -30,14 +31,14 @@ public sealed class MeleeMode
     /// <param name="Excluded">Added content's body that has no melee mode (Musou: the Dreadnought).</param>
     /// <param name="NewStrike">A new strike began this tick while one was already running (the next step of a string, a strike out of the dash attack): a strike start even
     /// though <paramref name="Strike"/> did not go from false to true, so a string chained after a fire press that fired nothing enters the mode again.</param>
-    /// <param name="Locked">The own player's finisher holds him this tick (executions: from the Start until the End or the run's own end): Fire, Aim and Reload are
-    /// ignored, and each one held now stays ignored until it is released.</param>
+    /// <param name="Locked">The own player's finisher holds him this tick (added content, executions): Fire, Aim and Reload are ignored; Fire and Reload held now stay
+    /// ignored until released, Aim counts again on the first tick without the lock.</param>
     public readonly record struct Inputs(bool Alive, bool Strike, bool Fire, bool Aim, bool Reload, bool Excluded, bool NewStrike = false, bool Locked = false);
 
     public enum Change { None, Entered, Shot, Aimed, Reloaded, Died, Respawned, Excluded }
 
     bool _wasStrike, _wasFire, _wasReload, _wasAlive;
-    bool _fireSpent, _aimSpent, _reloadSpent;   // held during a finisher: ignored until released
+    bool _fireSpent, _reloadSpent;   // held during a finisher: ignored until released
 
     /// <summary>In melee mode: the field of view is widened and the camera orbits freely.</summary>
     public bool Active { get; private set; }
@@ -45,11 +46,11 @@ public sealed class MeleeMode
     /// <summary>Advances one tick; what began or ended the mode, if anything.</summary>
     public Change Step(Inputs i)
     {
-        // A finisher: a button held during it is spent until released, so neither the hold nor its carry past the End reads as a press.
+        // A finisher: Fire and Reload held during it are spent until released, so neither the hold nor its carry past the End reads as a press; Aim is ignored only
+        // while locked (still held after the lock, the player aims: the mode ends).
         _fireSpent = i.Fire && (_fireSpent || i.Locked);
-        _aimSpent = i.Aim && (_aimSpent || i.Locked);
         _reloadSpent = i.Reload && (_reloadSpent || i.Locked);
-        i = i with { Fire = i.Fire && !_fireSpent, Aim = i.Aim && !_aimSpent, Reload = i.Reload && !_reloadSpent };
+        i = i with { Fire = i.Fire && !_fireSpent, Aim = i.Aim && !i.Locked, Reload = i.Reload && !_reloadSpent };
         var change = Change.None;
         bool strikeStart = i.Strike && (!_wasStrike || i.NewStrike);
         bool fireEdge = i.Fire && !_wasFire;
@@ -88,43 +89,6 @@ public sealed class MeleeMode
     public static bool EntersMeleeMode(string? meleeWargear) =>
         !string.IsNullOrEmpty(meleeWargear)
         && (meleeWargear.Contains("melee", StringComparison.OrdinalIgnoreCase) || meleeWargear.Contains("choppa", StringComparison.OrdinalIgnoreCase));
-}
-
-/// <summary>
-/// Executions and melee mode (owner 2026-11-26, "Melee cam": "Ignore them"; lead 41): the speculative part of <see cref="MeleeMode.Inputs.Locked"/>. An Execute press that took a shown
-/// target (the Execute marker was up) holds melee mode from the press until the server's Start of the own run is heard (the real lock then takes over), an own run's End is heard
-/// after the press, or <see cref="Bound"/> passes with neither (a refusal, or a lost Start: the normal rule again). So a Fire, Aim or Reload press in the round trip between the press
-/// and the Start does not leave melee mode either. Engine-free; times in seconds on one clock.
-/// </summary>
-public sealed class FinisherPressHold
-{
-    /// <summary>The shortest wait for the Start (seconds; ours, lead 41).</summary>
-    public const double MinSeconds = 0.6;
-
-    double _since = double.NaN;
-
-    /// <summary>How long a press waits for its Start: <see cref="MinSeconds"/> or twice the round trip, whichever is longer (seconds).</summary>
-    public static double Bound(double roundTripSeconds) => Math.Max(MinSeconds, 2.0 * Math.Max(0.0, roundTripSeconds));
-
-    /// <summary>When the waiting press was made (NaN: none waits).</summary>
-    public double PressedAt => _since;
-
-    /// <summary>An Execute press on a shown target at <paramref name="now"/>.</summary>
-    public void Press(double now) => _since = now;
-
-    /// <summary>Forgets a waiting press (a new connection).</summary>
-    public void Reset() => _since = double.NaN;
-
-    /// <summary>
-    /// Whether the waiting press still holds melee mode at <paramref name="now"/>: false (and forgotten) once <paramref name="live"/> (the own run's Start is heard: the real lock holds
-    /// from here), <paramref name="endedSincePress"/> (an own run's End heard since the press) or <paramref name="bound"/> seconds have passed.
-    /// </summary>
-    public bool Held(double now, bool live, bool endedSincePress, double bound)
-    {
-        if (double.IsNaN(_since)) return false;
-        if (live || endedSincePress || now - _since > bound || now < _since) { _since = double.NaN; return false; }
-        return true;
-    }
 }
 
 /// <summary>

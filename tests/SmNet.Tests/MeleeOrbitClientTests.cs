@@ -441,7 +441,7 @@ public class MeleeOrbitClientTests(ITestOutputHelper output)
             Assert.Equal(MeleeMode.Change.None, change);
         }
         Assert.True(orbit.Mode.Active);
-        orbit.Apply(idle, In(t++, InputButtons.Fire | InputButtons.Aim), 0f, C, true, true, false, out var held);   // the End, both still held
+        orbit.Apply(idle, In(t++, InputButtons.Fire), 0f, C, true, true, false, out var held);   // the End, Fire still held: spent until released
         Assert.Equal(MeleeMode.Change.None, held);
         orbit.Apply(idle, In(t++), 0f, C, true, true, false, out _);                                                  // released
         Assert.True(orbit.Mode.Active);
