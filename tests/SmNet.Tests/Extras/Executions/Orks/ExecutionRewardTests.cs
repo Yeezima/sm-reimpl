@@ -109,21 +109,7 @@ public class ExecutionRewardTests
         Assert.Equal(body.ShieldMax * 0.7f, w.Players[1].Shield, 3);   // under the bar the heal adds as before
     }
 
-#if SM_WARFRONT   // reads the Warfront progression (TfwRun.Warfront), dropped with Extras/Warfront by -p:SmWarfront=false
-    /// <summary>X4 phase 3 (series-37 integration): a level-up refill (<c>World.WarfrontRefill</c>) fills health and keeps an overshield: max(shield, the bar).</summary>
-    [Fact]
-    public void LevelUpRefillKeepsOvershield()
-    {
-        var (w, _) = Executed();
-        var body = Body(w);
-        w.ExecutionsSetVitalsForTests(1, 30f, body.ShieldMax * 1.5f);
-        var rt = w.Tfw!.Warfront!.Progression;
-        Assert.NotEmpty(rt.Xp.Capture(100000, eventKey: 0x7E57));   // a level-up for every connected player
-        ExecutionOrkKit.Idle(w);
-        Assert.Equal(body.HealthMax, w.Players[1].Health);
-        Assert.Equal(body.ShieldMax * 1.5f, w.Players[1].Shield, 3);
-    }
-#endif
+    // LevelUpRefillKeepsOvershield lives in tests/SmNet.Tests/Extras/Warfront/Campaign/WarfrontRefillOvershieldTests.cs: it reads the Warfront progression, which -p:SmWarfront=false drops with the Extras/Warfront folders.
 
     [Fact]
     public void DeathClearsOvershield()
