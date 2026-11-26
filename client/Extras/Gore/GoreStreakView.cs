@@ -499,9 +499,15 @@ void fragment() {
             }
         float light = GoreStreakRules.LightOf(amb, sun);
         if (MathF.Abs(light - _sceneLight) > 1e-3f) { _sceneLight = light; _mat.SetShaderParameter(PSceneLight, light); }
-        if (!_lightLogged) { _lightLogged = true; GD.Print($"gore streak: scene light {light:F2} (ambient {amb:F2}, suns {sun:F2} from {_suns.Length})"); }
+        // logged at the first measure and whenever it moves by a quarter (at most every 5 s): a map change, the weather, a lighting preset
+        if (float.IsNaN(_lightLogged) || (MathF.Abs(light - _lightLogged) > 0.25f * MathF.Max(_lightLogged, 0.25f) && _clock - _lightLogAt >= 5.0))
+        {
+            _lightLogged = light; _lightLogAt = _clock;
+            GD.Print($"gore streak: scene light {light:F2} (ambient {amb:F2}, suns {sun:F2} from {_suns.Length}; view t {_clock:F1})");
+        }
     }
-    bool _lightLogged;
+    float _lightLogged = float.NaN;
+    double _lightLogAt;
 
     public override void _Process(double delta)
     {
