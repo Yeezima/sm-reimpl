@@ -55,11 +55,24 @@ public partial class NetworkView
         return excluded;
     }
 
+    /// <summary>
+    /// Hook for added content: the own player is held by his own finisher (executions: from the Start until the End or the run's own end), so Fire, Aim and Reload do
+    /// nothing to melee mode (owner 2026-11-26, decision series-37-pre-ship-executions "Melee cam": "Ignore them"; <see cref="MeleeMode.Inputs.Locked"/>).
+    /// </summary>
+    partial void ExtrasMeleeModeLocked(PlayerState me, ref bool locked);
+
+    bool MeleeModeLocked(PlayerState me)
+    {
+        bool locked = false;
+        ExtrasMeleeModeLocked(me, ref locked);   // EXTRAS-HOOK: executions: the own finisher holds the player
+        return locked;
+    }
+
     /// <summary>Steps the melee mode once for this tick's input (bots, the dead and demos; a human's live input steps it in <see cref="MeleeOrbitInput"/>).</summary>
     void StepMeleeMode(PlayerState me, PlayerInput input)
     {
         if (_config is null) return;
-        LogMeleeChange(me, _meleeOrbit.StepMode(me, input, _config, me.Alive && !OwnDead, MeleeModeExcluded(me)));
+        LogMeleeChange(me, _meleeOrbit.StepMode(me, input, _config, me.Alive && !OwnDead, MeleeModeExcluded(me), MeleeModeLocked(me)));
     }
 
     void LogMeleeChange(PlayerState me, MeleeMode.Change change)
@@ -78,7 +91,7 @@ public partial class NetworkView
     {
         if (_client is null || _config is null) return input;
         var me = _client.Predicted;
-        var sent = _meleeOrbit.Apply(me, input, _yaw, _config, orbit: !OldMeleeCamera && !_bot, me.Alive && !OwnDead, MeleeModeExcluded(me), out var change);
+        var sent = _meleeOrbit.Apply(me, input, _yaw, _config, orbit: !OldMeleeCamera && !_bot, me.Alive && !OwnDead, MeleeModeExcluded(me), out var change, MeleeModeLocked(me));
         LogMeleeChange(me, change);
         return sent;
     }

@@ -423,4 +423,30 @@ public class MeleeOrbitClientTests(ITestOutputHelper output)
         Assert.Equal(MeleeMode.Change.Shot, orbit.StepMode(me with { MeleeTime = 0.1f }, In(5, InputButtons.Fire), C, true, false));
         Assert.Equal(MeleeMode.Change.Entered, orbit.StepMode(me with { MeleeTime = 0.15f, MeleeHeavy = true }, In(6), C, true, false));   // light to heavy
     }
+
+    [Fact]
+    public void A_finisher_ignores_fire_aim_and_reload_through_the_live_input_path()
+    {
+        // Executions (owner 2026-11-26, "Melee cam": "Ignore them"): the human path (Apply) with the finisher's lock; a fresh press after the End leaves as usual.
+        var orbit = new MeleeOrbitClient();
+        var me = Fresh(C) with { MeleeStep = 1, MeleeTime = 0.05f };
+        PlayerInput In(uint tick, InputButtons b = InputButtons.None) => new(tick, 0f, 0f, 0f, b, 0f);
+        var idle = me with { MeleeStep = 0, MeleeTime = 0f };   // the finisher disarms: no strike runs
+        orbit.StepMode(idle, In(0), C, true, false);
+        Assert.Equal(MeleeMode.Change.Entered, orbit.StepMode(me, In(1), C, true, false));
+        uint t = 2;
+        foreach (var b in new[] { InputButtons.Fire, InputButtons.None, InputButtons.Aim, InputButtons.None, InputButtons.Reload, InputButtons.Fire | InputButtons.Aim })
+        {
+            orbit.Apply(idle, In(t++, b), 0f, C, orbit: true, alive: true, excluded: false, out var change, locked: true);
+            Assert.Equal(MeleeMode.Change.None, change);
+        }
+        Assert.True(orbit.Mode.Active);
+        orbit.Apply(idle, In(t++, InputButtons.Fire | InputButtons.Aim), 0f, C, true, true, false, out var held);   // the End, both still held
+        Assert.Equal(MeleeMode.Change.None, held);
+        orbit.Apply(idle, In(t++), 0f, C, true, true, false, out _);                                                  // released
+        Assert.True(orbit.Mode.Active);
+        orbit.Apply(idle, In(t++, InputButtons.Fire), 0f, C, true, true, false, out var shot);                       // a fresh press
+        Assert.Equal(MeleeMode.Change.Shot, shot);
+        Assert.False(orbit.Mode.Active);
+    }
 }

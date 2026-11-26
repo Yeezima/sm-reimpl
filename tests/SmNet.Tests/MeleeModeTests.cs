@@ -153,6 +153,92 @@ public class MeleeModeTests
         Assert.Equal(MeleeMode.Change.Entered, m.Step(In(strike: true)));
     }
 
+    // ---- a finisher (executions; owner 2026-11-26, "Melee cam": "Ignore them") ----
+
+    static MeleeMode.Inputs Locked(bool fire = false, bool aim = false, bool reload = false) => In(fire: fire, aim: aim, reload: reload) with { Locked = true };
+
+    [Fact]
+    public void FireAimAndReloadPressedDuringAFinisherStayInMeleeMode()
+    {
+        var m = Entered();
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked()));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked(fire: true)));   // press, hold, release: nothing
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked(fire: true)));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked()));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked(aim: true)));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked()));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked(reload: true)));
+            Assert.Equal(MeleeMode.Change.None, m.Step(Locked()));
+        }
+        Assert.Equal(MeleeMode.Change.None, m.Step(In()));   // the End: still in melee mode
+        Assert.True(m.Active);
+    }
+
+    [Theory]
+    [InlineData(true, false, false, MeleeMode.Change.Shot)]
+    [InlineData(false, true, false, MeleeMode.Change.Aimed)]
+    [InlineData(false, false, true, MeleeMode.Change.Reloaded)]
+    public void AFreshPressAfterTheFinisherLeaves(bool fire, bool aim, bool reload, MeleeMode.Change why)
+    {
+        var m = Entered();
+        m.Step(Locked(fire, aim, reload));
+        m.Step(Locked());
+        m.Step(In());   // the End
+        Assert.True(m.Active);
+        Assert.Equal(why, m.Step(In(fire: fire, aim: aim, reload: reload)));
+        Assert.False(m.Active);
+    }
+
+    [Theory]
+    [InlineData(true, false, false, MeleeMode.Change.Shot)]
+    [InlineData(false, true, false, MeleeMode.Change.Aimed)]
+    [InlineData(false, false, true, MeleeMode.Change.Reloaded)]
+    public void APressHeldAcrossTheEndStaysUntilReleasedAndPressedAgain(bool fire, bool aim, bool reload, MeleeMode.Change why)
+    {
+        var m = Entered();
+        m.Step(Locked(fire, aim, reload));
+        m.Step(Locked(fire, aim, reload));
+        for (int i = 0; i < 20; i++) Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: fire, aim: aim, reload: reload)));   // held past the End
+        Assert.True(m.Active);
+        Assert.Equal(MeleeMode.Change.None, m.Step(In()));   // released
+        Assert.True(m.Active);
+        Assert.Equal(why, m.Step(In(fire: fire, aim: aim, reload: reload)));   // pressed again
+        Assert.False(m.Active);
+    }
+
+    [Fact]
+    public void FireHeldThroughAStrikeIntoAFinisherIsSpentToo()
+    {
+        var m = new MeleeMode();
+        m.Step(In(fire: true));
+        Assert.Equal(MeleeMode.Change.Entered, m.Step(In(fire: true, strike: true)));
+        m.Step(Locked(fire: true));                                  // the finisher starts with fire still held
+        Assert.Equal(MeleeMode.Change.None, m.Step(In(fire: true)));  // the End, fire held on: no shot leaves
+        Assert.True(m.Active);
+    }
+
+    [Fact]
+    public void DeathDuringAFinisherStillLeaves()
+    {
+        var m = Entered();
+        m.Step(Locked());
+        Assert.Equal(MeleeMode.Change.Died, m.Step(Locked() with { Alive = false }));
+        Assert.False(m.Active);
+    }
+
+    [Fact]
+    public void WithoutAFinisherTheRulesAreUnchanged()
+    {
+        // Locked defaults to false: a hold that began in melee mode still leaves (fire held, aim held), as before the finisher rule.
+        var m = Entered();
+        Assert.Equal(MeleeMode.Change.Shot, m.Step(In(fire: true)));
+        m = Entered();
+        m.Step(In());
+        Assert.Equal(MeleeMode.Change.Aimed, m.Step(In(aim: true)));
+    }
+
     // ---- the body yaw ----
 
     [Fact]
