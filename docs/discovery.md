@@ -2750,9 +2750,11 @@ Librarian and Space Wolves torsos; front and 40 degrees): each binds to the MP h
 The MP skeleton has no face bones (`RIG_headX`, `RIG_jawX`, ears), so the face holds its bind pose (static). Skin and hair textures, no paint mask: no mask is built and
 the head slot's paint does not tint them. **Hair:** Titus's hair (material `hairtitus`, shader `hair_test2`, BlendMode 255, the silhouette in the diffuse alpha) drew as opaque
 stepped cards; the client draws `hair_test2` surfaces of the bare-head packages only as a two-sided alpha cut-out (threshold 0.5; provisional approximation, the hair
-shader's own blending is not in the data). Sidonus's hair is a BlendMode 8 cut-out already; Leandros has none. **Eyes:** each head's eyeballs are rigid blocks on `GEO_Leye_LODH` / `GEO_Reye_LODH` under `RIG_Head` (head material, the iris
+shader's own blending is not in the data). Sidonus's hair (`GEO_hair_LODH`, material `standard_7`, BlendMode 8, a 756-vertex scalp shell
+under RIG_Head) was at first never drawn (hidden by the "_lod" rule below); since review round 3 it is drawn, two-sided like Titus's. Leandros has no hair mesh. **Eyes:** each head's eyeballs are rigid blocks on `GEO_Leye_LODH` / `GEO_Reye_LODH` under `RIG_Head` (head material, the iris
 in the head texture); the piece loader hides every `_lod` node as an LOD duplicate, which left the sockets blank (grey-white, no iris). For the bare-head packages only,
-the `*eye_LODH` nodes are kept (teeth, tongue and Sidonus's `GEO_hair_LODH` cut-out stay hidden: closed mouth; his hair is in the head texture too). Sidonus's milky right
+the `*eye_LODH` and `*hair_LODH` nodes are drawn (`CharacterModel.KeepsBareHeadNode`; every part of these packages is named "_LODH"/"_LODL"); teeth and tongue stay hidden
+(closed mouth). Sidonus's milky right
 eye is in his texture (his scarred side). **Left out:** `ingame_drogan` (a human, not a marine):
 the human-scale head sinks into the marine collar (its hair shares Titus's shader).
 

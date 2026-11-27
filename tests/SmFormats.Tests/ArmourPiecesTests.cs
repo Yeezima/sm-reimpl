@@ -151,6 +151,38 @@ public class ArmourPiecesTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    [Fact]
+    public void A_bare_head_package_draws_its_eye_and_hair_LODH_nodes_and_any_other_package_hides_them()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "sm-armour-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Under RIG_Head: an eye, a hair shell, teeth (every part "_LODH"/"_LODL", as in the campaign head packages).
+            var mesh = SyntheticDcmWriter.Build([Tri(0, "head"), Tri(0.1f, "hair"), Tri(0.2f, "head")]);
+            var skeleton = new Struct("Skeleton3D", ("Name", new S("head")), ("Children", new List(
+                Node3D("RIG_Head", [0, 0, 2], [0, 0, 0],
+                    Node3D("GEO_Leye_LODH", [0, 0.1f, 0], [0, 0, 0]), Node3D("GEO_hair_LODH", [0, 0, 0.1f], [0, 0, 0]), Node3D("GEO_uprTeeth_LODL", [0, 0.05f, 0], [0, 0, 0])))));
+            var names = new HashSet<string>(["RIG_Root", "RIG_Head"], StringComparer.Ordinal);
+            CharacterPiece Load(string package)
+            {
+                var o3d = Document(new Struct("Object3D", ("Skeleton", new Ref(skeleton)), ("Visuals", new List(
+                    Visual("GEO_Leye_LODH", package, 0), Visual("GEO_hair_LODH", package, 1), Visual("GEO_uprTeeth_LODL", package, 2)))));
+                string path = Path.Combine(dir, package + ".oppc");
+                File.WriteAllBytes(path, SyntheticObpkWriter.Build([new("dcm", package, mesh), new("O3d", package, o3d)]));
+                return CharacterModel.LoadPiece(names, path, [], objectTreePlacement: true);
+            }
+            var bare = Load("ingame_sidonus");
+            Assert.Equal(["RIG_Head", "RIG_Head"], new[] { bare.Rigid![0].Bone, bare.Rigid[1].Bone });   // eye and hair placed on the head bone
+            Assert.Equal([2], bare.Hidden!);                                                             // the teeth stay hidden
+            var other = Load("sm_test_helmet");
+            Assert.Equal([0, 1, 2], other.Hidden!.Order());                                              // any other package: every "_lod" node hidden, as before
+            Assert.False(CharacterModel.KeepsBareHeadNode("x/ingame_titus.oppc", "GEO_tongue_LODH"));
+            Assert.True(CharacterModel.KeepsBareHeadNode("x/ingame_leandros.oppc", "GEO_Reye_LODH"));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
     static Struct Node3D(string name, float[] position, float[] rotation, params Node[] children) => new("Node3D",
         ("Name", new S(name)), ("Position", new Vec(position)), ("Rotation", new Vec(rotation)), ("Scale", new Vec(1, 1, 1)), ("Children", new List(children)));
 

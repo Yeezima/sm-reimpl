@@ -307,7 +307,8 @@ public sealed class PieceCache
             // armour Series B (review finding 1): a bare campaign head's hair (shader "hair_test2", BlendMode 255) keeps its silhouette in the diffuse alpha; drawn as an
             // opaque material its cards read as stepped slabs. Scoped to the bare-head packages: it is drawn as a two-sided alpha cut-out (provisional: the hair shader's
             // own blending is not in the data we read).
-            if (plain is StandardMaterial3D hair && surface.Material?.ShaderName == "hair_test2" && SmContent.Customization.ExtraArmourPieces.IsBareHead(package))
+            // Review round 3: Sidonus's hair shell (BlendMode 8, a cut-out already) is drawn two-sided too.
+            if (plain is StandardMaterial3D hair && (surface.Material?.ShaderName == "hair_test2" || surface.Material?.BlendMode == 8) && SmContent.Customization.ExtraArmourPieces.IsBareHead(package))
             {
                 hair.Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor;
                 hair.AlphaScissorThreshold = 0.5f;
