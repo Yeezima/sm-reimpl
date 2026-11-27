@@ -6,7 +6,7 @@ namespace SmContent.Customization;
 /// armour whose wargear files all share generic names ("arm_left", "torso", ...), the visual packages themselves (<see cref="Name"/> is then the first
 /// package's name, unique in the install, and the text is ours).
 /// </summary>
-/// <param name="Group">The owner's group: "mp" (multiplayer and co-op extras), "librarian", "campaign".</param>
+/// <param name="Group">The owner's group: "mp" (multiplayer and co-op extras), "librarian", "campaign", "barehead" (armour Series B).</param>
 /// <param name="SetLabel">For package pieces: the display name of the campaign armour it belongs to (ours) and its <see cref="ArmourPiece.SetNames"/> entry.</param>
 /// <param name="Hidden">Round 5 (owner, 2026-11-26, card "Berserker": "Hide the 2 pieces"): the piece keeps its place in the slot's list (a reserved entry, so
 /// later appearance-code indices keep their meaning) but is never offered, as a piece the install lacks.</param>
@@ -48,6 +48,20 @@ public static class ExtraArmourPieces
         }
     }
 
+    /// <summary>
+    /// armour Series B: the bare campaign heads offered, in table order (package, label). The <c>ingame_*</c> packages, not their higher-detail
+    /// <c>cinematic_*</c> twins (those warn about missing face bones on the MP rig).
+    /// Declared before <see cref="All"/>: static fields initialise in text order.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Package, string Label)> BareHeads =
+        [("ingame_titus", "Titus"), ("ingame_leandros", "Leandros"), ("ingame_sidonus", "Sidonus")];
+
+    /// <summary>armour Series B: bare heads looked at and left out, with the reason.</summary>
+    public static readonly IReadOnlyDictionary<string, string> BareHeadsLeftOut = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["ingame_drogan"] = "does not look right on a marine: the hair cards draw opaque (stepped blocks, no alpha cut) and the human-scale head sinks into the collar",
+    };
+
     /// <summary>Every Series A piece in table order (the per-slot order is this order filtered by slot).</summary>
     public static readonly IReadOnlyList<ExtraPieceSpec> All = BuildAll();
 
@@ -84,6 +98,10 @@ public static class ExtraArmourPieces
         list.AddRange(Campaign(Csm, "csm_armour_berserker", "Khorne Berserker (campaign)", "no_override"));
         list.AddRange(Campaign(Csm, "csm_armour_havoc", "Havoc (campaign)", "no_override"));
         list.AddRange(Campaign(Csm, "csm_armour_raptor", "Raptor (campaign)", "no_override"));
+        // (4) armour Series B (owner's pick of 2026-11-27, "Bare campaign heads"; ours): the campaign heroes' bare heads as helmetless head picks for the
+        // Space Marine classes (singleplayer-content dependency, docs/discovery.md "Bare campaign heads"). Skin and hair: no paint mask, none built. The MP rig
+        // has no face bones, so the face holds its bind pose (static).
+        foreach (var (package, label) in BareHeads) list.Add(new("barehead", Sm, "head", package, [package], label, "no_helmet"));
         return list;
     }
 
@@ -112,11 +130,13 @@ public static class ExtraArmourPieces
     };
 
     /// <summary>The display name of a package piece (ours): its campaign armour's label and the slot's part.</summary>
-    public static string DisplayName(ExtraPieceSpec spec) => $"{spec.SetLabel} {PartNames.GetValueOrDefault(spec.Slot, spec.Slot)}";
+    public static string DisplayName(ExtraPieceSpec spec) =>
+        spec.Group == "barehead" ? $"{spec.SetLabel} (Bare Head)" : $"{spec.SetLabel} {PartNames.GetValueOrDefault(spec.Slot, spec.Slot)}";
 
     /// <summary>
     /// The pieces whose textures carry no paint mask and so get one built (<see cref="BakedArmourPaint"/>): every Series A piece except the Librarian's and the
     /// Chosen raptor's (their materials have the game's masks; leaving them unregistered keeps their load, and Musou's Librarian, exactly as before).
     /// </summary>
-    public static bool NeedsBuiltMasks(ExtraPieceSpec spec) => spec.Group != "librarian" && !spec.Name.StartsWith("csm_armour_mp_raptor_01_", StringComparison.Ordinal);
+    /// <remarks>armour Series B: the bare heads neither (skin and hair, no paint).</remarks>
+    public static bool NeedsBuiltMasks(ExtraPieceSpec spec) => spec.Group is not ("librarian" or "barehead") && !spec.Name.StartsWith("csm_armour_mp_raptor_01_", StringComparison.Ordinal);
 }

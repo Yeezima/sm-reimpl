@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4550 spec table rows: **3393 tagged**, 757 not tagged (read from data with high confidence), 400 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 858 rows of the changes document.
+Scanned 4553 spec table rows: **3396 tagged**, 757 not tagged (read from data with high confidence), 400 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 858 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 477 | 415 | 400 | 125 | 12 |
+| Movement (critical) | 480 | 418 | 400 | 126 | 12 |
 | Combat core (critical) | 30 | 21 | 25 | 20 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 176 | 155 | 128 | 60 | 5 |
@@ -53,13 +53,13 @@ Scanned 4550 spec table rows: **3393 tagged**, 757 not tagged (read from data wi
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
 | General game design | 347 | 345 | 115 | 143 | 0 |
 | Ork faction | 303 | 282 | 182 | 74 | 0 |
-| **All areas** | **3393** | 3076 | 2377 | 1037 | 37 |
+| **All areas** | **3396** | 3079 | 2377 | 1038 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2163 |
+| kind: ours | 2166 |
 | confidence: medium | 1161 |
 | confidence: low | 1105 |
 | notes: ours | 493 |
@@ -73,7 +73,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: choice | 45 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
-| notes: interpretation | 32 |
+| notes: interpretation | 33 |
 | notes: user's knowledge | 31 |
 | kind: approximation | 30 |
 | kind: placeholder | 24 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (477)
+### Movement (gameplay-critical) (480)
 
 *Spec section: Extracted parameters*
 
@@ -455,6 +455,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-36943976` | Built masks for Series A | every Series A piece's baked materials get built masks, except the Librarian's and the Chosen raptor's (the game's own masks; not registered, so they load exactly as before and Musou's Librarian is unchanged) | kind: ours | ours | Built masks for Series A: compare with SM1 by feel or video. Ours: every Series A piece's baked materials get built masks, except the… | ☐ |
 | `R-C89996AF` | Co-op elite Berserker pieces hidden (round 5, owner 2026-11-26: "Hide the 2 pieces") | `csm_berserker_helmet` and `csm_berserker_backpack` keep their places in the Chaos head and backpack lists as reserved entries (later indices unchanged) and are never offered; a code naming them draws the class's default piece; they are out of the 92 % gate.… | kind: ours | owner decision (decisions/2026-11-25-dlc-armour-pieces.md, "Fifth round and the Berserker elite") | Co-op elite Berserker pieces hidden (round 5, owner…: compare with SM1 by feel or video. Ours: csm_berserker_helmet and csm_berserker_backpack keep their places in… | ☐ |
 | `R-F67A069B` | Co-op berserker developer materials | `csm_armor_berserk_001_helmet` (shader "pink", no parameters) is drawn as `character_wargear` on its package's only diffuse (misnamed `csm_armour_mp_basic_helmet_dif`; the helmet's UVs fit it: 86 % of its lit texels covered, under 10 % of the helmet on its… | kind: ours; confidence: medium; notes: interpretation | interpretation (the data names no texture) | Co-op berserker developer materials: compare with SM1 by feel or video. Ours: csm_armor_berserk_001_helmet (shader "pink", no parameters) is drawn… | ☐ |
+| `R-54F3C460` | Hidden badges offered | `sm_commandsquad`, `sm_rank_sargeredskull`, `sm_identifier_tactical`, `sm_identifier_assault`, `sm_identifier_devastator`, appended after the Space Marine visible badges in this order (badge indices of existing codes unchanged; 89 visible + 5 = 94 Space… (badge list order) | kind: ours; notes: interpretation | owner's pick 2026-11-27; `custom_paint_decal` (Verified-local) | Hidden badges offered: compare with SM1 by feel or video. Ours: sm_commandsquad, sm_rank_sargeredskull, sm_identifier_tactical… | ☐ |
+| `R-150A3F54` | Bare heads offered | `ingame_titus`, `ingame_leandros`, `ingame_sidonus` as Space Marine head pieces (group "barehead", `helmet_override` "no_helmet", our names "<hero> (Bare Head)"), appended after every Series A head; no built masks, no paint; `ingame_drogan` left out (opaque… (head slot list order) | kind: ours | owner's pick 2026-11-27; stills on the MP rig | Bare heads offered: compare with SM1 by feel or video. Ours: ingame_titus, ingame_leandros, ingame_sidonus as Space Marine head… | ☐ |
+| `R-14CC305A` | Series B switch | both follow `CustomizationCatalog.ExtraPiecesOffered` (`--no-extra-pieces`, `SM_NO_EXTRA_PIECES=1`: neither offered; server and clients must agree, the badge and head ranges of a code shrink) (switch) | kind: ours | ours | Series B switch: compare with SM1 by feel or video. Ours: both follow CustomizationCatalog.ExtraPiecesOffered… | ☐ |
 
 *Spec section: Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change)*
 
