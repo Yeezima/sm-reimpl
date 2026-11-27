@@ -30,7 +30,7 @@ public partial class NetworkView
     static readonly bool NoExecDecap = CmdFlag("no-execution-decap");
     /// <summary>
     /// Test aid <c>--execution-decap-cam</c>: while a victim proxy lives, the camera stands level beside the pair (3.6 m off the line between them); with <c>--execution-decap-cam-victim</c>
-    /// it watches the victim alone from 2.6 m, following the body down and while it lies.
+    /// it watches the victim alone from about 2.8 m out and 2.4 m up, following the body down and while it lies.
     /// </summary>
     static readonly bool ExecDecapCam = CmdFlag("execution-decap-cam") || CmdFlag("execution-decap-cam-victim");
     static readonly bool ExecDecapCamVictim = CmdFlag("execution-decap-cam-victim");
@@ -56,7 +56,7 @@ public partial class NetworkView
                 _execDecapCamFocus = _execDecapCamFocus is { } f ? f.Lerp(body, 0.08f) : body;
                 focus = _execDecapCamFocus.Value;
                 var away = line.LengthSquared() > 1e-4f ? -line.Normalized() : Vector3.Back;
-                eye = focus + (side * 0.8f + away * 0.6f).Normalized() * 2.6f + Vector3.Up * 0.9f;
+                eye = focus + (side * 0.8f + away * 0.6f).Normalized() * 2.8f + Vector3.Up * 2.4f;   // high enough to look over bystanders (a Warfront line of Guardsmen)
             }
             else
             {

@@ -25,6 +25,11 @@ public partial class NetworkView
     /// <summary><c>--execution-end-at s</c>: the self-test ends its move this many seconds after it starts (default 1; exec-decap: past a row's head cut, with <c>--execution-end killed</c>, the head must go to the ragdoll).</summary>
     static readonly double ExecSelfTestEndAt = double.TryParse(CmdArg("execution-end-at"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var endAt) ? endAt : 1.0;
     static readonly string[] ExecDemoRows = (CmdArg("execution-demo") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    /// <summary>
+    /// <c>--execution-demo-enemy Boy,ShootaBoy,..</c> (Warfront capture aid, exec-decap): each demo move takes the nearest drawn crowd enemy of the next listed type (within 400 m) as its victim
+    /// (TargetKind Enemy: the crowd's look and scale, the crowd hiding the member), in place of the synthetic player; a move waits for such an enemy. Client only: the server's Ork lives on.
+    /// </summary>
+    static readonly string[] ExecDemoEnemies = (CmdArg("execution-demo-enemy") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     ExecutionRun? _execTestRun;
     ExecutionRow? _execTestRow;
     double _execTestAt, _execTestNext = 4.0, _execTestEndedAt = -1;
@@ -131,7 +136,25 @@ public partial class NetworkView
                 _execTestNext = _connectedFor + 2.0;
                 return;
             }
-            var run = new ExecutionRun(me.PlayerId, ExecutionTargetKind.Player, DemoTarget, wire, row.Offset.Y, me.Position, me.Position, me.Yaw, 0, _client.Tick, false);
+            var kind = ExecutionTargetKind.Player;
+            int target = DemoTarget;
+            if (ExecDemoEnemies.Length > 0)
+            {
+                string type = ExecDemoEnemies[(_execTestIndex - 1) % ExecDemoEnemies.Length];
+                int best = -1; float bestD = 400f * 400f;
+                for (int i = 0; i < _tfwShown.Count; i++)
+                {
+                    var e = _tfwShown[i];
+                    if (e.State is SmSim.Extras.Musou.MusouEnemyState.Dying || !string.Equals(e.Type.ToString(), type, StringComparison.OrdinalIgnoreCase)) continue;
+                    float d = System.Numerics.Vector2.DistanceSquared(new(e.Position.X, e.Position.Y), new(me.Position.X, me.Position.Y));
+                    if (d < bestD) { bestD = d; best = i; }
+                }
+                if (best < 0) { _execTestIndex--; _execTestNext = _connectedFor + 1.0; GD.Print($"EXECSELFTEST demo: no drawn {type} within 400 m yet ({_tfwShown.Count} enemies shown)"); return; }
+                kind = ExecutionTargetKind.Enemy;
+                target = _tfwShown[best].Id;
+                GD.Print($"EXECSELFTEST demo: victim enemy {target} ({type}) {MathF.Sqrt(bestD):F1} m away");
+            }
+            var run = new ExecutionRun(me.PlayerId, kind, target, wire, row.Offset.Y, me.Position, me.Position, me.Yaw, 0, _client.Tick, false);
             _execTestRun = ExecutionTrack.Quantize(run);
             _execTestRow = row;
             _execTestAt = _connectedFor;
