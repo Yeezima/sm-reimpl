@@ -1250,6 +1250,17 @@ public partial class MapmakerDock : VBoxContainer
         _dims.Text = (sel.Count > 1 ? o.Name + " · " : "") + MeshDims.Label(d);
     }
 
+    /// <summary>Test aid: picks an entry of the Object/Edit menu as a click on it in its popup would (the popup's index_pressed, which the OptionButton turns into item_selected).</summary>
+    public string TestPickMode(int index)
+    {
+        if (_modeSelect is null || !GodotObject.IsInstanceValid(_modeSelect)) return "no mode menu";
+        bool before = _plugin.EditMode;
+        _modeSelect.GetPopup().EmitSignal(PopupMenu.SignalName.IndexPressed, index);
+        if (_plugin.EditMode != before || _modeSelect.Selected == index) return "popup";
+        _modeSelect.EmitSignal(OptionButton.SignalName.ItemSelected, index);   // a Godot build whose OptionButton does not listen to index_pressed: its item_selected directly
+        return "item_selected";
+    }
+
     public int TestTabCount => _tabs?.GetTabCount() ?? 0;
     public void TestShowTabIndex(int i) => ShowTab(i);
     public string TestTabTitle(int i) => _tabs?.GetTabTitle(i) ?? "";

@@ -69,7 +69,9 @@ public partial class MapmakerPlugin : EditorPlugin
         AddControlToDock(DockSlot.RightUl, _dock);
         GetUndoRedo().VersionChanged += OnUndoVersionChanged;
         GetUndoRedo().HistoryChanged += OnUndoVersionChanged;
-        EditorInterface.Singleton.GetSelection().SelectionChanged += () => RaiseDocChanged();
+        SetInputEventForwardingAlwaysEnabled();   // Edit mode picks components from what Godot's 3D input surface gets, whatever node is being inspected (MapmakerPlugin.EditMode.cs)
+        EditorInterface.Singleton.GetSelection().SelectionChanged += OnSelectionChangedForEdit;   // first: Edit mode puts its locked selection back before the panels refresh
+        EditorInterface.Singleton.GetSelection().SelectionChanged += RaiseDocChanged;
         MapHost.RootChanged += OnRootChanged;
         SceneSaved += OnSceneSaved;
         MapHost.Sm1Changed += OnSm1Changed;
@@ -91,6 +93,7 @@ public partial class MapmakerPlugin : EditorPlugin
         try { GetUndoRedo().VersionChanged -= OnUndoVersionChanged; GetUndoRedo().HistoryChanged -= OnUndoVersionChanged; } catch (Exception) { }
         if (_hooked is not null && GodotObject.IsInstanceValid(_hooked)) _hooked.VersionChanged -= OnUndoVersionChanged;
         _hooked = null;
+        try { var es = EditorInterface.Singleton.GetSelection(); es.SelectionChanged -= OnSelectionChangedForEdit; es.SelectionChanged -= RaiseDocChanged; } catch (Exception) { }
         FreeViewportTools();
         EditorGrid.RestoreBuiltIn();   // Godot's own grid comes back with the user's setting
         SceneSaved -= OnSceneSaved;
@@ -928,7 +931,8 @@ public partial class MapmakerPlugin : EditorPlugin
         if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } place && MapHost.Tool == Tool.Place && MapHost.Armed is not null
             && OverViewport(place.Position) && !ReadyToPlace()) { GetViewport().SetInputAsHandled(); return; }
         if (MapHost.Root is null) return;
-        if (EditModeInput(@event)) return;   // Edit mode (Tab) takes the view's clicks and keys first: components, G / R / S, the component gizmo
+        if (EditModeInput(@event)) return;   // Edit mode (Tab) takes its keys and an edit's buttons first: G / R / S, 1 / 2 / 3, Tab; its clicks come through _Forward3DGuiInput
+        if (EditMode) return;   // none of Object mode's tools (box select, click select, group double-click, placing, Delete, Ctrl+D) work behind Edit mode
         GroupDoubleClick(@event);
         if (GhostWheelInput(@event) || BoxSelectInput(@event)) return;
         if (@event is InputEventKey { Pressed: true } key)

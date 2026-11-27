@@ -73,6 +73,7 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
             _ = dock.ModeBar;
             await Frames(130);   // the mode bar goes onto the 3D menu row on a slow tick
             Check(plugin.ModeBarNeighbour == "Transform", $"the Object/Edit bar sits immediately left of Transform (right of it: '{plugin.ModeBarNeighbour}')");
+            await RealInput(dock);
 
             // ---- the brief's one-sided wall edit ----
             plugin.NewMap("editmode-wall");
@@ -319,6 +320,318 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
         GD.Print(_failed ? "EDITMODE RESULT FAIL" : "EDITMODE RESULT PASS");
         try { File.WriteAllText(Path.Combine(outDir, "editmode-result.txt"), _failed ? "FAIL" : "PASS"); } catch (Exception) { }
         Tree.Quit(_failed ? 1 : 0);
+    }
+
+    // ---- real input (owner's repair brief 2026-11-28): events pushed through the editor window, so they take Godot's own route to the 3D view's input surface ----
+
+    SubViewport Vp => plugin.Viewport3D!;
+    Control View => (Control)Vp.GetParent();
+    Vector2 WinOfGlobal(Vector3 global) => View.GetGlobalRect().Position + Vp.GetCamera3D()!.UnprojectPosition(global) / new Vector2(Vp.Size.X, Vp.Size.Y) * View.GetGlobalRect().Size;
+    Vector2 WinOfGame(Num.Vector3 g) => WinOfGlobal(MapHost.Root!.GlobalTransform * Frame.ToGodot(new Vector3(g.X, g.Y, g.Z)));
+    /// <summary>A point of a piece's unit shape (stock vertices) in window pixels.</summary>
+    Vector2 WinOfUnit(string id, Num.Vector3 unit) => WinOfGame(Num.Vector3.Transform(unit, plugin.Session!.Document.World(id)));
+    Vector2 WinOfView(Vector2 viewPx) => View.GetGlobalRect().Position + viewPx / new Vector2(Vp.Size.X, Vp.Size.Y) * View.GetGlobalRect().Size;
+
+    static MouseButtonMask MaskOf(MouseButton b) => b switch { MouseButton.Left => MouseButtonMask.Left, MouseButton.Right => MouseButtonMask.Right, MouseButton.Middle => MouseButtonMask.Middle, _ => 0 };
+    void PushMove(Vector2 at, MouseButtonMask mask = 0, Vector2 relative = default, bool shift = false) =>
+        Tree.Root.PushInput(new InputEventMouseMotion { Position = at, GlobalPosition = at, ButtonMask = mask, Relative = relative, ShiftPressed = shift });
+    void PushButton(Vector2 at, MouseButton b, bool pressed, bool shift = false, bool doubleClick = false, MouseButtonMask held = 0) =>
+        Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = b, Pressed = pressed, Position = at, GlobalPosition = at, ShiftPressed = shift, DoubleClick = doubleClick, Factor = 1f, ButtonMask = held | (pressed ? MaskOf(b) : 0) });
+    async Task RealClick(Vector2 at, bool shift = false, bool doubleClick = false)
+    {
+        PushMove(at); await Frames(2);
+        PushButton(at, MouseButton.Left, true, shift, doubleClick); await Frames(2);
+        PushButton(at, MouseButton.Left, false, shift); await Frames(3);
+    }
+    async Task RealKey(Key k, bool shift = false, bool ctrl = false, char unicode = '\0')
+    {
+        foreach (bool pressed in new[] { true, false })
+        {
+            Tree.Root.PushInput(new InputEventKey { Keycode = k, PhysicalKeycode = k, Pressed = pressed, ShiftPressed = shift, CtrlPressed = ctrl, Unicode = unicode });
+            await Frames(1);
+        }
+        await Frames(1);
+    }
+    async Task RealKeys(params Key[] ks) { foreach (var k in ks) await RealKey(k); }
+
+    string[] GodotSelected() => EditorInterface.Singleton.GetSelection().GetSelectedNodes().OfType<MapmakerObject>().Select(n => n.ObjectId).OrderBy(i => i).ToArray();
+    static string Ids(params string[] ids) => string.Join(",", ids.OrderBy(i => i));
+    bool SelectedExactly(params string[] ids) => Ids(GodotSelected()) == Ids(ids) && EditorInterface.Singleton.GetSelection().GetSelectedNodes().Count == ids.Length;
+    string Comp(string id) => string.Join(",", plugin.SelectedComponents(id));
+
+    /// <summary>
+    /// The owner's acceptance (2026-11-28) driven by window input: select a wall, Tab (and the mode menu), the first click on a vertex, edge or face picks it and a move edits it
+    /// (each undone); two walls stay locked through clicks on empty space, the crate, the crate's Scene dock row and its group; Tab out keeps them; camera navigation and text
+    /// fields keep their input; one component click is used once and Godot neither picks nor box-selects behind it.
+    /// </summary>
+    async Task RealInput(MapmakerDock dock)
+    {
+        plugin.EditKeysAnywhere = false;
+        plugin.NewMap("editmode-real");
+        var wall = Place(PieceKind.Box, "Wall", V(0, 0, 0), V(4, 2, 1));
+        var crate = Place(PieceKind.Box, "Crate", V(6, 0, 0), V(2, 2, 2));
+        var crateBefore = Obj(crate);
+        bool CrateSame() => Obj(crate).Mesh is null && Obj(crate).Transform.Equals(crateBefore.Transform);
+        await plugin.Frame3D(V(-3, -3, 0), V(8, 3, 3));
+        await Frames(10);
+        var centre = View.GetGlobalRect().GetCenter();
+        PushMove(centre); await Frames(3);
+        var hov = plugin.GetViewport().GuiGetHoveredControl();
+        GD.Print($"EDITMODE note: over the 3D view the hovered control is {hov?.GetClass()} '{hov?.Name}', a child of {hov?.GetParent()?.GetClass()} (the picture's container is {View.GetClass()})");
+        Check(hov is not null && hov != View && !View.IsAncestorOf(hov), "Godot's 3D input surface (not the picture's container) is what the mouse is over: the case the shipped hover check rejected");
+        Check(plugin.TestOverEditSurface(centre), "the hover check now accepts Godot's 3D input surface");
+
+        // 1. select the wall, Tab (real key, mouse over the view)
+        plugin.Select([wall]); await Frames(3);
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(plugin.EditMode && plugin.EditIds.SequenceEqual([wall]) && SelectedExactly(wall), $"Tab over the view enters Edit mode on the wall; the wall stays selected (selected [{Ids(GodotSelected())}])");
+        int top = MeshTopology.Box.FaceNamed("top");
+        int restores0 = plugin.SelectionRestores, clicks0 = plugin.EditClicks;
+        // first click: the top face (Face mode is the default)
+        await RealKey(Godot.Key.Key3);
+        var topAt = WinOfUnit(wall, V(0, 0, 1));
+        await RealClick(topAt);
+        Check(Comp(wall) == top.ToString(), $"the first click after Tab selects the face under the mouse (selected [{Comp(wall)}], wanted {top})");
+        Check(plugin.EditClicks == clicks0 + 1, $"the click was used once by Edit mode ({plugin.EditClicks - clicks0})");
+        Check(SelectedExactly(wall) && plugin.SelectionRestores == restores0 && !plugin.BoxDrawing, "Godot neither picked nor box-selected behind it: the wall is still the only selection, nothing had to be put back");
+        // a Shift click toggles exactly once (a doubly handled click would toggle it back); off the face's centre, where the component gizmo now sits
+        var topOff = WinOfUnit(wall, V(-0.4f, -0.3f, 1));
+        await RealClick(topOff, shift: true);
+        Check(Comp(wall) == "", $"Shift + click toggles the face off once ([{Comp(wall)}])");
+        await RealClick(topOff, shift: true);
+        Check(Comp(wall) == top.ToString(), $"and on again ([{Comp(wall)}])");
+        PushMove(topAt); await Frames(2);
+        await RealKeys(Godot.Key.G, Godot.Key.X, Godot.Key.Key1, Godot.Key.Enter); await Frames(3);
+        var fm = Obj(wall).Mesh;
+        Check(fm is not null && new[] { 4, 5, 6, 7 }.All(i => MathF.Abs(fm.Vertices[i].X - (MeshTopology.Box.StockVertices[i].X + 0.25f)) < 1e-5f) && new[] { 0, 1, 2, 3 }.All(i => fm.Vertices[i] == MeshTopology.Box.StockVertices[i]),
+            "G X 1 Enter moves only the top face 1 m along X");
+        Check(SelectedExactly(wall) && plugin.EditMode, "the wall stays selected after the edit");
+        plugin.UndoLast(); await Frames(4);
+        Check(Obj(wall).Mesh is null && plugin.EditMode && SelectedExactly(wall), "undo: the stock shape again, Edit mode and the selection kept");
+        // first click on a vertex
+        await RealKey(Godot.Key.Key1);
+        var v7 = WinOfUnit(wall, MeshTopology.Box.StockVertices[7]);
+        await RealClick(v7 + new Vector2(3, 2));
+        Check(Comp(wall) == "7", $"Vertex mode: a click next to a corner selects that vertex ([{Comp(wall)}])");
+        PushMove(v7); await Frames(2);
+        await RealKeys(Godot.Key.G, Godot.Key.Z, Godot.Key.Key1, Godot.Key.Enter); await Frames(3);
+        var vm = Obj(wall).Mesh;
+        Check(vm is not null && vm.Vertices[7] == V(0.5f, 0.5f, 2f) && Enumerable.Range(0, 7).All(i => vm.Vertices[i] == MeshTopology.Box.StockVertices[i]), "G Z 1 Enter lifts that vertex only");
+        plugin.UndoLast(); await Frames(4);
+        Check(Obj(wall).Mesh is null, "undo");
+        // first click on an edge
+        await RealKey(Godot.Key.Key2);
+        int e67 = MeshTopology.Box.EdgeId(6, 7);
+        var mid = WinOfUnit(wall, (MeshTopology.Box.StockVertices[6] + MeshTopology.Box.StockVertices[7]) / 2);
+        await RealClick(mid);
+        Check(Comp(wall) == e67.ToString(), $"Edge mode: a click on an edge selects it ([{Comp(wall)}], wanted {e67})");
+        PushMove(mid); await Frames(2);
+        await RealKeys(Godot.Key.G, Godot.Key.Z, Godot.Key.Key1, Godot.Key.Enter); await Frames(3);
+        var em = Obj(wall).Mesh;
+        Check(em is not null && em.Vertices[6].Z == 2f && em.Vertices[7].Z == 2f && Enumerable.Range(0, 6).All(i => em.Vertices[i] == MeshTopology.Box.StockVertices[i]), "G Z 1 Enter lifts that edge only");
+        plugin.UndoLast(); await Frames(4);
+        Check(Obj(wall).Mesh is null, "undo");
+        // the component gizmo by real press, motion and release
+        await RealKey(Godot.Key.Key3);
+        await RealClick(topAt);
+        await Frames(2);
+        if (plugin.GizmoLayoutNow is { } g && g.Axes[0].LengthSquared() > 0.5f)
+        {
+            var tip = WinOfView(g.MoveTip(0) - g.Axes[0] * 10f);
+            int c1 = plugin.EditClicks;
+            PushMove(tip); await Frames(2);
+            PushButton(tip, MouseButton.Left, true); await Frames(2);
+            Check(plugin.EditDragging && plugin.EditClicks == c1 + 1, "a real press on the gizmo's X arrow starts a move (used once)");
+            for (int i = 1; i <= 6; i++) { PushMove(tip + g.Axes[0] * (10f * i), MouseButtonMask.Left); await Frames(1); }
+            float during = plugin.DimsOf(wall)!.Value.X;
+            PushButton(tip + g.Axes[0] * 60f, MouseButton.Left, false); await Frames(3);
+            Check(!plugin.EditDragging && during > 4.01f && MathF.Abs(Dims(wall).X - during) < 1e-4f, $"the real release applies the drag ({Dims(wall).X:0.00} m, previewed {during:0.00} m)");
+            Check(SelectedExactly(wall) && plugin.SelectionRestores == restores0, "the wall stayed selected through the drag, with nothing put back");
+            plugin.UndoLast(); await Frames(4);
+            Check(Obj(wall).Mesh is null, "undo");
+        }
+        else Check(false, "the gizmo has a layout (camera present)");
+        // a left drag across the crate: no box select of Godot's or ours, no component box either
+        var crateTop = WinOfUnit(crate, V(0, 0, 1));
+        var emptyAt = View.GetGlobalRect().Position + new Vector2(30, View.GetGlobalRect().Size.Y - 30);
+        PushMove(emptyAt); await Frames(2);
+        PushButton(emptyAt, MouseButton.Left, true); await Frames(2);
+        for (int i = 1; i <= 6; i++) { PushMove(emptyAt.Lerp(crateTop + new Vector2(40, -40), i / 6f), MouseButtonMask.Left); await Frames(1); }
+        PushButton(crateTop + new Vector2(40, -40), MouseButton.Left, false); await Frames(4);
+        Check(SelectedExactly(wall) && plugin.SelectionRestores == restores0 && !plugin.BoxDrawing && CrateSame(), "a left drag over the crate selects nothing behind Edit mode (no box, nothing put back)");
+        // Tab out: the same object stays selected
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(!plugin.EditMode && SelectedExactly(wall) && !plugin.NodeOf(wall)!.HasMeta("_edit_lock_"), $"Tab back: Object mode with the wall still selected ([{Ids(GodotSelected())}])");
+
+        // 1b. the same through the mode menu
+        string how = dock.TestPickMode(1); await Frames(3);
+        Check(plugin.EditMode && plugin.EditIds.SequenceEqual([wall]), $"the mode menu's Edit enters Edit mode on the wall (via {how})");
+        await RealClick(topAt);
+        Check(Comp(wall) == top.ToString() && SelectedExactly(wall), $"the first click after the menu selects the face, the wall stays selected ([{Comp(wall)}])");
+        PushMove(topAt); await Frames(2);
+        await RealKeys(Godot.Key.G, Godot.Key.X, Godot.Key.Key1, Godot.Key.Enter); await Frames(3);
+        Check(Obj(wall).Mesh is { } mm && mm.Vertices[4].X > -0.5f + 0.2f, "and a move edits it");
+        plugin.UndoLast(); await Frames(4);
+        how = dock.TestPickMode(0); await Frames(3);
+        Check(!plugin.EditMode && SelectedExactly(wall), $"the menu's Object leaves like Tab, the wall still selected (via {how})");
+
+        // 2. two walls locked against clicks elsewhere
+        var wall2 = Place(PieceKind.Box, "Wall 2", V(0, -5, 0), V(4, 2, 1));
+        plugin.Select([crate]); await Frames(2);
+        var grp = plugin.GroupSelected("Props");
+        string? groupId = plugin.Session!.Document.Groups.FirstOrDefault(gr => gr.Name == "Props")?.Id;
+        Check(grp.Ok && groupId is not null, "a group holding the crate");
+        // the Scene dock's row of the crate, clicked in Object mode first (it selects the crate there)
+        var sceneDock = EditorInterface.Singleton.GetBaseControl().FindChildren("*", "SceneTreeDock", true, false).OfType<Control>().FirstOrDefault();
+        var sceneTree = sceneDock?.FindChildren("*", "Tree", true, false).OfType<Tree>().FirstOrDefault(t => t.IsVisibleInTree());
+        Vector2? RowAt(string nodeName)
+        {
+            if (sceneTree is null) return null;
+            TreeItem? Find(TreeItem? it) { for (; it is not null; it = it.GetNext()) { if (it.GetText(0) == nodeName) return it; if (Find(it.GetFirstChild()) is { } f) return f; } return null; }
+            if (Find(sceneTree.GetRoot()) is not { } item) return null;
+            sceneTree.ScrollToItem(item);
+            for (float y = 2; y < sceneTree.Size.Y; y += 2)
+                for (float x = 40; x < sceneTree.Size.X && x < 120; x += 20)
+                    if (sceneTree.GetItemAtPosition(new Vector2(x, y)) == item) return sceneTree.GetGlobalRect().Position + new Vector2(x, y);
+            return null;
+        }
+        var crateName = plugin.NodeOf(crate)!.Name.ToString();
+        plugin.Select([wall]); await Frames(3);
+        var row = RowAt(crateName);
+        bool rowWorks = false;
+        if (row is { } r0) { await RealClick(r0); await Frames(4); rowWorks = SelectedExactly(crate); }
+        GD.Print($"EDITMODE note: Scene dock tree {(sceneTree is null ? "not found" : "found")}, crate row {(row is null ? "not found" : "at " + row)}, a click on it in Object mode selects [{Ids(GodotSelected())}]");
+        Check(rowWorks, "in Object mode a real click on the crate's Scene dock row selects the crate (the row click reaches Godot)");
+
+        plugin.Select([wall, wall2]); await Frames(3);
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(plugin.EditMode && Ids(plugin.EditIds.ToArray()) == Ids(wall, wall2) && SelectedExactly(wall, wall2), "two walls selected, Tab: both editable and selected");
+        await RealClick(topAt);
+        Check(Comp(wall) == top.ToString(), "a face of the first wall picked");
+        int restores = plugin.SelectionRestores;
+        await RealClick(emptyAt);
+        Check(SelectedExactly(wall, wall2) && Comp(wall) == "" && Comp(wall2) == "" && plugin.SelectionRestores == restores, "a click on empty space clears the component highlight; both walls stay selected (Godot never saw it)");
+        await RealClick(crateTop);
+        Check(SelectedExactly(wall, wall2) && plugin.SelectionRestores == restores && CrateSame() && !plugin.IsInEditSet(crate), "a click on the crate: both walls stay selected, the crate is untouched and not editable");
+        await RealClick(crateTop, doubleClick: true);
+        Check(SelectedExactly(wall, wall2) && plugin.SelectionRestores == restores, "a double click on the grouped crate does not select its group");
+        if (row is { } r1)
+        {
+            await RealClick(r1); await Frames(4);
+            Check(SelectedExactly(wall, wall2) && plugin.SelectionRestores > restores && Ids(plugin.EditIds.ToArray()) == Ids(wall, wall2) && plugin.EditMode,
+                $"a real click on the crate's Scene dock row: Edit mode puts both walls back ([{Ids(GodotSelected())}], put back {plugin.SelectionRestores - restores} time(s))");
+        }
+        restores = plugin.SelectionRestores;
+        Check(dock.TestSelectSceneRow(groupId ?? "", groupList: true), "the Mapmaker dock lists the group");
+        await Frames(4);
+        Check(SelectedExactly(wall, wall2) && plugin.SelectionRestores > restores && plugin.EditMode, "selecting the group row in the Mapmaker dock: both walls put back, Edit mode stays");
+        restores = plugin.SelectionRestores;
+        Check(dock.TestSelectSceneRow(crate, groupList: false), "the Mapmaker dock lists the crate");
+        await Frames(4);
+        Check(SelectedExactly(wall, wall2) && plugin.SelectionRestores > restores, "selecting the crate's row in the Mapmaker dock's Objects list: both walls put back");
+        int settled = plugin.SelectionRestores;
+        await Frames(10);
+        Check(plugin.SelectionRestores == settled, "putting the selection back does not loop");
+        Check(CrateSame(), "the crate is unchanged");
+
+        // 3. camera navigation and text fields keep their input in Edit mode
+        var cam = Vp.GetCamera3D()!;
+        var t0 = cam.GlobalTransform;
+        PushMove(centre); await Frames(2);
+        for (int i = 0; i < 3; i++) { PushButton(centre, MouseButton.WheelUp, true); PushButton(centre, MouseButton.WheelUp, false); await Frames(2); }
+        await Frames(20);
+        Check(cam.GlobalPosition.DistanceTo(t0.Origin) > 1e-3f && plugin.EditMode && SelectedExactly(wall, wall2), $"the wheel still zooms in Edit mode (camera moved {cam.GlobalPosition.DistanceTo(t0.Origin):0.000} m)");
+        var t1 = cam.GlobalTransform;
+        PushButton(centre, MouseButton.Middle, true); await Frames(1);
+        for (int i = 1; i <= 8; i++) { PushMove(centre + new Vector2(8 * i, 0), MouseButtonMask.Middle, new Vector2(8, 0)); await Frames(1); }
+        PushButton(centre + new Vector2(64, 0), MouseButton.Middle, false); await Frames(20);
+        Check(!cam.GlobalTransform.Basis.IsEqualApprox(t1.Basis), "a middle drag still orbits");
+        var t2 = cam.GlobalTransform;
+        PushButton(centre, MouseButton.Middle, true, shift: true); await Frames(1);
+        for (int i = 1; i <= 8; i++) { PushMove(centre + new Vector2(0, 6 * i), MouseButtonMask.Middle, new Vector2(0, 6), shift: true); await Frames(1); }
+        PushButton(centre + new Vector2(0, 48), MouseButton.Middle, false, shift: true); await Frames(20);
+        Check(cam.GlobalPosition.DistanceTo(t2.Origin) > 1e-3f && Comp(wall) == "" && SelectedExactly(wall, wall2), "Shift + middle drag still pans; no component or object selection changed");
+        // freelook: right mouse held, the movement keys are the camera's (Input.ParseInputEvent: Godot polls the held keys from Input)
+        await RealClick(topAt);
+        Check(Comp(wall) == top.ToString(), "a face selected again");
+        var t3 = cam.GlobalPosition;
+        Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Right, Pressed = true, Position = centre, GlobalPosition = centre, ButtonMask = MouseButtonMask.Right });
+        await Frames(2);
+        Tree.Root.PushInput(new InputEventKey { Keycode = Godot.Key.G, PhysicalKeycode = Godot.Key.G, Pressed = true });
+        await Frames(1);
+        Tree.Root.PushInput(new InputEventKey { Keycode = Godot.Key.G, PhysicalKeycode = Godot.Key.G, Pressed = false });
+        Input.ParseInputEvent(new InputEventKey { Keycode = Godot.Key.W, PhysicalKeycode = Godot.Key.W, Pressed = true });
+        await Frames(20);
+        Input.ParseInputEvent(new InputEventKey { Keycode = Godot.Key.W, PhysicalKeycode = Godot.Key.W, Pressed = false });
+        Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Right, Pressed = false, Position = centre, GlobalPosition = centre });
+        await Frames(4);
+        Check(!plugin.EditDragging && plugin.EditMode, "with the right button held, G is left to the camera (no edit starts)");
+        GD.Print($"EDITMODE note: freelook W with the right button held moved the camera {cam.GlobalPosition.DistanceTo(t3):0.000} m (0 when the headless editor does not run its freelook from Input)");
+        // text fields: a dock field, a number field, and the Scene dock's filter
+        var fields = new System.Collections.Generic.List<(string What, LineEdit Edit)>();
+        for (Node? up = dock; up is not null; up = up.GetParent())   // bring the Mapmaker dock to the front of its dock slot, on its Object tab
+            if (up.GetParent() is TabContainer tc) { tc.CurrentTab = up.GetIndex(); break; }
+        dock.ShowTab(DockTab.Object); dock.Refresh(); await Frames(6);
+        if (dock.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>().FirstOrDefault(l => l.IsVisibleInTree() && l.Editable && l.GetParent() is not SpinBox) is { } dl) fields.Add(("a Mapmaker dock text field", dl));
+        if (dock.FindChildren("*", "SpinBox", true, false).Concat(EditorInterface.Singleton.GetBaseControl().FindChildren("*", "SpinBox", true, false)).OfType<SpinBox>().FirstOrDefault(s => s.IsVisibleInTree() && s.Editable) is { } sb) fields.Add(("a number field", sb.GetLineEdit()));
+        if (sceneDock?.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>().FirstOrDefault(l => l.IsVisibleInTree()) is { } fl) fields.Add(("the Scene dock's filter", fl));
+        GD.Print($"EDITMODE note: text fields found: {string.Join(", ", fields.Select(f => f.What))}");
+        Check(fields.Count >= 2, "text fields to type into are on screen");
+        foreach (var (what, edit) in fields)
+        {
+            string before = edit.Text;
+            edit.GrabFocus(); await Frames(2);
+            PushMove(centre); await Frames(2);   // the mouse rests over the 3D view while typing
+            bool number = edit.GetParent() is SpinBox;
+            string typed = number ? "12" : "g1";   // G would start a move and 1 / 2 switch to Vertex / Edge if Edit mode took them
+            edit.SelectAll();
+            foreach (char ch in typed) await RealKey(ch == 'g' ? Godot.Key.G : ch == '1' ? Godot.Key.Key1 : Godot.Key.Key2, unicode: ch);
+            Check(plugin.EditMode && !plugin.EditDragging && plugin.ComponentMode == ComponentMode.Face && edit.Text.Contains(typed), $"typing in {what} with the mouse over the view: the field gets '{typed}' ('{edit.Text}'), Edit mode takes none of the keys");
+            await RealKey(Godot.Key.Tab);
+            Check(plugin.EditMode, $"Tab in {what} is the field's: Edit mode stays on");
+            edit.Text = before;
+            edit.ReleaseFocus();
+            if (plugin.GetViewport().GuiGetFocusOwner() is { } fo) fo.ReleaseFocus();
+            await Frames(2);
+        }
+        // the Scene dock's rename (its row editor)
+        if (sceneTree is not null && sceneTree.GetSelected() is not null)
+        {
+            sceneTree.EditSelected(true); await Frames(3);
+            var renameEdit = sceneTree.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>().FirstOrDefault(l => l.IsVisibleInTree());
+            if (renameEdit is not null)
+            {
+                string before = renameEdit.Text;
+                renameEdit.GrabFocus(); await Frames(1);
+                PushMove(centre); await Frames(2);
+                await RealKey(Godot.Key.G, unicode: 'g');
+                Check(plugin.EditMode && !plugin.EditDragging && renameEdit.Text != before, $"renaming in the Scene dock: the row editor gets the key ('{renameEdit.Text}'), no edit starts");
+                renameEdit.Text = before;
+                await RealKey(Godot.Key.Escape); await Frames(3);
+            }
+            else GD.Print("EDITMODE note: the Scene dock's row editor did not open here (not checked)");
+        }
+        else GD.Print("EDITMODE note: no selected Scene dock row to rename (not checked)");
+        Check(SelectedExactly(wall, wall2) && plugin.EditMode, "after the navigation and typing both walls are still selected in Edit mode");
+
+        // Tab out keeps both walls; then the crate alone
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(!plugin.EditMode && SelectedExactly(wall, wall2), $"Tab back: both walls remain selected ([{Ids(GodotSelected())}])");
+        plugin.Select([crate]); await Frames(3);
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(plugin.EditMode && plugin.EditIds.SequenceEqual([crate]) && SelectedExactly(crate), "select the crate, Tab: only the crate is editable");
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(!plugin.EditMode && SelectedExactly(crate), "Tab back with the crate selected");
+        EditorInterface.Singleton.GetSelection().Clear(); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(!plugin.EditMode, "with nothing editable selected, Tab stays in Object mode");
+        plugin.EditKeysAnywhere = true;
     }
 
     static void Save(SubViewport vp, string dir, string name) => vp.GetTexture().GetImage().SavePng(Path.Combine(dir, name));
