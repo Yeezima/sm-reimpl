@@ -26,7 +26,7 @@ public static class HiddenBadges
         new("sm_identifier_devastator", Sm, "Devastator Identifier"),
     ];
 
-    /// <summary>The hidden entries left out, with the reason (docs/customizer-and-perks-data.md "Hidden shoulder badges").</summary>
+    /// <summary>The hidden entries left out, with the reason (docs/discovery.md "Bare campaign heads and hidden shoulder badges").</summary>
     public static readonly IReadOnlyDictionary<string, string> LeftOut = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["csm_black_templars_orig"] = "placeholder: Chaos entry with a blank texture",

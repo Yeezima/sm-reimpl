@@ -2748,11 +2748,13 @@ heads; the `cinematic_*` twins are higher-detail and warn about missing face bon
 Space Marine customizer (`ExtraArmourPieces.BareHeads`). Verified-local by stills on the MP rig (Tactical, Assault, Devastator; mk7 Aquila, mk8 high neck, mk6 beakie,
 Librarian and Space Wolves torsos; front and 40 degrees): each binds to the MP head bone with no stretching, the neck seats inside every collar tried and nothing clips.
 The MP skeleton has no face bones (`RIG_headX`, `RIG_jawX`, ears), so the face holds its bind pose (static). Skin and hair textures, no paint mask: no mask is built and
-the head slot's paint does not tint them. **Left out:** `ingame_drogan` (a human, not a marine): its hair cards draw opaque (stepped blocks, no alpha cut) and the
-human-scale head sinks into the marine collar.
+the head slot's paint does not tint them. **Hair:** Titus's hair (material `hairtitus`, shader `hair_test2`, BlendMode 255, the silhouette in the diffuse alpha) drew as opaque
+stepped cards; the client draws `hair_test2` surfaces of the bare-head packages only as a two-sided alpha cut-out (threshold 0.5; provisional approximation, the hair
+shader's own blending is not in the data). Sidonus's hair is a BlendMode 8 cut-out already; Leandros has none. **Left out:** `ingame_drogan` (a human, not a marine):
+the human-scale head sinks into the marine collar (its hair shares Titus's shader).
 
 **Hidden shoulder badges** (`custom_paint_decal`, 16 entries with `visible_in_customizer` false; Verified-local, each looked at in a still on the left and right pad):
-offered `sm_commandsquad` (Command Squad), `sm_rank_sargeredskull` (red skull), `sm_identifier_tactical`, `_assault`, `_devastator` (the class identifiers, textures
+offered `sm_commandsquad` (Command Squad), `sm_rank_sargeredskull` (the game's own text, "Space Marines Sergeant Red Skull Rank"), `sm_identifier_tactical`, `_assault`, `_devastator` (the class identifiers, textures
 `rank_<class>_dif`; their `name` text id is 0, so the names are ours). Left out: the four Chaos entries (`csm_black_templars_orig`, `csm_brazen_claws_black`,
 `csm_crimson_fists_orig`, `csm_sm_angels_of_redemption_inverted`: blank texture, placeholders); `sm_ultramarines`, `ai_space_marine_shldrl_01`, `sm_bloodravens`,
 `sm_darkangels` (the same textures as the visible `sm_ultramarines_orig`, `sm_blood_ravens_orig`, `sm_dark_angels_orig`: duplicates); `sm_darkangel3rdtactical`,

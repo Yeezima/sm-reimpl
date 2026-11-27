@@ -59,10 +59,17 @@ public static class ExtraArmourPieces
     /// <summary>armour Series B: bare heads looked at and left out, with the reason.</summary>
     public static readonly IReadOnlyDictionary<string, string> BareHeadsLeftOut = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        ["ingame_drogan"] = "does not look right on a marine: the hair cards draw opaque (stepped blocks, no alpha cut) and the human-scale head sinks into the collar",
+        ["ingame_drogan"] = "does not look right on a marine: the human-scale head sinks into the collar (and its hair cards, like Titus's, need the cut-out below)",
     };
 
-    /// <summary>Every Series A piece in table order (the per-slot order is this order filtered by slot).</summary>
+    /// <summary>
+    /// Whether a package is one of the bare heads (offered or left out): the client draws their hair (shader <c>hair_test2</c>, whose silhouette is in the diffuse
+    /// alpha) as a two-sided alpha cut-out (review finding 1; provisional), and no other piece.
+    /// </summary>
+    public static bool IsBareHead(string package) =>
+        BareHeads.Any(b => b.Package.Equals(package, StringComparison.OrdinalIgnoreCase)) || BareHeadsLeftOut.ContainsKey(package.ToLowerInvariant());
+
+    /// <summary>Every Series A and Series B piece in table order (the per-slot order is this order filtered by slot).</summary>
     public static readonly IReadOnlyList<ExtraPieceSpec> All = BuildAll();
 
     static List<ExtraPieceSpec> BuildAll()
@@ -99,7 +106,7 @@ public static class ExtraArmourPieces
         list.AddRange(Campaign(Csm, "csm_armour_havoc", "Havoc (campaign)", "no_override"));
         list.AddRange(Campaign(Csm, "csm_armour_raptor", "Raptor (campaign)", "no_override"));
         // (4) armour Series B (owner's pick of 2026-11-27, "Bare campaign heads"; ours): the campaign heroes' bare heads as helmetless head picks for the
-        // Space Marine classes (singleplayer-content dependency, docs/discovery.md "Bare campaign heads"). Skin and hair: no paint mask, none built. The MP rig
+        // Space Marine classes (singleplayer-content dependency, docs/discovery.md "Bare campaign heads and hidden shoulder badges"). Skin and hair: no paint mask, none built. The MP rig
         // has no face bones, so the face holds its bind pose (static).
         foreach (var (package, label) in BareHeads) list.Add(new("barehead", Sm, "head", package, [package], label, "no_helmet"));
         return list;

@@ -1,3 +1,4 @@
+using SmClient.Customizer.Model;
 using SmContent;
 using SmContent.Customization;
 using SmFormats.Obpk;
@@ -93,5 +94,25 @@ public partial class CustomizationCatalogTests
         var c = LoadSeriesB(headPackages: false);
         Assert.All(c.SpaceMarines.PiecesFor("head").Where(p => p.ExtraGroup == "barehead"), p => Assert.True(p.Reserved));
         Assert.DoesNotContain(c.SpaceMarines.OfferedPiecesFor("head"), p => p.ExtraGroup == "barehead");
+    }
+
+    [Fact]
+    public void No_predefined_pieces_alone_drops_the_hidden_badges_and_bare_heads()
+    {
+        LoadSeriesB();
+        CustomizationCatalog original;
+        using (CustomizationCatalog.OverridePredefinedPieces(false)) original = CustomizationCatalog.Load(_dir, []);
+        Assert.Equal(["sm_bar", "sm_foo_orig"], original.SpaceMarines.Decals.Select(d => d.Name));
+        Assert.DoesNotContain(original.SpaceMarines.PiecesFor("head"), p => p.ExtraGroup == "barehead");
+    }
+
+    [Fact]
+    public void Badge_families_hide_a_reserved_blank_and_offer_the_found_hidden_badges()
+    {
+        var c = LoadSeriesB();
+        var families = AppearanceEdits.BadgeFamilies(c, CustomizationCatalog.SpaceMarine).Select(f => f.Family).ToList();
+        Assert.DoesNotContain(HiddenBadges.Offered[^1].Name, families);                       // missing in this install: a reserved blank
+        Assert.Contains("sm_identifier_tactical", families);
+        Assert.True(ExtraArmourPieces.IsBareHead("ingame_titus") && ExtraArmourPieces.IsBareHead("ingame_drogan") && !ExtraArmourPieces.IsBareHead("sm_armour_basic_upres_torso"));
     }
 }
