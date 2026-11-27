@@ -220,6 +220,7 @@ public partial class NetworkView
             });
         }
         hm.Share = all == 0 ? 0f : on / (float)all;
+        if (on == 0) hm.Surfaces.Clear();   // a piece with nothing on the head keeps only its share (re-review: no full arrays for every visible piece)
         return _execHeadMeshes[key] = hm;
     }
 
@@ -279,7 +280,7 @@ public partial class NetworkView
         else d.Swapped = ExecSwapStump(pieces[bodyIndex], stump!, orkMesh!);
 
         if (_ragdollWorld is null || !IsInstanceValid(_ragdollWorld)) EnsureRagdollWorld();   // the level the head falls on is the ragdolls' (review 5)
-        var rb = ExecLooseHead(mesh, g, pieces.Select(p => p.MaterialOverlay).FirstOrDefault(o => o is not null), cr.Run.Target);
+        var rb = ExecLooseHead(mesh, g, pieces.Select(p => p.MaterialOverlay).FirstOrDefault(o => o is not null), cr.Run.Target, capped: kind == ExecutionDecapBody.OrkStump);
         _gameSpace.AddChild(rb);
         rb.GlobalTransform = new Transform3D(Basis.Identity, g.Origin);
         var away = (ExecVictimAt(cr, head: true) ?? g.Origin) - (ExecAttackerAt(cr) ?? g.Origin);
@@ -335,7 +336,11 @@ public partial class NetworkView
         return keep;
     }
 
-    RigidBody3D ExecLooseHead(ArrayMesh mesh, Transform3D g, Material? overlay, int target)
+    /// <summary>
+    /// The loose head as a rigid body. <paramref name="capped"/> (an Ork head cut from the body: an open shell, see-through from the neck) closes it with a flat red disc at the head bone's
+    /// root, facing out of the head (away from the head's centre; ours, like the marine's neck cap).
+    /// </summary>
+    RigidBody3D ExecLooseHead(ArrayMesh mesh, Transform3D g, Material? overlay, int target, bool capped = false)
     {
         var scale = g.Basis.Scale.Abs();
         float s1 = (scale.X + scale.Y + scale.Z) / 3f;
@@ -346,6 +351,15 @@ public partial class NetworkView
         };
         rb.AddChild(new MeshInstance3D { Name = "Head", Mesh = mesh, MaterialOverlay = overlay });
         rb.AddChild(new CollisionShape3D { Shape = new SphereShape3D { Radius = ExecutionDecapRules.HeadRadius * s1 }, Position = mesh.GetAabb().GetCenter() });
+        if (capped)
+        {
+            var into = mesh.GetAabb().GetCenter();
+            var up = into.LengthSquared() > 1e-6f ? into.Normalized() : Vector3.Up;
+            _execHeadCapMaterial ??= new StandardMaterial3D { AlbedoColor = new Color(0.30f, 0.03f, 0.02f), Roughness = 0.4f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+            var disc = new CylinderMesh { TopRadius = ExecutionDecapRules.HeadCapRadius * s1, BottomRadius = ExecutionDecapRules.HeadCapRadius * s1, Height = 0.015f * s1, RadialSegments = 14, Rings = 1, Material = _execHeadCapMaterial };
+            var basis = new Basis(new Quaternion(Vector3.Up, up));
+            rb.AddChild(new MeshInstance3D { Name = "HeadCap", Mesh = disc, Transform = new Transform3D(basis, up * ExecutionDecapRules.HeadCapInset * s1) });
+        }
         return rb;
     }
 
@@ -422,7 +436,7 @@ public partial class NetworkView
         }
     }
 
-    static StandardMaterial3D? _execCapMaterial;
+    static StandardMaterial3D? _execCapMaterial, _execHeadCapMaterial;
 
     /// <summary>The marine's neck cap (ours; the armour has no stump): a flat dark-red disc on the head bone's root, under the skeleton so it follows the body.</summary>
     static Node3D ExecNeckCap(Skeleton3D sk, int headBone)

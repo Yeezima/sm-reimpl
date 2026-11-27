@@ -70,6 +70,8 @@ public static class ExecutionDecapRules
     public const float TossAlong = 2.2f, TossUp = 2.4f, TossSpin = 7f;
     /// <summary>The loose head's mass (kg) and the radius of its collision sphere at scale 1 (metres; ours).</summary>
     public const float HeadMass = 6f, HeadRadius = 0.13f;
+    /// <summary>The cap that closes a loose Ork head at the neck (ours): its radius and how far into the head from the head bone's root it sits (metres at scale 1).</summary>
+    public const float HeadCapRadius = 0.1f, HeadCapInset = 0.02f;
     /// <summary>A loose head goes this long after the cut at the latest (seconds, ours), if its corpse has not taken it before.</summary>
     public const float HeadMaxSeconds = 90f;
 
