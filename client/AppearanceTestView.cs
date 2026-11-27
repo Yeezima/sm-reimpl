@@ -97,16 +97,23 @@ public partial class AppearanceTestView : Node3D
                 if (item.Split('=') is { Length: 2 } kv) pieces[kv[0]] = kv[1];
             look = look with { Pieces = pieces };
         }
+        // armour Series B test aid: --badge <name> puts that shoulder badge on both pads (the batch's eighth field).
+        if (_args.GetValueOrDefault("badge") is { Length: > 0 } badge)
+        {
+            if (!raceCatalog.Decals.Any(d => d.Name.Equals(badge, StringComparison.OrdinalIgnoreCase))) notes.Add($"--badge '{badge}' is not a {race} badge");
+            look = look with { Decals = new Dictionary<string, DecalChoice>(look.Decals) { ["leftshoulder"] = DecalChoice.ForBadge(badge), ["rightshoulder"] = DecalChoice.ForBadge(badge) } };
+        }
         if (_args.GetValueOrDefault("lens") is { } lens && lens.Split(',') is { Length: 3 } c && byte.TryParse(c[0], out var lr) && byte.TryParse(c[1], out var lg) && byte.TryParse(c[2], out var lb))
             look = look with { Lens = new LensColour(lr, lg, lb) };
         return look;
     }
 
-    // armour-pieces-1125 test aid: --batch <file>, one look per line "name|race|preset|set|slot=piece,...|angles" (empty fields: none / the defaults), all
-    // shot in one run (the evidence stills of every built-mask piece without a Godot start per look). '#' starts a comment line.
+    // armour-pieces-1125 test aid: --batch <file>, one look per line "name|race|preset|set|slot=piece,...|angles[|class|badge]" (empty fields: none / the
+    // defaults; armour Series B added the optional class, e.g. assault, and badge fields), all shot in one run (the evidence stills of every built-mask piece without a Godot start per look). '#' starts a comment line.
     readonly Queue<string[]> _batch = new();
     AppearanceAssets? _batchAssets;
     CustomizationCatalog? _batchCatalog;
+    string? _batchClass;
 
     bool StartNextBatchLook()
     {
@@ -116,7 +123,7 @@ public partial class AppearanceTestView : Node3D
         string Field(int i) => i < f.Length ? f[i].Trim() : "";
         _name = Field(0);
         _args["race"] = Field(1).Length > 0 ? Field(1) : "space_marine";
-        foreach (var (key, idx) in new[] { ("preset", 2), ("set", 3), ("piece", 4) })
+        foreach (var (key, idx) in new[] { ("preset", 2), ("set", 3), ("piece", 4), ("badge", 7) })
             if (Field(idx).Length > 0) _args[key] = Field(idx); else _args.Remove(key);
         _shots = (Field(5).Length > 0 ? Field(5) : "0").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => F(x, 0f)).ToArray();
         _nextShot = 0;
@@ -124,7 +131,7 @@ public partial class AppearanceTestView : Node3D
         try
         {
             string race = Field(1).StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine;
-            string classKey = ClassKey(_batchCatalog!, race, _args.GetValueOrDefault("class"));
+            string classKey = ClassKey(_batchCatalog!, race, Field(6).Length > 0 ? Field(6) : _batchClass);
             var look = AppearanceResolver.Resolve(ProfileLook(_batchCatalog!, race, notes), classKey, _batchCatalog!, _batchAssets!.ResolveOptionsExact(null));
             if (string.Equals(_args.GetValueOrDefault("preset"), TestRgbPreset, StringComparison.OrdinalIgnoreCase)) look = TestRgb(look);
             GD.Print($"batch look {_name}: [{string.Join(", ", look.Pieces.Select(p => p.Slot + "=" + p.Name))}], predefined {look.PredefinedSet ?? "-"}");
@@ -169,6 +176,7 @@ public partial class AppearanceTestView : Node3D
             var bnotes = new List<string>();
             _batchAssets = AppearanceAssets.Shared(_gameDir, bnotes);
             _batchCatalog = CustomizationCatalog.Load(_gameDir, bnotes);
+            _batchClass = _args.GetValueOrDefault("class");
             GD.Print($"appearance test: batch of {_batch.Count} looks");
             _quit = true;
             StartNextBatchLook();

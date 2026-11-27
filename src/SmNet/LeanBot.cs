@@ -80,6 +80,8 @@ public static class LeanBot
         "tfw-dreadnought-capture",   // added content Musou (Dreadnought D2+, 2026-11-15): the Dreadnought's scripted stills and film
         "menu-stop-row-demo", "show-setup", "panel-debug", "options-short", "dump-rows", "options-toast",   // ui/overhaul menu screenshot aids (the front end is never a bot)
         "log-fx-plays",   // effects (2026-11-15): logs every effect play for the bolt-smoke and autocannon-dust checks
+        "log-execution-cues", "no-execution-cues", "no-execution-gore",   // added content Executions (cues, 2026-11-27): the finisher sounds and blood are presentation; a lean bot loads no audio
+        "execution-demo-enemy", "execution-demo-remote-victim",   // added content Executions (head cut, 2026-11-27): demo victims taken from the drawn crowd or a remote player's look
         "tfw-pod-test",   // added content Musou (2026-11-12): the drop pod assault's scripted check (record, landing, marines, retreat) and its captures
         "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures
         "tfw-weight-capture", "tfw-weight-pack", "tfw-weight-log", "log-musou-weight",   // added content Musou (weight pass 2026-11-10): the scripted baseline moves and their frame log

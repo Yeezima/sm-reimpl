@@ -521,6 +521,5 @@ public class WarfrontExecutionAcceptanceTests
     [Fact]   // X4 phase 3 (series-37 integration): a melee heal never trims the overshield
     public void MeleeHeal_KeepsOvershield() => new SmNet.Tests.Extras.Executions.Orks.ExecutionRewardTests().MeleeHealKeepsOvershield();
 
-    [Fact]   // X4 phase 3 (series-37 integration): a level-up refill keeps the overshield: max(shield, the bar)
-    public void LevelUpRefill_KeepsOvershield() => new SmNet.Tests.Extras.Executions.Orks.ExecutionRewardTests().LevelUpRefillKeepsOvershield();
+    // LevelUpRefill_KeepsOvershield (X4 phase 3) lives in tests/SmNet.Tests/Extras/Warfront/Campaign/WarfrontRefillOvershieldTests.cs (the Warfront folders, dropped by -p:SmWarfront=false).
 }

@@ -55,11 +55,16 @@ public sealed partial class TfwBattle
         if (!_guardsmen || Won || ++_reinforceTicks < Ticks(TfwArmyRules.ReinforceSeconds)) return;
         _reinforceTicks = 0;
         Span<int> need = stackalloc int[Positions];
+        Span<float> weight = stackalloc float[Positions];
         int total = 0;
+        float weights = 0f;
         for (int k = 0; k < Positions; k++)
         {
             need[k] = Imperial(k) ? Math.Max(0, GarrisonCapNow - Stationed(k) - Inbound(k)) : 0;
             total += need[k];
+            weight[k] = need[k];
+            WarfrontReinforceNeed(k, need[k], ref weight[k]);   // WARFRONT-HOOK: Guardsmen G1, threatened points weigh more in the split (the budget and each share's cap unchanged)
+            weights += weight[k];
         }
         int men = ReinforceMenNow + _guardHome;
         if (total == 0) return;   // nothing lacks: the men home wait
@@ -67,7 +72,7 @@ public sealed partial class TfwBattle
         for (int k = 0; k < Positions && sent < men; k++)
         {
             if (need[k] == 0) continue;
-            int share = (int)MathF.Round(men * need[k] / (float)total / GuardSim.SquadSize) * GuardSim.SquadSize;
+            int share = (int)MathF.Round(men * weight[k] / weights / GuardSim.SquadSize) * GuardSim.SquadSize;
             share = Math.Min(Math.Max(share, GuardSim.SquadSize), Math.Min(men - sent, (need[k] + GuardSim.SquadSize - 1) / GuardSim.SquadSize * GuardSim.SquadSize));
             if (share <= 0) continue;
             var army = NewArmy(TfwArmySide.Guard, TfwArmyOrder.March, share, 0f);
@@ -115,6 +120,7 @@ public sealed partial class TfwBattle
             OrderSquad(g, g.Squads.Count - 1);
         }
         g.Start = Math.Max(g.Start, g.Count);   // reinforced: its losses count from here
+        WarfrontReinforced(a, k);   // WARFRONT-HOOK: Guardsmen G1, the Reinforcements vox when the point is threatened (a note only)
         if (a.Count == 0) { _armies.Remove(a); return; }
         a.Start = a.Count;
         int next = MostShort(k);
@@ -123,6 +129,12 @@ public sealed partial class TfwBattle
         a.Order = TfwArmyOrder.March;
         OrderSquads(a);
     }
+
+    /// <summary>Warfront (Guardsmen G1): point <paramref name="k"/>'s weight in the reinforcement split (its need outside Warfront).</summary>
+    partial void WarfrontReinforceNeed(int k, int need, ref float weight);
+
+    /// <summary>Warfront (Guardsmen G1): a reinforcement joined point <paramref name="k"/>'s garrison (the vox note).</summary>
+    partial void WarfrontReinforced(TfwArmy a, int k);
 
     /// <summary>The Imperial position (other than <paramref name="except"/>) that lacks the most men; -1 with none lacking.</summary>
     int MostShort(int except)

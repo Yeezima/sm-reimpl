@@ -51,8 +51,10 @@ public sealed partial class TfwBattle
         else
         {
             if (a.Order is TfwArmyOrder.Hold) a.Post = a.Goal;
-            Redirect(a, BasePlace);
-            a.Goal = LandingGoal;
+            int place = BasePlace;
+            WarfrontGuardFallBack(a, ref place);   // WARFRONT-HOOK: Guardsmen G1, a lane battle's retreat goes to a friendly point that holds, else the base
+            Redirect(a, place);
+            a.Goal = place == BasePlace ? LandingGoal : place;
         }
         a.Order = TfwArmyOrder.Retreat;
         OrderSquads(a);
@@ -62,6 +64,9 @@ public sealed partial class TfwBattle
     /// <summary>Twice a second: a retreating Guard army with a human within <see cref="TfwArmyRules.RallyRadius"/> of its ranks is rallied, if its last rally was a minute ago and an Imperial position stands.</summary>
     void StepRallies()
     {
+        bool skip = false;
+        WarfrontRallies(ref skip);   // WARFRONT-HOOK: Guardsmen G1, a lane battle rallies on a broken push instead (owner 2026-11-25)
+        if (skip) return;
         foreach (var a in _armies)
         {
             if (a.Side != TfwArmySide.Guard || a.Order != TfwArmyOrder.Retreat || _now < a.RallyReady) continue;
@@ -75,6 +80,12 @@ public sealed partial class TfwBattle
             Rally(a, k);
         }
     }
+
+    /// <summary>Warfront (Guardsmen G1): where a retreating Guard army goes (<paramref name="place"/>: the base unless the lane battle's line says a friendly point).</summary>
+    partial void WarfrontGuardFallBack(TfwArmy a, ref int place);
+
+    /// <summary>Warfront (Guardsmen G1): the lane battle's own rally rule replaces the proximity rally (<paramref name="skip"/>).</summary>
+    partial void WarfrontRallies(ref bool skip);
 
     void Rally(TfwArmy a, int k)
     {

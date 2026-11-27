@@ -2738,3 +2738,31 @@ nothing extracted. Verified-local (`wargear.oppc` read through `PerkCatalog.Read
 - **`dlc2_set3` and `dlc3_set2` (Chaos DLC sets):** their packages (`csm_armour_mp_dlc2_set1_*` and `csm_armour_mp_dlc3_set1_*`) hold byte-identical meshes and diffuse,
   normal, light property and specular maps (SHA-256 of every entry, main and `_wg`/`_tt1`/`_tt2` packages); only the material, object-tree and manifest entries differ, by
   their internal names (and the right pad's mesh by its name). So the two sets look the same worn whole and as pieces: the identical stills are the data, not a loader fault.
+
+## Bare campaign heads and hidden shoulder badges (armour Series B, 2026-11-27; singleplayer-content dependency)
+
+The owner's picks of 2026-11-27 (agent-coordination decisions/2026-11-27-series-38-hold-armour-decap.md: "Hidden shoulder badges", "Bare campaign heads").
+
+**Bare campaign heads. Dependency:** singleplayer packages `data/packages/ingame_titus.oppc`, `ingame_leandros.oppc`, `ingame_sidonus.oppc` (the campaign heroes' in-game
+heads; the `cinematic_*` twins are higher-detail and warn about missing face bones) are read at run time, read-only, nothing extracted, as helmetless head picks for the
+Space Marine customizer (`ExtraArmourPieces.BareHeads`). Verified-local by stills on the MP rig (Tactical, Assault, Devastator; mk7 Aquila, mk8 high neck, mk6 beakie,
+Librarian and Space Wolves torsos; front and 40 degrees): each binds to the MP head bone with no stretching, the neck seats inside every collar tried and nothing clips.
+The MP skeleton has no face bones (`RIG_headX`, `RIG_jawX`, ears), so the face holds its bind pose (static). Skin and hair textures, no paint mask: no mask is built and
+the head slot's paint does not tint them. **Hair:** Titus's hair (material `hairtitus`, shader `hair_test2`, BlendMode 255, the silhouette in the diffuse alpha) drew as opaque
+stepped cards; the client draws `hair_test2` surfaces of the bare-head packages only as a two-sided alpha cut-out (threshold 0.5; provisional approximation, the hair
+shader's own blending is not in the data). Sidonus's hair (`GEO_hair_LODH`, material `standard_7`, BlendMode 8, a 756-vertex scalp shell
+under RIG_Head) was at first never drawn (hidden by the "_lod" rule below); since review round 3 it is drawn, two-sided like Titus's. Leandros has no hair mesh. **Eyes:** each head's eyeballs are rigid blocks on `GEO_Leye_LODH` / `GEO_Reye_LODH` under `RIG_Head` (head material, the iris
+in the head texture); the piece loader hides every `_lod` node as an LOD duplicate, which left the sockets blank (grey-white, no iris). For the bare-head packages only,
+the `*eye_LODH` and `*hair_LODH` nodes are drawn (`CharacterModel.KeepsBareHeadNode`; every part of these packages is named "_LODH"/"_LODL"); teeth and tongue stay hidden
+(closed mouth). Sidonus's milky right
+eye is in his texture (his scarred side). **Left out:** `ingame_drogan` (a human, not a marine):
+the human-scale head sinks into the marine collar (its hair shares Titus's shader).
+
+**Hidden shoulder badges** (`custom_paint_decal`, 16 entries with `visible_in_customizer` false; Verified-local, each looked at in a still on the left and right pad):
+offered `sm_commandsquad` (Command Squad), `sm_rank_sargeredskull` (the game's own text, "Space Marines Sergeant Red Skull Rank"), `sm_identifier_tactical`, `_assault`, `_devastator` (the class identifiers, textures
+`rank_<class>_dif`; their `name` text id is 0, so the names are ours). Left out: the four Chaos entries (`csm_black_templars_orig`, `csm_brazen_claws_black`,
+`csm_crimson_fists_orig`, `csm_sm_angels_of_redemption_inverted`: blank texture, placeholders); `sm_ultramarines`, `ai_space_marine_shldrl_01`, `sm_bloodravens`,
+`sm_darkangels` (the same textures as the visible `sm_ultramarines_orig`, `sm_blood_ravens_orig`, `sm_dark_angels_orig`: duplicates); `sm_darkangel3rdtactical`,
+`sm_rank_tactical`, `ai_space_marine_shldrr_01` (their texture packages `sm_darkangel_3rd_tactical_dif`, `sm_rank_tactical_dif`, `sm_rank_tactical_white_iv_dif` are not
+in the install: they draw nothing). No entry names a class, so the identifiers are offered to every Space Marine look (**interpretation**).
+

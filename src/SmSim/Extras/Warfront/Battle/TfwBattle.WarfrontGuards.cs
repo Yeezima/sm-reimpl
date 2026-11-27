@@ -57,6 +57,9 @@ public sealed partial class TfwBattle
     partial void WarfrontFormation()
     {
         if (WarfrontGuardRules.Old || _enemies.Warfront is null || WarfrontHq || !_guardsmen || !_guards.Rules.Spread) return;
+        Span<Vector3> slots = stackalloc Vector3[GuardSim.MaxSquads];
+        Span<int> firing = stackalloc int[GuardSim.MaxSquads];
+        Span<Vector3> posts = stackalloc Vector3[GuardSim.SquadSize];
         for (int k = 0; k < Positions; k++)
         {
             if (_objectives[k].State != TfwPositionState.Secured) continue;
@@ -66,8 +69,10 @@ public sealed partial class TfwBattle
             foreach (var army in _armies)   // the garrison's promoted squads stand in the same rows (their block layout is a dense rectangle)
                 if (army.Side == TfwArmySide.Guard && army.Order == TfwArmyOrder.Hold && army.Goal == k)
                     foreach (int s in army.Squads) if (_guards.AliveIn(s) > 0 && !VantageSquad(s)) _wfSquads.Add(s);
+            bool line = WfLine;
+            if (line) WfRegrouped(k, _wfSquads);   // Guardsmen G1: a fallen-back line stands in this point's rows (after its own squads)
             if (_wfSquads.Count == 0) continue;
-            var dir = Approach(k);
+            var dir = line ? WfApproach(k) : Approach(k);
             // Healthy squads keep their order (new ones after), battered ones fall to the back, unless every one is battered.
             int healthy = 0;
             foreach (int s in _wfSquads) if (_guards.AliveIn(s) > WarfrontGuardRules.BatteredMen) healthy++;
@@ -82,17 +87,35 @@ public sealed partial class TfwBattle
             });
             for (int i = 0; i < _wfSquads.Count; i++) _wfRank[_wfSquads[i]] = i;
             var point = _layout.Positions[k];
-            float yaw = MathF.Atan2(-dir.X, dir.Y);
-            for (int i = 0; i < _wfSquads.Count; i++)
+            int count = _wfSquads.Count;
+            int cut = 0;
+            for (int i = 0; i < count; i++)
+            {
+                slots[i] = SlotPlace(point, dir, i, count, RadiusOf(k), out float kept);
+                if (CrampedSlot(kept)) cut++;
+                firing[i] = -1;
+            }
+            List<Vector3>? fire = null;
+            if (line)   // Guardsmen G1c/G1d: the flank answer and the firing positions of a cramped point
+            {
+                WfPickFlank(k, _wfSquads, point);
+                _wfCramped[k] = Cramped(cut, count) && _enemies.Walk is not null;
+                if (_wfCramped[k] && (fire = WfFiringFor(k, dir)).Count > 0) AssignFiring(slots[..count], fire, firing[..count]);
+            }
+            for (int i = 0; i < count; i++)
             {
                 int s = _wfSquads[i];
-                var slot = SlotPlace(point, dir, i, _wfSquads.Count, RadiusOf(k));
-                if (WfFormed(s) && Vector3.Distance(_wfPlace[s], slot) < 1f && MathF.Abs(_wfYaw[s] - yaw) < 0.01f) continue;
-                Span<Vector3> posts = stackalloc Vector3[GuardSim.SquadSize];
-                Posts(slot, dir, posts);
-                if (_guards.OrderPosts(s, slot, posts, yaw, point))
+                var slot = slots[i];
+                var face = dir;
+                int flank = line ? WfFlankIndex(k, s) : -1;
+                if (flank >= 0) { face = _wfFlankDir[k]; slot = SlotPlace(point, face, flank, Math.Max(1, WfFlankCount(k)), RadiusOf(k), out _); }
+                else if (fire is not null && firing[i] >= 0) slot = fire[firing[i]];
+                float faceYaw = MathF.Atan2(-face.X, face.Y);
+                if (WfFormed(s) && Vector3.Distance(_wfPlace[s], slot) < 1f && MathF.Abs(_wfYaw[s] - faceYaw) < 0.01f) continue;
+                Posts(slot, face, posts);
+                if (_guards.OrderPosts(s, slot, posts, faceYaw, point))
                 {
-                    _wfPlace[s] = slot; _wfYaw[s] = yaw; _wfFormationSets++;
+                    _wfPlace[s] = slot; _wfYaw[s] = faceYaw; _wfFormationSets++;
                 }
             }
         }
@@ -157,8 +180,12 @@ public sealed partial class TfwBattle
     /// The offset's forward and sideways parts are shortened (whole, three quarters, half, a quarter, none; forward first) until the place is on the walking graph, reachable in a straight line from the point and
     /// <see cref="SlotClearance"/> off the walls, else the best clearance found.
     /// </summary>
-    Vector3 SlotPlace(Vector3 point, Vector2 dir, int i, int count, float radius)
+    Vector3 SlotPlace(Vector3 point, Vector2 dir, int i, int count, float radius) => SlotPlace(point, dir, i, count, radius, out _);
+
+    /// <summary>As <see cref="SlotPlace(Vector3, Vector2, int, int, float)"/>; <paramref name="forwardKept"/> is the share of the forward offset kept (1 whole, 0 none; Guardsmen G1d's cramped test).</summary>
+    Vector3 SlotPlace(Vector3 point, Vector2 dir, int i, int count, float radius, out float forwardKept)
     {
+        forwardKept = 1f;
         var (row, lateral) = SlotGrid(i, count);
         float forward = WarfrontGuardRules.FrontShare * radius - row * WarfrontGuardRules.RowSpacing;
         var side = new Vector2(-dir.Y, dir.X);
@@ -174,9 +201,10 @@ public sealed partial class TfwBattle
                 int node = walk.NodeIn(walk.ColumnOf(q.X, q.Y), origin.Z, 1.5f);
                 if (node < 0 || (offset != Vector2.Zero && !walk.Graph.CanWalk(origin, offset))) continue;
                 float edge = walk.EdgeDistance(node);
-                if (edge >= SlotClearance) return Ground(origin + new Vector3(offset, 0f), origin);
-                if (edge > bestEdge) { bestEdge = edge; best = offset; }
+                if (edge >= SlotClearance) { forwardKept = fs * 0.25f; return Ground(origin + new Vector3(offset, 0f), origin); }
+                if (edge > bestEdge) { bestEdge = edge; best = offset; forwardKept = fs * 0.25f; }
             }
+        if (bestEdge < 0f) forwardKept = 0f;
         return Ground(origin + new Vector3(best, 0f), origin);
     }
 

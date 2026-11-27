@@ -36,6 +36,7 @@ return args switch
     ["stalker-confirm-preview", .. var rest] => SmTool.StalkerConfirmPreviewCommand.Run(rest),
     ["listen-page", .. var rest] => SmTool.ListenPageCommand.Run(rest),
 #if SM_EXTRAS
+    ["exec-cues", .. var execRest] => SmTool.ExecutionCuesCommand.Run(execRest),   // executions sound (src/SmTool/Extras/Executions/; Fable review 2: inside SM_EXTRAS)
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
     ["map", .. var mapRest] => SmTool.MapCommand.Run(mapRest),
     ["dreadnought-dump", .. var dreadRest] => SmTool.DreadnoughtDumpCommand.Run(dreadRest),
@@ -112,9 +113,12 @@ static int Usage()
           smtool dreadnought-dump [<game-dir|auto>]  the Musou Dreadnought's data from the install (body, weapons, arm, sprint, buff, entrance), each number with its source entry (D0)
           smtool ork-blood <game-dir|auto>          Musou Mode's original blood: the Ork's dismemberment table, the points' effects, each MP weapon's dismemberment types
           smtool ork-actions <game-dir|auto>        the Ork's action clips and timings (Ork O7b / O7c): reactions, reload, recoil, toss release, death clips, choppa, charge, hop
-          smtool sync-kills [--game <dir>] [--attacker <archive>:<entry>]... [--victim <archive>:<entry>]... [--graph <pattern>] [--no-victims] [--no-geometry]
+          smtool sync-kills [--game <dir>] [--attacker <archive>:<entry>]... [--victim <archive>:<entry>]... [--graph <pattern>] [--no-victims] [--no-geometry] [--all-tags]
                                             the install's sync kills (executions, docs/executions-coverage.md): every attacker move with clips, timing tags,
                                             interaction events, alignment and root motion; the victim states those events enter (read-only)
+          smtool exec-cues [--game <dir>] [--row <id>] [--all-banks] [--files <regex>]
+                                            every execution row's original cues (docs/executions-cues.md): the attacker's and victim's Action tags in
+                                            seconds and what each sets off in the blueprints' and wargear's triggered_actions (sounds, speech, effects)
           smtool ork-sounds <game-dir|auto> [--clips] [--all-tags]
                                                     the Ork Boy's sounds and barks (Ork O8): each sound and speech command of the boy's blueprint and
                                                     wargear resolved against the banks (voices per post, the speech bank's line for his voice), and the

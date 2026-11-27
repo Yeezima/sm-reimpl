@@ -9,8 +9,8 @@ namespace SmSim.Extras.Executions;
 public static class ExecutionRules
 {
     /// <summary>The executions version in the config hash (1: X1, the contract and the switch; 2: X3, the state machine, Classic PvP Extended and the 36-byte Start; 3: X4, Warfront on Orks: the pick, the held Ork, the invulnerable move, the reward and its overshield, the cooldown; 4: X4b, owner 2026-11-26: Warfront on Chaos (the Chaos battle's
-    /// kinds, the Chosen eligible, the Lord only by the duelist under the duel's gate, the finale's refusal), and the combat knife on the chainsword's rows for every non-Ork victim).</summary>
-    public const int Version = 4;
+    /// kinds, the Chosen eligible, the Lord only by the duelist under the duel's gate, the finale's refusal), and the combat knife on the chainsword's rows for every non-Ork victim; 5: the first crossover row, O4.combat_knife, owner brief 2026-11-27).</summary>
+    public const int Version = 5;
 
     /// <summary>
     /// Classic PvP Extended: how long after a confirmed lethal melee kill the killer may tap Execute for that kill (seconds; ours, the architect's recommendation, uncontested by the owner 2026-11-25).
