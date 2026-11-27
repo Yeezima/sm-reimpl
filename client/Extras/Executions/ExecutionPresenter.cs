@@ -101,5 +101,6 @@ public partial class NetworkView
         }
         ExecutionProxiesFrame(me, others, delta);
         ExecutionCuesFrame(me, others);   // executions sound and gore (NetworkView.ExecutionCues.cs): after the proxies, so the victim's emitter follows this frame's proxy
+        ExecutionDecapFrame();   // the head cut's loose heads (NetworkView.ExecutionDecap.cs): sink with their corpses
     }
 }

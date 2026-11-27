@@ -18,8 +18,11 @@ public enum ExecutionCueSide : byte { Attacker = 0, Victim = 1 }
 /// </summary>
 public enum ExecutionCuePlace : byte { Attacker = 0, Victim = 1, Wound = 2 }
 
-/// <summary>What a cue does: post a sound event, post a stop (or end) event, a speech line, an effect, or a borrowed weapon's motor sound that the wielder's own sound replaces (<see cref="ExecutionMotorRole"/>).</summary>
-public enum ExecutionCueKind : byte { Sound = 0, Stop = 1, Speech = 2, Effect = 3, Motor = 4 }
+/// <summary>
+/// What a cue does: post a sound event, post a stop (or end) event, a speech line, an effect, a borrowed weapon's motor sound that the wielder's own sound replaces (<see cref="ExecutionMotorRole"/>),
+/// or the head cut of a decapitating row (<see cref="Decap"/>, ours: <see cref="ExecutionDecapRules"/>; never on the generated sheet, added by the client's run list).
+/// </summary>
+public enum ExecutionCueKind : byte { Sound = 0, Stop = 1, Speech = 2, Effect = 3, Motor = 4, Decap = 5 }
 
 /// <summary>What a borrowed weapon's dropped motor sound was (<see cref="ExecutionCueKind.Motor"/>): a swing, a grind or cut under load, a rev or wind-up, a hit.</summary>
 public enum ExecutionMotorRole : byte { None = 0, Swing = 1, Grind = 2, Rev = 3, Hit = 4 }
@@ -450,13 +453,15 @@ public sealed class ExecutionCueTimeline
         if (_closed.Contains(key)) return;   // a run that finished or was interrupted never starts again (a stale frame, a late repeat)
         if (!_tracks.TryGetValue(key, out var t)) _tracks[key] = t = new Track { Cues = cues };
         if (!float.IsFinite(clock)) return;
+        bool seenBefore = t.Seen;
         t.Seen = true;
         // On every advance (first sight or a clock jump: a hitch, a late snapshot), a cue more than LateSkipSeconds behind the clock is skipped, never fired in a burst; a stop always
         // applies (a grind started before the jump must still end; re-review N3).
         while (t.Next < t.Cues.Count && t.Cues[t.Next].At <= clock)
         {
             var cue = t.Cues[t.Next++];
-            if (cue.Kind != ExecutionCueKind.Stop && cue.At < clock - LateSkipSeconds) { Skipped++; continue; }
+            // The head cut (ours) is a state change, not a sound: once the run has been seen, a jump over it still cuts (exec-decap review 2); a first sight past it keeps the head.
+            if (cue.Kind != ExecutionCueKind.Stop && !(cue.Kind == ExecutionCueKind.Decap && seenBefore) && cue.At < clock - LateSkipSeconds) { Skipped++; continue; }
             steps.Add(new Step(StepKind.Fire, key, cue));
             Fired++;
         }

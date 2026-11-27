@@ -61,6 +61,7 @@ public partial class NetworkView
     partial void ExecutionsCameraWanted(PlayerState me, float delta, ref bool handled)
     {
         if (_camera is null || _gameSpace is null) return;
+        if (ExecDecapCam && ExecDecapSideCamera()) { handled = true; return; }   // test aid (NetworkView.ExecutionDecap.cs): a side view of the pair for the head-cut clips
         if (me.Alive && !NoExecutionOrbit && OwnExecuting(out _))
         {
             _execExitOn = false;

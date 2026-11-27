@@ -15,6 +15,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 ### Executions
 - Executions now play the original game's own sounds, voices and blood, timed to each finisher: the strain of the struggle, the victim's reactions, blade scrapes, the chainsword's bite, the power sword's sizzle and the hammer's impacts.
 - New finishers: knife players get the Ork arm break, and chainsword and power sword players get the Ork skull stab.
+- Head-cutting finishers now take the head off: the Chaos Marine finisher and the Ork Boy axe finisher, in Warfront and in Classic PvP with the extended content. The gore switch turns it off.
 
 ### Warfront
 - Allied Guardsmen now hold their line. When a push breaks them they fall back together to a friendly point, then rally and re-form once the push is broken, and they turn to answer flanks.

@@ -74,6 +74,7 @@ public partial class NetworkView
     {
         if (NoExecCues || _execLib.Catalogue is not { } catalogue) return;
         ExecCueFxLoad();
+        ExecDecapPrefetch();   // the head cut's Ork stumps (NetworkView.ExecutionDecap.cs)
         _execCueSteps.Clear();
         foreach (var run in ExecutionsState.Live.Values)
         {
@@ -87,7 +88,7 @@ public partial class NetworkView
                 var wield = ExecutionCueRules.WieldOf(row, wargear);
                 _execCueRuns[key] = cr = new ExecCueRun
                 {
-                    Run = run, Row = row, Cues = _execLib.Cues.For(row.Id, wield), Wargear = wargear,
+                    Run = run, Row = row, Cues = ExecutionDecapRules.WithCut(row.Id, wield, _execLib.Cues.For(row.Id, wield)), Wargear = wargear,   // the head cut is one more cue (ExecutionDecapRules, ours)
                     // One-shot emitters: the sound system forgets their container histories once their voices end (Fable review 3), a live grind keeps them until its stop.
                     Attacker = new SoundEmitter { Label = $"execution P{run.Executor} attacker", OneShot = true },
                     Victim = new SoundEmitter { Label = $"execution P{run.Executor} victim", OneShot = true },
@@ -260,6 +261,9 @@ public partial class NetworkView
             case ExecutionCueKind.Effect:
                 result = ExecCueEffect(cr, cue);
                 break;
+            case ExecutionCueKind.Decap:
+                result = ExecDecapCut(cr);
+                break;
         }
         if (ExecCueLog) GD.Print($"EXECCUES t {_connectedFor:F2} s: P{cr.Run.Executor} {cr.Row.Id} {cue.At:F3} s {cue.Side} {cue.Kind} {cue.Place} {cue.Tag} {cue.Event} ({cue.File}): {result}");
     }
@@ -364,7 +368,8 @@ public partial class NetworkView
         _execCueFxLoad ??= Task.Run(() =>
         {
             // The names on the worker, once (Fable review 8: not every frame until the compile ends).
-            var names = sheet.All.SelectMany(x => x.Cues).Where(c => c.Kind == ExecutionCueKind.Effect).Select(c => c.Event).Distinct(StringComparer.Ordinal).ToArray();
+            var names = sheet.All.SelectMany(x => x.Cues).Where(c => c.Kind == ExecutionCueKind.Effect).Select(c => c.Event)
+                .Concat(ExecutionDecapRules.NeckWoundEffects).Distinct(StringComparer.Ordinal).ToArray();   // and the head cut's neck wound
             _execCueFxNames = names.Length;
             var failures = new List<string>();
             var systems = CompileSystems(library, names, failures);
