@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4554 spec table rows: **3397 tagged**, 757 not tagged (read from data with high confidence), 400 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 858 rows of the changes document.
+Scanned 4555 spec table rows: **3398 tagged**, 757 not tagged (read from data with high confidence), 400 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 858 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 481 | 419 | 400 | 127 | 12 |
+| Movement (critical) | 482 | 420 | 400 | 127 | 12 |
 | Combat core (critical) | 30 | 21 | 25 | 20 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 176 | 155 | 128 | 60 | 5 |
@@ -53,13 +53,13 @@ Scanned 4554 spec table rows: **3397 tagged**, 757 not tagged (read from data wi
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
 | General game design | 347 | 345 | 115 | 143 | 0 |
 | Ork faction | 303 | 282 | 182 | 74 | 0 |
-| **All areas** | **3397** | 3080 | 2377 | 1039 | 37 |
+| **All areas** | **3398** | 3081 | 2377 | 1039 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2167 |
+| kind: ours | 2168 |
 | confidence: medium | 1161 |
 | confidence: low | 1105 |
 | notes: ours | 493 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (481)
+### Movement (gameplay-critical) (482)
 
 *Spec section: Extracted parameters*
 
@@ -458,6 +458,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-54F3C460` | Hidden badges offered | `sm_commandsquad`, `sm_rank_sargeredskull`, `sm_identifier_tactical`, `sm_identifier_assault`, `sm_identifier_devastator`, appended after the Space Marine visible badges in this order (badge indices of existing codes unchanged; 89 visible + 5 = 94 Space… (badge list order) | kind: ours; notes: interpretation | owner's pick 2026-11-27; `custom_paint_decal` (Verified-local) | Hidden badges offered: compare with SM1 by feel or video. Ours: sm_commandsquad, sm_rank_sargeredskull, sm_identifier_tactical… | ☐ |
 | `R-150A3F54` | Bare heads offered | `ingame_titus`, `ingame_leandros`, `ingame_sidonus` as Space Marine head pieces (group "barehead", `helmet_override` "no_helmet", our names "<hero> (Bare Head)"), appended after every Series A head; no built masks, no paint; `ingame_drogan` left out (sinks… (head slot list order) | kind: ours | owner's pick 2026-11-27; stills on the MP rig | Bare heads offered: compare with SM1 by feel or video. Ours: ingame_titus, ingame_leandros, ingame_sidonus as Space Marine head… | ☐ |
 | `R-36EB05A0` | Bare-head hair | surfaces with shader `hair_test2` in the bare-head packages (`ExtraArmourPieces.IsBareHead`) drawn as a two-sided alpha scissor at 0.5 with alpha-to-coverage (`RenderQuality.ApplyCutOut`); no other piece changes (alpha 0..1) | kind: ours; notes: approximation; notes: provisional | review finding 2026-11-27; stills | Bare-head hair: compare with SM1 by feel or video. Ours: surfaces with shader hair_test2 in the bare-head packages… | ☐ |
+| `R-E9CA03B2` | Bare-head eyes | the rigid `*eye_LODH` blocks of the bare-head packages are drawn (on `RIG_Head`, by the object tree); every other `_lod` node stays hidden as before | kind: ours | review round 2, 2026-11-27; O3d of the packages; stills | Bare-head eyes: compare with SM1 by feel or video. Ours: the rigid *eye_LODH blocks of the bare-head packages are drawn (on… | ☐ |
 | `R-14CC305A` | Series B switch | both follow `CustomizationCatalog.ExtraPiecesOffered` (`--no-extra-pieces`, `SM_NO_EXTRA_PIECES=1`: neither offered; server and clients must agree, the badge and head ranges of a code shrink) (switch) | kind: ours | ours | Series B switch: compare with SM1 by feel or video. Ours: both follow CustomizationCatalog.ExtraPiecesOffered… | ☐ |
 
 *Spec section: Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change)*
