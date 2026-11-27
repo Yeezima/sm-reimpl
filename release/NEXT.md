@@ -25,3 +25,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Import images has moved into the material editor.
 - A multi-selection stays selected after you move, rotate or scale it.
 - Snap now starts off.
+
+### Customizer
+- Five more shoulder badges that the original game kept hidden, and Titus, Leandros and Sidonus as bare-headed picks for Space Marines.
