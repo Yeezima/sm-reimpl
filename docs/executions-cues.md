@@ -95,8 +95,7 @@ fits by priority; the new row has priority 0, after O3 and O8.
 
 ## 4. Known gaps (for the owner's playtest)
 
-- **Decapitation separation is not supported** on any rig in this client: neither the marine nor the Ork bodies have a separable head mesh. C1 and O5 show the neck wound's geyser
-  and blood at the cut frame (C1's `ACTN_FX_CS_Sync_Blood_Geyser` at `fx_decap_geyser`, 4.300 s), but the head stays on. Flagged for review.
+- **Head cut (2026-11-27, section 6).** C1 and O5 now cut the head at their cut tags; B1, O7, the 'Ard Boy and the Stormboy are left with the geyser and blood only.
 - **Silent victim tags.** `ACTN_FX_Boy_Sync_Hit_Ground`, `ACTN_FX_Knee_Ground_Hit`, `ACTN_FX_Death_Ground_Hit`, `ACTN_SND_Gear_Movement` (Chaos marine) and `ACTN_SND_Arm_Break`
   have no command in any file. The original was silent there too (supported by evidence). Nothing of ours is added.
 - **Chaos Lord alignment.** The scaled Lord (x1.35) keeps the documented alignment limit: the wound cues follow his scaled proxy's bones, but the attacker's blade does not
@@ -1179,3 +1178,17 @@ Columns:
 | 2.400 | attacker | sound | attacker | `EVT_Left_Foot` | `play_sm_footfalls_normal` | vanguard |  |
 
 Counts: 39 row-wield lists, 866 cues: 720 original bindings, 146 ours; 2 sound posts not in the client's banks.
+
+## 6. The head cut (ours, 2026-11-27; owner card "Decap": "Search, then build ours")
+
+Search (read-only): no head gib or severed-head model exists in the install for any race. The Ork Boy meshes `boy_melee`, `boy_ranged`, `boy_melee_pro` and `boy_ranged_pro` carry a headless body block (`GEO_Wounded_Neck`; the data's head dismemberment points name `geo_wounded_neck`); `boy_ardboy` has none. Marines have no stump geometry; the head is its own armour piece.
+
+| Row | Victim | Cut | What happens |
+|---|---|---|---|
+| C1 (all wields) | Chaos Marine, race-swapped loyalist, the Chaos run's marine kinds | `ACTN_FX_CS_Sync_Blood_Geyser`, 4.300 s | head pieces hidden, neck cap (ours), loose head from the head pieces |
+| O5 | Boy, Shoota Boy, Rokkit Boy (Classic Ork players too) | `ACTN_OrkBoy_Sync_HeadDecapHit`, 1.867 s | the install's headless body, loose head cut from the body's head triangles |
+| O5 | 'Ard Boy, grounded Stormboy | - | left as before (no headless body) |
+| B1 | Bloodletter | `HeadSawOff` 3.083 s | left as before: the data vanishes the daemon at 3.100 s |
+| O7 | Ork Boy kinds | - | left as before: the head pop crushes, it does not sever |
+
+The cut is one more cue (`ExecutionDecapRules.WithCut`, kind Decap), so the clock's rules in section 2 hold for it. The loose head is a rigid body tossed along the blade's exit, with the data's head-point effects at the neck; it lies and sinks with the corpse. It draws only where execution gore draws. Values: spec "Added content: execution head cut".

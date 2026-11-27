@@ -18,8 +18,11 @@ public enum ExecutionCueSide : byte { Attacker = 0, Victim = 1 }
 /// </summary>
 public enum ExecutionCuePlace : byte { Attacker = 0, Victim = 1, Wound = 2 }
 
-/// <summary>What a cue does: post a sound event, post a stop (or end) event, a speech line, an effect, or a borrowed weapon's motor sound that the wielder's own sound replaces (<see cref="ExecutionMotorRole"/>).</summary>
-public enum ExecutionCueKind : byte { Sound = 0, Stop = 1, Speech = 2, Effect = 3, Motor = 4 }
+/// <summary>
+/// What a cue does: post a sound event, post a stop (or end) event, a speech line, an effect, a borrowed weapon's motor sound that the wielder's own sound replaces (<see cref="ExecutionMotorRole"/>),
+/// or the head cut of a decapitating row (<see cref="Decap"/>, ours: <see cref="ExecutionDecapRules"/>; never on the generated sheet, added by the client's run list).
+/// </summary>
+public enum ExecutionCueKind : byte { Sound = 0, Stop = 1, Speech = 2, Effect = 3, Motor = 4, Decap = 5 }
 
 /// <summary>What a borrowed weapon's dropped motor sound was (<see cref="ExecutionCueKind.Motor"/>): a swing, a grind or cut under load, a rev or wind-up, a hit.</summary>
 public enum ExecutionMotorRole : byte { None = 0, Swing = 1, Grind = 2, Rev = 3, Hit = 4 }

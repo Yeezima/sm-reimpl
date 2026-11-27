@@ -270,6 +270,7 @@ public partial class NetworkView
 
     void ExecProxyFree(ExecProxy p)
     {
+        ExecDecapReleaseFor(p);   // the head cut (NetworkView.ExecutionDecap.cs): head and body back before the pool takes the viewer, the loose head goes
         if (p.Viewer is not { } v || !IsInstanceValid(v)) return;
         v.Visible = false;
         v.ClearPoseLayers();

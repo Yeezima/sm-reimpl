@@ -145,6 +145,30 @@ public class ExecutionsBoundaryTests
         Assert.True(musou.Count == 0, "Executions hook calls in Musou files without a pinned hook (Musou isolation):\n" + string.Join("\n", musou));
     }
 
+    /// <summary>
+    /// The head cut (exec-decap 2026-11-27) lives in the executions folders only: its rules (<c>ExecutionDecapRules</c>) and its client code (<c>ExecDecap*</c>) are named nowhere else,
+    /// so Classic Faithful and Musou cannot reach it; the client reaches it only through the cue clock's Decap kind and the proxy's release.
+    /// </summary>
+    [Fact]
+    public void The_head_cut_stays_in_the_executions_folders()
+    {
+        var outside = new List<string>();
+        bool rules = false, client = false;
+        foreach (var (path, lines) in Sources())
+        {
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                if (IsComment(line) || !(line.Contains("ExecutionDecap", StringComparison.Ordinal) || line.Contains("ExecDecap", StringComparison.Ordinal))) continue;
+                if (!InExecutions(path) && !path.StartsWith("tests/", StringComparison.Ordinal)) outside.Add($"{path}:{i + 1}: {line.Trim()}");
+            }
+            if (path == "src/SmContent/Extras/Executions/ExecutionDecap.cs") rules = true;
+            if (path == "client/Extras/Executions/NetworkView.ExecutionDecap.cs") client = true;
+        }
+        Assert.True(rules && client, "the head cut's files moved: update this pin");
+        Assert.True(outside.Count == 0, "the head cut named outside Extras/Executions/:\n" + string.Join("\n", outside));
+    }
+
     [Fact]
     public void The_flag_is_in_extended_and_warfront_only()
     {

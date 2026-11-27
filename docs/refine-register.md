@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4550 spec table rows: **3393 tagged**, 757 not tagged (read from data with high confidence), 400 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 858 rows of the changes document.
+Scanned 4561 spec table rows: **3402 tagged**, 759 not tagged (read from data with high confidence), 400 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 858 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,31 +51,31 @@ Scanned 4550 spec table rows: **3393 tagged**, 757 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 52 | 41 | 23 | 12 | 7 |
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
-| General game design | 347 | 345 | 115 | 143 | 0 |
-| Ork faction | 303 | 282 | 182 | 74 | 0 |
-| **All areas** | **3393** | 3076 | 2377 | 1037 | 37 |
+| General game design | 355 | 353 | 121 | 145 | 0 |
+| Ork faction | 304 | 283 | 183 | 75 | 0 |
+| **All areas** | **3402** | 3085 | 2384 | 1040 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2163 |
-| confidence: medium | 1161 |
-| confidence: low | 1105 |
-| notes: ours | 493 |
-| kind: interpretation | 477 |
+| kind: ours | 2169 |
+| confidence: medium | 1167 |
+| confidence: low | 1106 |
+| notes: ours | 496 |
+| kind: interpretation | 478 |
 | notes: estimate | 370 |
-| kind: estimate | 274 |
+| kind: estimate | 275 |
 | confidence: none (low) | 111 |
-| kind: provisional | 110 |
+| kind: provisional | 111 |
 | notes: provisional | 83 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: interpretation | 32 |
+| kind: approximation | 31 |
 | notes: user's knowledge | 31 |
-| kind: approximation | 30 |
 | kind: placeholder | 24 |
 | notes: open question | 22 |
 | kind: gap (not reproduced) | 20 |
@@ -4638,7 +4638,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after **40 s** (the server takes card 1; owner 2026-11-23, card 2: "double the time limit to select a card", was 20 s) or when the player… (s) | notes: ours | owner (protection; 2026-11-23 the doubling); the former 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (347)
+### General game design (355)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -5121,6 +5121,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0A6D7A7C` | Chaos bodies (a sim rule) | the Chaos table's rows carry the drawn Chaos models' heights: Cultist and Traitor Guardsman 2.0 m, Chaos Marine, Havocs and Raptor 2.3 m, Aspiring Champion 2.53 m (a marine's 2.3 x its drawn 1.1), Daemon 2.6 m; radii stay the Ork rows'. They feed every use of… (m) | kind: ours; notes: provisional | the C2 review (the guardsman's head would not line up); measured on the crowd test stage (`--musou-crowd-test --warfront-chaos`, 2026-11-25): renegade 2.0 m… | Chaos bodies (a sim rule): compare with SM1 by measuring on a flat spot of the same map. Ours: the Chaos table's rows carry the drawn Chaos models' heights: Cultist… | ☐ |
 | `R-4F4E915E` | Client tables in a Chaos battle | the guns' synthesized bursts, the client volleys and the crowd's drawn speeds read the latched Chaos table (`_musouRulesOver`, `MusouCrowd.RulesOver`), the solid view is rebuilt from it; the far-army impostors' ArdBoy byte draws the Chaos Marine… | kind: ours | the C2 review | Client tables in a Chaos battle: compare with SM1 by feel or video. Ours: the guns' synthesized bursts, the client volleys and the crowd's… | ☐ |
 | `R-AE8A5A28` | Elite bars and bodies | the 'Ard slot's Chaos Marine wears the 'Ard Boy's elite health bar (`TfwBars.IsElite(sim.RuleKind(type))`, the bar's full health its own row's); every marine-rig Chaos unit and the Daemon keep their body (never gibbed: the gore table's plan), as the 'Ard… | kind: ours | the C2 review | Elite bars and bodies: compare with SM1 by feel or video. Ours: the 'Ard slot's Chaos Marine wears the 'Ard Boy's elite health bar… | ☐ |
+
+*Spec section: Added content: execution head cut (exec-decap)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-2F44F560` | Decapitating rows | C1 (every wield: chainsword, power sword, combat knife; Chaos Marine victim half, also on a race-swapped loyalist) and O5 (Ork Boy kinds). B1 (Bloodletter `HeadSawOff`; the data vanishes the daemon at 3.100 s) and O7 (the hammer's head pop crushes) are left… | kind: interpretation; confidence: medium; notes: ours | tag names from the install; the reading that the head comes off is ours | Decapitating rows: compare with SM1 by feel or video. Ours: C1 (every wield: chainsword, power sword, combat knife; Chaos Marine… | ☐ |
+| `R-6217D1AD` | Cut cue | one cue of kind Decap added to the run's list, so it fires once per run on every client, is skipped when the run is first seen more than 0.25 s past it, and never fires after an interruption | kind: ours | ours | Cut cue: compare with SM1 by feel or video. Ours: one cue of kind Decap added to the run's list, so it fires once per… | ☐ |
+| `R-7C64C7AB` | Gate | where execution gore draws (`ExecutionCueRules.BloodAllowed`: Warfront, Classic with the Extended gore); off with `--no-execution-gore`; `--no-execution-decap` turns the cut off alone | kind: ours | ours (owner: Warfront and Classic Extended only) | Gate: compare with SM1 by feel or video. Ours: where execution gore draws (ExecutionCueRules.BloodAllowed: Warfront… | ☐ |
+| `R-EDB97904` | Marine body after the cut | the head pieces (pieces with 70 % or more of their vertices weighted mostly to `RIG_Head` and the bones under it: helmet or bare head) hidden; a flat dark-red disc (radius 0.085 m, height 0.06 m) on the head bone's root as the neck cap (the armour has no… (m) | kind: ours; confidence: medium | ours | Marine body after the cut: compare with SM1 by measuring on a flat spot of the same map. Ours: the head pieces (pieces with 70 % or more of their vertices weighted… | ☐ |
+| `R-9FC76096` | Loose head | the triangles of the proxy's own meshes on the head bones (two or more corners), skinned in the cut frame's pose, as a rigid body: mass 6 kg, collision sphere 0.13 m x the proxy's scale, against the map only (kg, m) | kind: ours; confidence: medium | ours | Loose head: compare with SM1 by feel or video. Ours: the triangles of the proxy's own meshes on the head bones (two or… | ☐ |
+| `R-8A096D30` | Toss | 2.2 m/s along the blade's exit (from the attacker toward the victim, level) and 2.4 m/s up; spin 7 rad/s about the level axis across the exit, tilted by up to 0.3 by the run's seed (the same on every client) (m/s, rad/s) | kind: estimate; confidence: low; notes: ours | ours | Toss: compare with SM1 by timing a run over a known distance. Ours: 2.2 m/s along the blade's exit (from the attacker toward the victim… | ☐ |
+| `R-05AB6A5D` | Neck wound | the data's head point (`explode_head`): `body_dismemberment` x0.4 and `body_dismemberment_drip` x0.8, at the head bone's root, following the body; the row's geyser cue unchanged | kind: ours; confidence: medium | install (the point's effects); placing them on an execution is ours | Neck wound: compare with SM1 by feel or video. Ours: the data's head point (explode_head): body_dismemberment x0.4 and… | ☐ |
+| `R-8B8EF8C6` | Head lifetime | lies with the corpse, sinks with it (the proxy's lie and sink timing), goes when the proxy goes; at most 90 s after the cut. A pooled proxy gets its head and body back before reuse (s) | kind: ours; confidence: medium | ours | Head lifetime: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: lies with the corpse, sinks with it (the proxy's lie and sink… | ☐ |
 
 ## Part B: Ork faction
 
@@ -5753,6 +5766,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-388A52A0` | No Ork assets in a Chaos battle | no Ork look is built (`MusouLooks.WarfrontSkipOrks`; reads already started stay unused) and no Ork sound set (only the Chaos Marine's); the capture points' Ork totem (`waaaghbanner`) is left out (no Chaos banner model is read yet), the Imperial banner still… | kind: ours; confidence: medium | Fable review | No Ork assets in a Chaos battle: compare with SM1 by feel or video. Ours: no Ork look is built (MusouLooks.WarfrontSkipOrks; reads already… | ☐ |
+
+*Spec section: Added content: execution head cut (exec-decap)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-20EAD628` | Ork stump material | the body's own skin material on every stump surface (the stump's two-layer material drew as bare grey: boy_melee's stump names the Nob's textures) | kind: provisional; kind: approximation; confidence: medium; notes: ours | ours | Ork stump material: compare with SM1 by feel or video. Ours: the body's own skin material on every stump surface (the stump's… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
