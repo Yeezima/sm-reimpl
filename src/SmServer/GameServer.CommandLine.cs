@@ -220,8 +220,8 @@ public static class ServerCommandLine
           --warfront-dedicated          switch: the always-on shared Warfront campaign (implies --content warfront; up to 4 humans unless --warfront-max-humans; refuses --warfront-new; the supervisor restarts a crashed stage, locks the run folder, stops on SIGTERM)
           --warfront-prebuild           switch: (--warfront-dedicated; started by the supervisor) build every Warfront map's cache at low priority, one map at a time, then exit
           --old-arsenal-spear-claw      switch: restore: Musou Mode and Warfront offer the lightning claw and the power spear again (clients need it too)
-          --no-predefined-pieces        switch: restore: the customizer's piece library without the DLC and campaign sets' pieces and the further pieces (clients need it too)
-          --no-extra-pieces             switch: restore: the piece library without the further pieces (MP extras, Librarian, campaign armour) (clients need it too)
+          --no-predefined-pieces        switch: restore: the customizer's piece library without the DLC and campaign sets' pieces and the further pieces, nor armour Series B's hidden badges and bare heads (clients need it too)
+          --no-extra-pieces             switch: restore: the piece library without the further pieces (MP extras, Librarian, campaign armour, bare heads) and the hidden badges (clients need it too)
           --help, -h                    switch: this list
         """;
 

@@ -364,8 +364,8 @@ public partial class CustomizationCatalogTests : IDisposable
         var x = c.SpaceMarines.Presets.Single(p => p.Name == "sm_x");
         Assert.True(x.ClassBadgeEnabled);
         Assert.Equal(("Chapter X", "blue_1"), (x.DisplayName, x.Scheme.Default!.Primary.Name));
-        Assert.Equal(["sm_bar", "sm_bar_bw_inverted", "sm_blank_badge", "sm_custom_01_white", "sm_foo_black", "sm_foo_orig"], c.SpaceMarines.Decals.Select(d => d.Name));
-        Assert.Equal(["csm_star"], c.ChaosMarines.Decals.Select(d => d.Name));                  // the hidden blank is dropped
+        Assert.Equal(["sm_bar", "sm_bar_bw_inverted", "sm_blank_badge", "sm_custom_01_white", "sm_foo_black", "sm_foo_orig"], c.SpaceMarines.Decals.Where(d => !d.FromHidden).Select(d => d.Name));
+        Assert.Equal(["csm_star"], c.ChaosMarines.Decals.Select(d => d.Name));                  // the hidden blank is dropped (Series B offers no Chaos badge)
     }
 
     [Fact]

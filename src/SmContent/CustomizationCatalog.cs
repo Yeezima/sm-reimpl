@@ -67,7 +67,11 @@ public sealed record PaletteGroup(string Name, IReadOnlyList<PaletteEntry> Colou
 /// A visible shoulder badge (<c>custom_paint_decal</c>). A family groups the variants of one badge by the name's suffix: "orig", "white", "black", "bw",
 /// "bw_inverted", "inverted", or empty for a badge with no variants.
 /// </summary>
-public sealed record ShoulderDecal(string Name, string DisplayName, string Race, string Family, string Variant, bool IsBlank, PaintDecal Decal);
+public sealed record ShoulderDecal(string Name, string DisplayName, string Race, string Family, string Variant, bool IsBlank, PaintDecal Decal)
+{
+    /// <summary>armour Series B: a badge the original hides (<see cref="Customization.HiddenBadges"/>), appended after the visible ones.</summary>
+    public bool FromHidden { get; init; }
+}
 
 /// <summary>A visible chapter / warband preset (<c>custom_paint_scheme</c> with <c>visible_in_customizer</c>).</summary>
 public sealed record PaintPreset(string Name, string DisplayName, string Race, bool ClassBadgeEnabled, PaintScheme Scheme);
@@ -438,6 +442,16 @@ public sealed class CustomizationCatalog
             }
             var decals = paint.Decals.Where(d => d.VisibleInCustomizer && string.Equals(d.Race, race, StringComparison.Ordinal)).OrderBy(d => d.Name, StringComparer.Ordinal)
                 .Select(d => { var (family, variant) = DecalFamily(d.Name); return new ShoulderDecal(d.Name, CatalogData.Text(locale, d.NameId) ?? d.Name, race, family, variant, d.IsBlank, d); }).ToList();
+            // armour Series B (owner's pick of 2026-11-27; ours): the hidden badges the table offers, AFTER the visible ones, so existing badge indices keep their
+            // meaning. An entry this install lacks (or no longer hides) keeps its place as a blank (drawn as no badge, never offered); none without any badge data.
+            if (PredefinedPiecesOffered && ExtraPiecesOffered && paint.DecalCount > 0)
+                foreach (var spec in Customization.HiddenBadges.Offered.Where(s => s.Race == race))
+                {
+                    var d = paint.Decals.FirstOrDefault(x => !x.VisibleInCustomizer && x.Name.Equals(spec.Name, StringComparison.OrdinalIgnoreCase) && string.Equals(x.Race, race, StringComparison.Ordinal))
+                        ?? new PaintDecal(spec.Name, "blank", "blank", race);
+                    var (family, variant) = DecalFamily(spec.Name);
+                    decals.Add(new ShoulderDecal(spec.Name, CatalogData.Text(locale, d.NameId) ?? spec.DisplayName, race, family, variant, d.IsBlank, d) { FromHidden = true });
+                }
             var presets = paint.Schemes.Where(s => s.VisibleInCustomizer && string.Equals(s.Race, race, StringComparison.Ordinal)).OrderBy(s => s.Name, StringComparer.Ordinal)
                 .Select(s => new PaintPreset(s.Name, CatalogData.Text(locale, s.NameId) ?? s.Name, race, s.ClassBadgeEnabled, s)).ToList();
             string defaultId = classTable is { } ct ? classes.Where(c => c.Race == race).Select(c => ct.Table(c.Key)?.String("default_armor_set")).FirstOrDefault(s => !string.IsNullOrEmpty(s)) ?? "" : "";

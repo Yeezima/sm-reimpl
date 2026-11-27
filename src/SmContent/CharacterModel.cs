@@ -235,7 +235,7 @@ public sealed record CharacterModel(HavokCharacterFile Rig, IReadOnlyList<Charac
         {
             if (v is not BodStruct { Class.Text: "StaticMeshVisual" } vs || vs["RefNode"] is not BodString { Text: { } refNode } || vs["MeshID"] is not BodInt { Value: var id }) continue;
             if (id < 0 || id >= isRigid.Count) continue;
-            if (refNode.Contains("_lod", StringComparison.OrdinalIgnoreCase)) { hidden.Add(id); continue; }
+            if (refNode.Contains("_lod", StringComparison.OrdinalIgnoreCase) && !KeepsBareHeadNode(archivePath, refNode)) { hidden.Add(id); continue; }
             if (!isRigid[id]) continue;
             // Walk up to the nearest skeleton bone, composing local transforms (child first).
             var m = Matrix4x4.Identity; string? at = refNode; string? bone = null;
@@ -253,6 +253,15 @@ public sealed record CharacterModel(HavokCharacterFile Rig, IReadOnlyList<Charac
         }
         return (rigid, hidden);
     }
+
+    /// <summary>
+    /// armour Series B (review rounds 2 and 3): in a bare campaign head's package every part is named "_LODH" / "_LODL", so the "_lod" rule hid its real eyeballs
+    /// (<c>GEO_Leye_LODH</c> / <c>GEO_Reye_LODH</c>, rigid under RIG_Head, the iris in the head texture) and Sidonus's hair (<c>GEO_hair_LODH</c>). For the
+    /// bare-head packages only, the "eye_LODH" and "hair_LODH" nodes are drawn; teeth and tongue stay hidden (static face, closed mouth).
+    /// </summary>
+    internal static bool KeepsBareHeadNode(string archivePath, string refNode) =>
+        (refNode.EndsWith("eye_LODH", StringComparison.OrdinalIgnoreCase) || refNode.EndsWith("hair_LODH", StringComparison.OrdinalIgnoreCase))
+        && Customization.ExtraArmourPieces.IsBareHead(Path.GetFileNameWithoutExtension(archivePath));
 
     static IReadOnlyList<string> ObjectTreeStrings(string archivePath, string name)
     {
