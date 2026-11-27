@@ -369,7 +369,7 @@ public partial class NetworkView
         {
             // The names on the worker, once (Fable review 8: not every frame until the compile ends).
             var names = sheet.All.SelectMany(x => x.Cues).Where(c => c.Kind == ExecutionCueKind.Effect).Select(c => c.Event)
-                .Concat(ExecutionDecapRules.NeckWound.Select(w => w.Effect)).Distinct(StringComparer.Ordinal).ToArray();   // and the head cut's neck wound
+                .Concat(ExecutionDecapRules.NeckWoundEffects).Distinct(StringComparer.Ordinal).ToArray();   // and the head cut's neck wound
             _execCueFxNames = names.Length;
             var failures = new List<string>();
             var systems = CompileSystems(library, names, failures);

@@ -453,13 +453,15 @@ public sealed class ExecutionCueTimeline
         if (_closed.Contains(key)) return;   // a run that finished or was interrupted never starts again (a stale frame, a late repeat)
         if (!_tracks.TryGetValue(key, out var t)) _tracks[key] = t = new Track { Cues = cues };
         if (!float.IsFinite(clock)) return;
+        bool seenBefore = t.Seen;
         t.Seen = true;
         // On every advance (first sight or a clock jump: a hitch, a late snapshot), a cue more than LateSkipSeconds behind the clock is skipped, never fired in a burst; a stop always
         // applies (a grind started before the jump must still end; re-review N3).
         while (t.Next < t.Cues.Count && t.Cues[t.Next].At <= clock)
         {
             var cue = t.Cues[t.Next++];
-            if (cue.Kind != ExecutionCueKind.Stop && cue.At < clock - LateSkipSeconds) { Skipped++; continue; }
+            // The head cut (ours) is a state change, not a sound: once the run has been seen, a jump over it still cuts (exec-decap review 2); a first sight past it keeps the head.
+            if (cue.Kind != ExecutionCueKind.Stop && !(cue.Kind == ExecutionCueKind.Decap && seenBefore) && cue.At < clock - LateSkipSeconds) { Skipped++; continue; }
             steps.Add(new Step(StepKind.Fire, key, cue));
             Fired++;
         }

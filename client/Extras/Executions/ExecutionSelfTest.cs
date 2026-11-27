@@ -22,6 +22,8 @@ public partial class NetworkView
     static readonly bool ExecSelfTest = CmdFlag("execution-selftest");
     /// <summary><c>--execution-end killed</c>: the self-test ends its move Killed (the Classic hand-over to a ragdoll; the proxy goes within 6.5 s).</summary>
     static readonly bool ExecSelfTestKilled = string.Equals(CmdArg("execution-end"), "killed", StringComparison.OrdinalIgnoreCase);
+    /// <summary><c>--execution-end-at s</c>: the self-test ends its move this many seconds after it starts (default 1; exec-decap: past a row's head cut, with <c>--execution-end killed</c>, the head must go to the ragdoll).</summary>
+    static readonly double ExecSelfTestEndAt = double.TryParse(CmdArg("execution-end-at"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var endAt) ? endAt : 1.0;
     static readonly string[] ExecDemoRows = (CmdArg("execution-demo") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     ExecutionRun? _execTestRun;
     ExecutionRow? _execTestRow;
@@ -136,6 +138,7 @@ public partial class NetworkView
             _execTestChecked = false;
             ExecutionsState.Start(_execTestRun.Value, _connectedFor, announced: false);   // synthetic: no live list re-announces it
             GD.Print($"EXECSELFTEST start {row.Id} (wire {wire}) at tick {_client.Tick}: {row.AttackerClip} / {row.VictimClip}, {row.Seconds:F3} s");
+            if (ExecSelfTest && ExecSelfTestKilled) _aliveSeen[DemoTarget] = false;   // the synthetic victim is dead (as a real one is), so the Killed hand-over's death makes a ragdoll (exec-decap review 1)
             return;
         }
         var r = _execTestRun.Value;
@@ -154,7 +157,7 @@ public partial class NetworkView
         if (_execTestEndedAt < 0)
         {
             uint end = ExecutionTrack.EndTick(r, testRow, ExecTickRate);
-            if (ExecSelfTest ? _connectedFor - _execTestAt > 1.0 : _client.Tick >= end + 2)
+            if (ExecSelfTest ? _connectedFor - _execTestAt > ExecSelfTestEndAt : _client.Tick >= end + 2)
             {
                 var why = ExecSelfTest ? (ExecSelfTestKilled ? ExecutionEndReason.Killed : ExecutionEndReason.Invalid) : ExecutionEndReason.Done;
                 ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionEnd(_client.Tick, (ushort)r.Executor, why)), _connectedFor, me.PlayerId);
@@ -168,6 +171,8 @@ public partial class NetworkView
             if (_connectedFor - _execTestEndedAt < (ExecSelfTestKilled ? 6.5 : 0.8)) return;
             if (ExecutionProxyCount != 0) { _execTestFails++; GD.PrintErr($"EXECSELFTEST: {ExecutionProxyCount} proxies left after the end"); }
             if (ExecutionsState.TryLive(r.Executor, out _)) { _execTestFails++; GD.PrintErr("EXECSELFTEST: the run is still live"); }
+            GD.Print($"EXECSELFTEST decap: cuts {ExecutionDecapCount}, carried to a ragdoll {ExecutionDecapCarried}, loose heads now {ExecutionLooseHeads}");
+            if (ExecSelfTestKilled && ExecutionDecapCount > 0 && (ExecutionDecapCarried == 0 || ExecutionLooseHeads == 0)) { _execTestFails++; GD.PrintErr("EXECSELFTEST: the cut head did not go to the ragdoll"); }
             GD.Print(_execTestFails == 0 ? "EXECSELFTEST PASS" : $"EXECSELFTEST FAIL ({_execTestFails})");
             _execTestDone = true;
             GetTree().Quit(_execTestFails == 0 ? 0 : 1);

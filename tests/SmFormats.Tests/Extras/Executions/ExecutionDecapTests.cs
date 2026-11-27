@@ -118,6 +118,38 @@ public class ExecutionDecapTests
     }
 
     [Fact]
+    public void A_clock_jump_over_the_cut_still_cuts_once_the_run_is_seen()
+    {
+        var cues = ExecutionDecapRules.WithCut("C1.chainsword", ExecutionWield.Own, C1Cues());
+        var t = new ExecutionCueTimeline();
+        var key = new ExecutionCueTimeline.RunKey(5, 77);
+        var steps = new List<ExecutionCueTimeline.Step>();
+        t.Advance(key, cues, 4.0f, steps);   // seen at 4.0 s
+        steps.Clear();
+        t.Advance(key, cues, 4.9f, steps);   // a 0.9 s frame gap (about 1 fps) passes over the 4.3 s cut
+        Assert.Equal(1, Cuts(steps));
+        Assert.DoesNotContain(steps, s => s.Cue is { Kind: ExecutionCueKind.Sound, Tag: "ACTN_FX_CS_Sync_Blood_Geyser" });   // the geyser's sounds keep the jump skip
+        steps.Clear();
+        t.Advance(key, cues, 5.5f, steps);
+        Assert.Equal(0, Cuts(steps));   // and only once
+    }
+
+    [Fact]
+    public void Neck_wound_follows_the_weapon_and_head_bones_go_with_the_head()
+    {
+        Assert.Equal("power_head", ExecutionDecapRules.NeckWoundFor(ExecutionWeapons.PowerAxe).Point);
+        Assert.Equal([("body_dismemberment", 0.6f), ("body_dismemberment_drip", 1.0f)], ExecutionDecapRules.NeckWoundFor(ExecutionWeapons.PowerAxe).Effects);
+        Assert.Equal("explode_head", ExecutionDecapRules.NeckWoundFor(ExecutionWeapons.Chainsword).Point);
+        Assert.Equal([("body_dismemberment", 0.4f), ("body_dismemberment_drip", 0.8f)], ExecutionDecapRules.NeckWoundFor(ExecutionWeapons.Chainsword).Effects);
+        foreach (var w in ExecutionDecapRules.Rows.Select(r => ExecutionRows.All.First(x => x.Id.StartsWith(r.RowBase + ".", StringComparison.Ordinal)).Weapon))
+            Assert.All(ExecutionDecapRules.NeckWoundFor(w).Effects, e => Assert.Contains(e.Effect, ExecutionDecapRules.NeckWoundEffects));
+        Assert.True(ExecutionDecapRules.IsHeadBoneName("RIG_Head"));
+        Assert.True(ExecutionDecapRules.IsHeadBoneName("RIG_Face_Jaw"));
+        Assert.False(ExecutionDecapRules.IsHeadBoneName("RIG_Spine3"));   // the Rokkit Boy's mortar and rocket back stay on the stump
+        Assert.False(ExecutionDecapRules.IsHeadBoneName("RIG_Neck"));
+    }
+
+    [Fact]
     public void Gore_gate_is_the_execution_gore()
     {
         Assert.True(ExecutionDecapRules.Allowed(ContentExtras.Executions | ContentExtras.Warfront));

@@ -24,7 +24,8 @@ public enum ExecutionDecapBody : byte
 /// 1.867 s; the 0.500 s <c>ACTN_Ork_Decap_AxBackHit</c> is the first chop into the back). The time is the tag's own (supported by evidence); the reading that the head comes off there is ours.</item>
 /// <item>Left as today: B1 (the Bloodletter's <c>HeadSawOff</c>: the data vanishes the daemon 17 ms later) and O7 (the hammer's head pop crushes; it does not sever).</item>
 /// <item>The cut is one more cue on the run's list (<see cref="WithCut"/>), so the cue clock's rules hold for it: once per run on every client, skipped when first seen more than
-/// <see cref="ExecutionCueTimeline.LateSkipSeconds"/> late, never after an interruption.</item>
+/// <see cref="ExecutionCueTimeline.LateSkipSeconds"/> late, never after an interruption. Unlike the other cues, a cut passed over by a clock jump on a run already seen still fires
+/// (a frame gap of a quarter second or more must not leave the head on); a run first seen past the cut keeps the head (the skip, as the streak).</item>
 /// <item>It draws only where execution gore draws (<see cref="Allowed"/>: Warfront, Classic with the Extended gore; never with <c>--no-execution-gore</c>).</item>
 /// </list>
 /// </summary>
@@ -48,8 +49,22 @@ public static class ExecutionDecapRules
     /// <summary>A piece whose vertices are this share or more on the head bones is a head piece (a helmet, a bare head): hidden whole.</summary>
     public const float HeadPieceShare = 0.7f;
 
-    /// <summary>The neck wound: the data's head point (<c>explode_head</c>: <c>body_dismemberment</c> x0.4 and <c>body_dismemberment_drip</c> x0.8 at <c>fx_gore_neck</c>), played at the neck.</summary>
-    public static readonly IReadOnlyList<(string Effect, float Scale)> NeckWound = [("body_dismemberment", 0.4f), ("body_dismemberment_drip", 0.8f)];
+    /// <summary>
+    /// The neck wound: the head point the data's dismemberment table gives the row's weapon for a heavy blow (the Ork Boy table, applied to every victim: ours), played at the neck.
+    /// The power axe's <c>power_axe_heavy</c> names <c>power_head</c> (<c>body_dismemberment</c> x0.6, <c>body_dismemberment_drip</c> x1.0 at <c>fx_gore_neck</c>); the chainsword's
+    /// <c>chainsword_heavy</c> names <c>explode_head</c> (x0.4, x0.8), also for the borrowed power sword and knife on its rows (their own heavy types are not read: interpretation).
+    /// </summary>
+    public static (string Point, IReadOnlyList<(string Effect, float Scale)> Effects) NeckWoundFor(string weaponFamily) =>
+        string.Equals(weaponFamily, ExecutionWeapons.PowerAxe, StringComparison.OrdinalIgnoreCase) || string.Equals(weaponFamily, ExecutionWeapons.ThunderHammer, StringComparison.OrdinalIgnoreCase)
+            ? ("power_head", [("body_dismemberment", 0.6f), ("body_dismemberment_drip", 1.0f)])
+            : ("explode_head", [("body_dismemberment", 0.4f), ("body_dismemberment_drip", 0.8f)]);
+
+    /// <summary>Every effect a neck wound may play (for preloading).</summary>
+    public static readonly IReadOnlyList<string> NeckWoundEffects = ["body_dismemberment", "body_dismemberment_drip"];
+
+    /// <summary>A rig bone on the head by name (the Ork rig's <c>RIG_Head</c> and its <c>RIG_Face_*</c>; the marine's <c>RIG_Head</c>): a rigid block hung from one goes with the head, not the stump.</summary>
+    public static bool IsHeadBoneName(string bone) =>
+        HeadBones.Any(h => string.Equals(h, bone, StringComparison.OrdinalIgnoreCase)) || bone.StartsWith("RIG_Face", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The toss (ours): metres a second along the blade's exit (away from the attacker, level), up, and the spin (radians a second).</summary>
     public const float TossAlong = 2.2f, TossUp = 2.4f, TossSpin = 7f;

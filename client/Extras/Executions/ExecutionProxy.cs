@@ -26,6 +26,7 @@ public partial class NetworkView
     /// <summary>A Classic proxy corpse lies this long after a completed move before it sinks (seconds, ours: the PvP ragdolls lie until the cap).</summary>
     const float ClassicProxyLieSeconds = 10f;
     const float ProxySinkSeconds = 1.5f, ProxySinkDepth = 1.2f;
+    static readonly bool ExecDemoRemoteVictim = CmdFlag("execution-demo-remote-victim");
 
     sealed class ExecProxy
     {
@@ -282,6 +283,8 @@ public partial class NetworkView
     /// <summary>The look a Classic victim proxy wears while the victim has no built character (the side's placeholder): the co-op Ork Boy for the Ork Boy rows, else the default marine.</summary>
     MarineAssets? ExecPlaceholderVictim(ExecutionRow row)
     {
+        // Test aid --execution-demo-remote-victim (exec-decap clips): the demo's synthetic victim wears the first remote player's look (a Chaos bot's armour for C1).
+        if (ExecDemoRemoteVictim && !string.Equals(row.Target, ExecutionTargets.OrkBoy, StringComparison.OrdinalIgnoreCase)) foreach (var r in _remotes.Values) if (IsInstanceValid(r) && r.Assets is { } look && ReferenceEquals(look.Rig, _assets?.Rig)) return look;
         if (!string.Equals(row.Target, ExecutionTargets.OrkBoy, StringComparison.OrdinalIgnoreCase)) return _assets;
         try { return (_orks ?? OrkAssets.Shared(_gameDir, _notes)).Build("boy_melee"); }
         catch (Exception e) when (e is not OutOfMemoryException) { _notes.Add($"executions: no Ork look for the proxy ({e.Message})"); return _assets; }
