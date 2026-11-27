@@ -285,6 +285,133 @@ public class GoreStreakRulesTests(ITestOutputHelper output)
 
     }
 
+    // ---- the per-hit variation (owner 2026-11-28) ----
+
+    static float Deg(Vector3 a, Vector3 b) => MathF.Acos(Math.Clamp(Vector3.Dot(Vector3.Normalize(a), Vector3.Normalize(b)), -1f, 1f)) * 180f / MathF.PI;
+    static Vector3 Flat((float X, float Y) p) => new(p.X, p.Y, 0f);
+    static readonly int[] VaryFrames = [1, 2, 4, 6, 8];
+
+    [Fact]
+    public void Every_band_end_strays_at_most_fifteen_degrees_from_its_line_and_the_exit_bands_stay_ahead_of_the_wound()
+    {
+        // owner 2026-11-28: "always fly away following the direction of impact", a ribbon's end at most about 15 degrees off, never sideways or backwards
+        Assert.Equal(15f, MaxStrayDegrees, 3);
+        float worst = 0f, sum = 0f, mainWorst = 0f, exitWorst = 0f; int n = 0;
+        foreach (int f in VaryFrames)
+            for (int seed = 1; seed <= 300; seed++)
+                foreach (float bend in new[] { 0f, 0.4f, -0.4f })
+                    for (int bi = 0; bi < MaxBranches; bi++)
+                    {
+                        var band = (Band)bi;
+                        var b = BandOf(band, Keys[f], seed, bend);
+                        if (b.Length <= 1e-4f) continue;
+                        var designed = Flat(RibbonPoint(b, 1f, 0f));
+                        var varied = VariedPoint(b, band, seed, 1f, 0f);
+                        float d = Deg(designed, varied);
+                        Assert.True(d <= MaxStrayDegrees + 0.05f, $"f{f} seed {seed} bend {bend} {band}: the far end strays {d:F2} deg");
+                        worst = MathF.Max(worst, d); sum += d; n++;
+                        // the start stays at the wound: the root moves only by the spray's tilt of its own short distance
+                        var root0 = Flat(RibbonPoint(b, 0f, 0f));
+                        Assert.True(Vector3.Distance(VariedPoint(b, band, seed, 0f, 0f), root0) <= root0.Length() * SprayTiltDegrees * MathF.PI / 180f + 1e-4f);
+                        if (band == Band.Entry) { Assert.True(varied.X < 0f, $"seed {seed}: the entry stub stays behind the wound"); continue; }
+                        float off = Deg(Vector3.UnitX, varied);
+                        exitWorst = MathF.Max(exitWorst, off);
+                        Assert.True(varied.X > 0.7f * varied.Length(), $"f{f} seed {seed} {band}: {off:F1} deg off the hit line, never sideways or backwards");
+                        Assert.True(off <= Deg(Vector3.UnitX, designed) + MaxStrayDegrees + 0.05f);
+                        if (band == Band.Main && bend == 0f) mainWorst = MathF.Max(mainWorst, off);
+                    }
+        output.WriteLine($"band ends: mean stray {sum / n:F2} deg, worst {worst:F2}; main band worst {mainWorst:F1} deg off a straight hit line; any exit band worst {exitWorst:F1}");
+        Assert.True(sum / n > 5f, "it does vary: the mean stray is several degrees");
+        Assert.True(worst > 12f, "the strays reach toward the limit");
+        Assert.True(mainWorst < 22f, "the main band still reads as the hit's line (its designed lean of about 6 degrees plus the stray)");
+        // the old look (--old-gore-spread): no variation at all
+        for (int seed = 1; seed < 20; seed++)
+        {
+            var b = BandOf(Band.Upper, Keys[4], seed, 0.3f);
+            var (x, y) = RibbonPoint(b, 0.7f, 0.5f);
+            var p = VariedPoint(b, Band.Upper, seed, 0.7f, 0.5f, spread: 0f);
+            Assert.Equal(x, p.X, 5); Assert.Equal(y, p.Y, 5); Assert.Equal(0f, p.Z, 5);
+        }
+    }
+
+    [Fact]
+    public void Each_band_reaches_about_twenty_percent_farther_or_shorter_with_a_mean_of_one_so_kills_stay_longer()
+    {
+        float lo = 2f, hi = 0f; double mean = 0; int n = 0;
+        for (int seed = 1; seed <= 4000; seed++)
+            for (int bi = 0; bi < MaxBranches; bi++)
+            {
+                float l = LengthVariation((Band)bi, seed);
+                Assert.InRange(l, 0.8f - 1e-5f, 1.2f + 1e-5f);
+                lo = MathF.Min(lo, l); hi = MathF.Max(hi, l); mean += l; n++;
+            }
+        mean /= n;
+        output.WriteLine($"length factor {lo:F3}..{hi:F3}, mean {mean:F4}");
+        Assert.InRange(mean, 0.985, 1.015);
+        Assert.True(lo < 0.85f && hi > 1.15f, "the whole range is used");
+        Assert.Equal(1f, LengthVariation(Band.Main, 7, spread: 0f));
+        // the drawn reach is the factor: a straight band's root-to-tip length (the turns keep lengths)
+        var b = BandOf(Band.Main, Keys[4], 9, 0f);
+        float drawn = Vector3.Distance(VariedPoint(b, Band.Main, 9, 1f, 0f), VariedPoint(b, Band.Main, 9, 0f, 0f));
+        Assert.Equal(b.Length * LengthVariation(Band.Main, 9), drawn, 3);
+        // heavier and lethal hits keep their longer reach on average (metres: table units x the streak's unit)
+        float killUnit = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, Scale(Weight.Normal, true), 1, 0f, 0f, true).Unit;
+        float hitUnit = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, 1f, 1, 0f, 0f, false).Unit;
+        double kill = 0, hit = 0;
+        for (int seed = 1; seed <= 600; seed++)
+        {
+            var m = BandOf(Band.Main, Keys[4], seed, 0f);
+            float reach = VariedPoint(m, Band.Main, seed, 1f, 0f).Length();
+            kill += reach * killUnit; hit += reach * hitUnit;
+        }
+        Assert.True(kill / hit >= 1.15, $"a kill reaches {kill / hit:F2} times as far on average");
+    }
+
+    [Fact]
+    public void Two_consecutive_hits_never_lay_their_ribbons_alike()
+    {
+        double mean = 0, oldMean = 0; float least = 999f;
+        for (int seed = 1; seed <= 500; seed++)
+        {
+            float most = 0f, oldMost = 0f;
+            for (int bi = 0; bi < MaxBranches; bi++)
+            {
+                var band = (Band)bi;
+                var a = BandOf(band, Keys[4], seed, 0f); var b = BandOf(band, Keys[4], seed + 1, 0f);
+                most = MathF.Max(most, Deg(VariedPoint(a, band, seed, 1f, 0f), VariedPoint(b, band, seed + 1, 1f, 0f)));
+                oldMost = MathF.Max(oldMost, Deg(Flat(RibbonPoint(a, 1f, 0f)), Flat(RibbonPoint(b, 1f, 0f))));
+            }
+            mean += most; oldMean += oldMost; least = MathF.Min(least, most);
+        }
+        output.WriteLine($"consecutive hits: the most different band end {mean / 500:F1} deg apart on average (least {least:F2}); before the variation {oldMean / 500:F1}");
+        Assert.True(least > 0.5f, "no two consecutive hits alike");
+        Assert.True(mean / 500 > 8f, "consecutive hits clearly differ");
+        Assert.True(oldMean / 500 < 4f, "before, the bands' jitter alone moved the ends only a few degrees");
+        // the same seed is the same spray (deterministic in every view and test)
+        var c = BandOf(Band.Mid, Keys[2], 42, 0.2f);
+        Assert.Equal(VariedPoint(c, Band.Mid, 42, 0.8f, 0.3f), VariedPoint(c, Band.Mid, 42, 0.8f, 0.3f));
+    }
+
+    [Fact]
+    public void The_views_bounds_hold_the_longest_most_tilted_varied_streak()
+    {
+        float far = 0f;
+        foreach (int f in VaryFrames.Append(9))
+            for (int seed = 1; seed <= 300; seed++)
+                for (int bi = 0; bi < MaxBranches; bi++)
+                {
+                    var band = (Band)bi;
+                    var b = BandOf(band, Keys[f], seed, 0.4f, widthMul: HeavyScale);
+                    foreach (float u in new[] { 0f, 0.5f, 0.85f, 1f })
+                        foreach (float v in new[] { -1f, 0f, 1f })
+                            far = MathF.Max(far, VariedPoint(b, band, seed, u, v).Length());
+                }
+        output.WriteLine($"farthest varied vertex {far:F2} table units");
+        Assert.True(far < 3.6f, $"the variation lengthens the farthest reach by at most about a fifth ({far:F2})");
+        // the biggest streak (Classic's 3 m unit cap), from a wound anywhere on a map up to 1 km out, stays inside the never-culled bounds
+        Assert.True(1000f + far * MaxUnitMetres < ViewBoundsMetres);
+    }
+
     // ---- who draws it ----
 
     [Fact]

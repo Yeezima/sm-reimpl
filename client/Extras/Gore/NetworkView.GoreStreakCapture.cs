@@ -16,7 +16,7 @@ namespace SmClient;
 /// (<see cref="ClassicStreak"/>, or the explosion's radial streak), then holds it at each key time of the table (<see cref="GoreStreakView.AgeOverride"/>) and saves the view as
 /// <c>0.png .. 10.png</c> plus <c>capture.json</c> (wound, body height and exit axis on screen, case, SHA; the scoring tools' contract) into <c>--gore-streak-frames &lt;dir&gt;</c>
 /// (default %LOCALAPPDATA%\sm-reimpl\tmp\gore-streak\&lt;case&gt;), and quits. Cases: <c>sweep-lr</c>, <c>sweep-rl</c>, <c>overhead</c>, <c>thrust</c>, <c>bolt</c>,
-/// <c>lascannon</c>, <c>explosion</c>, <c>kill</c> (a lethal left-to-right chainsword sweep). <c>--capture-backdrop grey|white|dark</c> puts an unshaded wall 6 m behind the victim and a
+/// <c>lascannon</c>, <c>bolt-away</c> (a bolter shot leaving the camera's side through him), <c>explosion</c>, <c>kill</c> (a lethal left-to-right chainsword sweep); <c>--gore-streak-capture-repeat</c>: the same hit n times. <c>--capture-backdrop grey|white|dark</c> puts an unshaded wall 6 m behind the victim and a
 /// floor under him (mid grey, white or near black) and hides the map's own geometry (no foreground beam across the spray). <c>--gore-streak-probe</c> draws every band's core solid
 /// at core opacity k / 10 in frame k instead of the table's look (the colour model's check, <see cref="GoreStreakRules.Composite"/>). The capture window is made borderless at
 /// 1920x1080 (true 1080p frames). <c>--gore-streak-sha &lt;sha&gt;</c> is written into capture.json. Needs a rendering (windowed) client: <c>godot.cmd --windowed</c>.
@@ -81,6 +81,13 @@ public partial class NetworkView
                 if (_connectedFor - _streakCaptureAt < 0.5) return;
                 if (!StreakCaseDraw(camera)) { GD.Print("gore-streak-capture: the case drew nothing (is this Classic Extended?)"); GetTree().Quit(1); return; }
                 Directory.CreateDirectory(StreakCaptureDir());
+                if (StreakRepeat > 0)
+                {
+                    // the same hit again and again (owner 2026-11-28, the per-hit variation): each a fresh streak with the next seed, held at one key time
+                    _streakCapturePhase = 4; _streakCaptureFrame = 0; _streakCaptureWait = 0;
+                    GoreStreaks().AgeOverride = GoreStreakRules.Keys[StreakRepeatKey].T + 0.0005f;
+                    return;
+                }
                 _streakCapturePhase = 2; _streakCaptureFrame = 0; _streakCaptureWait = 0;
                 GoreStreaks().AgeOverride = StreakProbe ? GoreStreakRules.Keys[2].T : GoreStreakRules.Keys[0].T + 0.0005f;
                 if (StreakProbe) GoreStreaks().Probe = 0f;
@@ -104,8 +111,30 @@ public partial class NetworkView
                 _streakCapturePhase = 3;
                 GetTree().Quit();
                 return;
+            case 4:   // the repeated hit: saved as hit1.png .. hitN.png, each the case drawn afresh (the first is the hit already drawn in phase 1)
+                if (++_streakCaptureWait < 5) return;
+                GetViewport().GetTexture().GetImage().SavePng(Path.Combine(StreakCaptureDir(), $"hit{_streakCaptureFrame + 1}.png"));
+                _streakCaptureFrame++; _streakCaptureWait = 0;
+                if (_streakCaptureFrame < StreakRepeat)
+                {
+                    GoreStreaks().ClearAll();
+                    if (!StreakCaseDraw(camera)) { GetTree().Quit(1); return; }
+                    return;
+                }
+                GoreStreaks().AgeOverride = null;
+                GD.Print($"gore-streak-capture: {StreakRepeat} repeated hits at {GoreStreakRules.Keys[StreakRepeatKey].T:F2} s written to {StreakCaptureDir()}");
+                _streakCapturePhase = 3;
+                GetTree().Quit();
+                return;
         }
     }
+
+    /// <summary>
+    /// Capture aid <c>--gore-streak-capture-repeat &lt;n&gt;</c> (with <c>--gore-streak-capture &lt;case&gt;</c>; owner 2026-11-28, the per-hit variation): the case's hit drawn n times in a
+    /// row (1 to 12), each a fresh streak with the next seed as consecutive hits get, held at key <c>--gore-streak-capture-key</c> (default 4, 0.27 s), saved as <c>hit1.png .. hitN.png</c>.
+    /// </summary>
+    static readonly int StreakRepeat = int.TryParse(CmdArg("gore-streak-capture-repeat"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var rp) ? Math.Clamp(rp, 1, 12) : 0;
+    static readonly int StreakRepeatKey = int.TryParse(CmdArg("gore-streak-capture-key"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var rk) ? Math.Clamp(rk, 0, GoreStreakRules.Keys.Length - 1) : 4;
 
     /// <summary>
     /// Perf aid <c>--gore-streak-stress &lt;per second&gt;</c> (Classic Extended): after a 3 s settle, starts that many streaks a second (seeded sources: sweeps, shots, explosions, kills) in a
@@ -191,8 +220,10 @@ public partial class NetworkView
         {
             case "bolt":
             case "lascannon":
+            case "bolt-away":
             {
-                var dir = (right - toCam * 0.25f).Normalized();   // across the view, a little away from the camera
+                // across the view, a little away from the camera; bolt-away: the shot leaving the camera's side through him, as the shooter sees it over his shoulder
+                var dir = kind == "bolt-away" ? (right * 0.35f - toCam).Normalized() : (right - toCam * 0.25f).Normalized();
                 c = new ClassicContact(victim.PlayerId, me, chest + dir * BodySurface, dir, HitVisual.Blood, true, false, false, false, 0.3f, 1f, 0.0, null, 0, null,
                     Wargear: kind == "bolt" ? "sm_mp_ranged_bolter" : "sm_mp_ranged_lascannon");
                 break;

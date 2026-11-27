@@ -119,6 +119,7 @@ public static class LeanBot
         "dash-dirs-test", "log-dash", "log-hammer-180", "log-melee-mode", "melee-orbit-demo", "melee-orbit-demo-point",
         "execution-demo", "execution-selftest", "execution-test", "executions-x6-demo", "executions-x6-test",   // executions X5/X6: the paired clips' viewer, the presenter's self-test and demo rows, the marker and overshield demos
         "capture-1080", "capture-backdrop", "gore-streak-capture", "gore-streak-probe", "hit-dir-demo-power",   // gore streak and the gore-visibility line: the streak's capture stage and probe, the power flash in the hit-dir demo
+        "gore-streak-capture-repeat", "gore-streak-capture-key",   // gore streak per-hit variation (2026-11-28): the capture stage's repeated hit and its key time
         "wf-breach-demo", "wf-breach-demo-daemons", "wf-breach-demo-frames", "wf-breach-demo-lift", "wf-breach-demo-range", "wf-duel-demo", "wf-duel-demo-shots",   // Chaos Warfront C4c/C5c: the breach look's and the duel HUD's synthetic stills
     };
 
