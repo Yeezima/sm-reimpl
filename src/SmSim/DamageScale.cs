@@ -39,7 +39,7 @@ public sealed partial class World
     /// </summary>
     public float DamageTakenScale(int target)
     {
-        if ((DevFlags & DevToolsFlags.Invincible) != 0) return 0f;   // developer tools (DevTools.cs): a loopback-only --dev-tools server's "invincible"; never set otherwise
+        if ((DevFlags & DevToolsFlags.Invincible) != 0 || (_devGod.Count > 0 && _devGod.Contains(target))) return 0f;   // developer tools (DevTools.cs): a loopback-only --dev-tools server's "invincible" and its per-player god mode; never set otherwise
         float scale = 1f;
         ExtrasDamageTaken(target, ref scale);   // EXTRAS-HOOK
         ExtrasExecutionDamage(target, ref scale);   // EXTRAS-HOOK: executions (Warfront): the executor takes nothing during the move only

@@ -59,6 +59,26 @@ public sealed class DevMapPickTests
         Assert.True(me.Match.NextMap, "the snapshots tell clients to rejoin, as for a rotation");
         Assert.Equal(DevNote.Applied, me.Dev!.Note);
         Assert.Contains(log, l => l.StartsWith("dev tools: map pick mp_tdm_17:"));
+        Assert.Null(h.Server.PickedModeOverride);
+    }
+
+    [Fact]
+    public void A_match_that_fell_back_to_Annihilation_returns_to_the_servers_mode_where_the_picked_map_offers_it()
+    {
+        // devtools-god-custommap: this child plays Annihilation (its map file had no capture points); the server was started in Seize Ground, which mp_tdm_09 offers and mp_tdm_17 does not
+        var setup = Setup() with { HomeMode = GameMode.SeizeGround, HomeModeMaps = new HashSet<string> { "mp_tdm_09" } };
+        var (h, _) = Make(setup);
+        h.Clients[0].SendDevCommand(DevCommandKind.PickMap, 1, true);
+        h.Run(TimeSpan.FromSeconds(0.5));
+        Assert.Equal(("mp_tdm_17", "annihilation"), (h.Server.PickedMap, h.Server.PickedModeOverride));
+        Assert.Equal(DevNote.MapModeFallback, h.Clients[0].Dev!.Note);
+        Assert.Equal("Starting mp_tdm_17 in Annihilation: it does not offer Seize Ground.", h.Clients[0].Dev!.Text);
+
+        var (h2, _) = Make(setup);
+        h2.Clients[0].SendDevCommand(DevCommandKind.PickMap, 0, true);
+        h2.Run(TimeSpan.FromSeconds(0.5));
+        Assert.Equal(("mp_tdm_09", (string?)null), (h2.Server.PickedMap, h2.Server.PickedModeOverride));
+        Assert.Equal(DevNote.Applied, h2.Clients[0].Dev!.Note);
     }
 
     [Fact]

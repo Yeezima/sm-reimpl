@@ -10,8 +10,8 @@ namespace SmClient;
 
 /// <summary>
 /// dev-tools (owner, 2026-11-17): the in-match developer panel, styled and opened like the sound tuner (<see cref="SoundTunerPanel"/>): F6 shows or hides it, Esc closes it. It shows only
-/// what the server reports (<see cref="DevState"/>) and sends requests (<see cref="DevCommand"/>); nothing is applied here. Left column: toggles (invincible, freeze bots, infinite ammunition,
-/// infinite jump pack fuel, indefinite match, instant respawn), the match buttons (end now, restart, skip), kill me and kill bots. Right column: add and remove bots, teleport, the bots'
+/// what the server reports (<see cref="DevState"/>) and sends requests (<see cref="DevCommand"/>); nothing is applied here. Left column: toggles (invincible, god mode for the player alone (protocol 95), freeze bots,
+/// infinite ammunition, infinite jump pack fuel, indefinite match, instant respawn), the match buttons (end now, restart, skip), the map picker (and, added content, the CUSTOM MAP row), kill me and kill bots. Right column: add and remove bots, teleport, the bots'
 /// difficulty sliders and the time scale. A server that does not announce the tools (no <c>--dev-tools</c>, or not bound to loopback only) leaves F6 with a short "dev tools off" note. Test
 /// aids: <c>--dev-panel</c> opens it as soon as the server announces the tools, <c>--dev-script</c> presses controls in turn (<see cref="NetworkView"/>, NetworkView.DevTools.cs). Client only; ours.
 /// </summary>
@@ -22,7 +22,7 @@ public partial class DevToolsPanel : CanvasLayer
     /// <summary>The controls, by the word a <c>--dev-script</c> uses (a bare flag word toggles, <c>:on</c> / <c>:off</c> sets; see <see cref="Press"/>).</summary>
     public static readonly string[] ControlWords =
     [
-        "inv", "freeze", "ammo", "jump", "indef", "respawn", "end", "restart", "skip", "map:N|NAME", "killme", "kill:loyal", "kill:chaos", "kill:all",
+        "inv", "god", "freeze", "ammo", "jump", "indef", "respawn", "end", "restart", "skip", "map:N|NAME", "cmap:N|FILE", "killme", "kill:loyal", "kill:chaos", "kill:all",
         "add:loyal", "add:chaos", "rem:loyal", "rem:chaos", "tp:spawn-loyal", "tp:spawn-chaos", "tp:point:N", "tp:player:N",
         "acc:PERCENT|default", "dmg:PERCENT", "range:METRES|default", "scale:0..4",
     ];
@@ -41,6 +41,7 @@ public partial class DevToolsPanel : CanvasLayer
     readonly Dictionary<DevToolsFlags, Godot.Button> _toggles = new();
     readonly List<Godot.Button> _scaleButtons = new();
     PanelContainer? _panel;
+    Godot.Button? _god;
     Label? _bots, _status, _off, _accValue, _dmgValue, _rangeValue;
     HSlider? _acc, _dmg, _range;
     OptionButton? _teleport, _mapPick;
@@ -105,6 +106,10 @@ public partial class DevToolsPanel : CanvasLayer
         // ---- left: toggles, match, players ----
         Header(left, "TOGGLES");
         Toggle(left, DevToolsFlags.Invincible, "All players and bots invincible", "Nobody takes damage (shots, blasts, melee, charges); hit reactions still play.");
+        // devtools-god-custommap (protocol 95): the same protection for you alone; bots and the other players still take damage
+        _god = new Godot.Button { Text = "God mode (me only)", TooltipText = "You take no damage (shots, blasts, your own grenades too, melee, charges), so nobody can execute you; hit reactions still play and KILL ME still works. Bots and other players still take damage.", Alignment = HorizontalAlignment.Left, CustomMinimumSize = new Vector2(0, 28), Name = "ToggleGod" };
+        _god.Pressed += () => Send(DevCommandKind.SetGod, 0, !(_state()?.God ?? false));   // shows the server's state: it flips when the answer arrives
+        left.AddChild(_god);
         Toggle(left, DevToolsFlags.FreezeBots, "Freeze bots", "Bots stand still, do not aim and do not fire.");
         Toggle(left, DevToolsFlags.InfiniteAmmo, "Infinite ammunition", "Clips, reserves and grenades never run out; no weapon heats up or overheats.");
         Toggle(left, DevToolsFlags.InfiniteJump, "Infinite jump pack fuel", "The jump pack's power is always full.");
@@ -127,6 +132,7 @@ public partial class DevToolsPanel : CanvasLayer
         pick.AddChild(_mapPick);
         Button(pick, "GO", PickSelectedMap, "Ends the current match at once; everyone rejoins on the chosen map in a few seconds.");
         _mapBox.Visible = false;
+        ExtrasPanelMapRows(left);   // EXTRAS-HOOK: added content's own map rows under the MAP row (the Mapmaker: CUSTOM MAP, the saved map files)
         Header(left, "KILL");
         var kill = Row(left);
         Button(kill, "KILL ME", () => Send(DevCommandKind.KillMe, 0, true), "A suicide: a death on the scoreboard; you respawn at once.");
@@ -192,6 +198,10 @@ public partial class DevToolsPanel : CanvasLayer
     partial void ExtrasPanelPress(string name, string arg, ref bool handled);
     /// <summary>Once per sync: added content redraws its section.</summary>
     partial void ExtrasPanelSync();
+    /// <summary>devtools-god-custommap: added content's rows under the left column's MAP row (the Mapmaker's CUSTOM MAP row).</summary>
+    partial void ExtrasPanelMapRows(VBoxContainer column);
+    /// <summary>devtools-god-custommap: the panel was opened (the Mapmaker's row lists its folder again).</summary>
+    partial void ExtrasPanelOpened();
 
     void PickSelectedMap()
     {
@@ -270,6 +280,7 @@ public partial class DevToolsPanel : CanvasLayer
         switch (name)
         {
             case "inv": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.Invincible, Wanted(DevToolsFlags.Invincible)); return true;
+            case "god": Send(DevCommandKind.SetGod, 0, value.Length > 0 ? value == "on" : !(state?.God ?? false)); return true;   // protocol 95: god mode for this player alone
             case "freeze": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.FreezeBots, Wanted(DevToolsFlags.FreezeBots)); return true;
             case "ammo": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.InfiniteAmmo, Wanted(DevToolsFlags.InfiniteAmmo)); return true;
             case "jump": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.InfiniteJump, Wanted(DevToolsFlags.InfiniteJump)); return true;
@@ -326,6 +337,9 @@ public partial class DevToolsPanel : CanvasLayer
         DevNote.TeleportBlocked => "No free spot there, or that target is gone.",
         DevNote.BadValue => "The server refused that value.",
         DevNote.NoMapChange => "This server cannot change its map (start it with server.cmd --dev-tools).",
+        DevNote.MapLoading => "Loading the map...",
+        DevNote.MapRefused => "That map could not be loaded; the match goes on.",
+        DevNote.MapModeFallback => "Starting it in Annihilation: it cannot run this server's mode.",
         _ => "",
     };
 
@@ -376,13 +390,8 @@ public partial class DevToolsPanel : CanvasLayer
     {
         var s = _state();
         _syncing = true;
-        foreach (var (flag, button) in _toggles)
-        {
-            bool on = s is not null && (s.Flags & flag) != 0;
-            string label = button.Text.StartsWith("[ ON  ] ") || button.Text.StartsWith("[ OFF ] ") ? button.Text[8..] : button.Text;
-            button.Text = (on ? "[ ON  ] " : "[ OFF ] ") + label;
-            button.AddThemeColorOverride("font_color", on ? new Color(0.55f, 1f, 0.55f) : new Color(0.85f, 0.85f, 0.85f));
-        }
+        foreach (var (flag, button) in _toggles) ShowToggle(button, s is not null && (s.Flags & flag) != 0);
+        if (_god is not null) ShowToggle(_god, s?.God == true);
         if (s is not null)
         {
             if (_bots is not null) _bots.Text = $"Loyalists: {s.PlayersLoyalists} players ({s.ToolBotsLoyalists} added here)    Chaos: {s.PlayersChaos} ({s.ToolBotsChaos} added here)    cap {Protocol.MaxMatchPlayers}";
@@ -398,13 +407,20 @@ public partial class DevToolsPanel : CanvasLayer
         if (s is not null && (!_serialSeen || s.NoteSerial != _lastSerial))
         {
             _serialSeen = true; _lastSerial = s.NoteSerial;
-            if (s.Note != DevNote.None) SetStatus(NoteText(s.Note));
+            if (s.Note != DevNote.None) SetStatus(s.Text.Length > 0 ? s.Text : NoteText(s.Note));   // protocol 95: the server's own words when a plain note cannot say it (why a map file was refused)
         }
         if (IsOpen) { RefreshTargets(); RefreshMaps(); }
         if (_off is not null && _off.Visible && Time.GetTicksMsec() / 1000.0 > _offUntil) _off.Visible = false;
     }
 
     void SetStatus(string text) { if (_status is not null) _status.Text = text; }
+
+    static void ShowToggle(Godot.Button button, bool on)
+    {
+        string label = button.Text.StartsWith("[ ON  ] ") || button.Text.StartsWith("[ OFF ] ") ? button.Text[8..] : button.Text;
+        button.Text = (on ? "[ ON  ] " : "[ OFF ] ") + label;
+        button.AddThemeColorOverride("font_color", on ? new Color(0.55f, 1f, 0.55f) : new Color(0.85f, 0.85f, 0.85f));
+    }
 
     /// <summary>The note F6 shows when the server does not announce the tools.</summary>
     public void ShowOff()
@@ -421,6 +437,7 @@ public partial class DevToolsPanel : CanvasLayer
         _panel.Visible = open;
         if (open)
         {
+            ExtrasPanelOpened();   // EXTRAS-HOOK: added content refreshes what it lists (the Mapmaker's map files)
             Sync();
             _previousMouse = Input.MouseMode;
             Input.MouseMode = Input.MouseModeEnum.Visible;

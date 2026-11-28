@@ -9,11 +9,48 @@ namespace SmClient;
 /// Mapmaker maps on the client (added content, docs/mapmaker.md "Playing a map"): a map the server names <c>cm_...</c> is a <c>.smmap</c> file found by that name (or given with
 /// <c>--custom-map</c>) and compiled here, with the same code the server ran, into the collision the client predicts with. The core's <c>LoadMap</c> asks <see cref="MapmakerContent"/> for the map's
 /// content (nothing is read from the install) and <see cref="MapmakerVisuals"/> to draw it (<see cref="CustomMapView"/>). The handshake's map hash is the first 8 bytes of SHA-256(compiler version + the file's canonical JSON), so a different copy is refused by the server.
+/// <para>
+/// Which file (devtools-god-custommap, 2026-11-28): the file the developer tools picked, when the server named it before the switch (<see cref="ExtrasDevNextMap"/>; a file name looked up only in the
+/// picker's folder, <see cref="CustomMaps.ResolvePick"/>) and it holds the map the server now plays; else the <c>--custom-map</c> file, as long as it holds that map (after a switch to another map it no
+/// longer does, and the client says so and finds the new one by name instead of refusing); else the newest file in the search folders with that map's name.
+/// </para>
 /// </summary>
 public partial class NetworkView
 {
     CustomMap? _customMap;
+    string? _customMapPath;
     static readonly string? CustomMapFile = CmdArg("custom-map");
+
+    /// <summary>The full path of the map file the developer tools picked last (from the server's state before the switch); kept across the rejoin's new view, dropped once another map loads.</summary>
+    static string? _devPickedFile;
+
+    /// <summary>The map file this client plays now (null on a Classic map): the F6 panel's CUSTOM MAP row marks it.</summary>
+    public static string? CurrentCustomMapFile { get; private set; }
+
+    partial void ExtrasDevNextMap(string file)
+    {
+        string? path = CustomMaps.ResolvePick(file);
+        if (path is null) { GD.PrintErr($"custom map: the developer tools picked {file}, which is not in {CustomMaps.PickDir()} on this PC; the rejoin finds the map by its name"); return; }
+        _devPickedFile = path;
+        GD.Print($"custom map: the developer tools picked {file}; the rejoin loads that file");
+    }
+
+    /// <summary>The map file to load for the server's map <paramref name="name"/>, or null to find it by name in the search folders (the order is in the class summary).</summary>
+    static string? CustomMapFileFor(string name)
+    {
+        if (_devPickedFile is { } picked)
+        {
+            if (System.IO.File.Exists(picked) && CustomMaps.WireNameOfFile(picked) == name) return picked;
+            _devPickedFile = null;   // another map now: the pick is spent
+        }
+        if (string.IsNullOrEmpty(CustomMapFile) || !System.IO.File.Exists(CustomMapFile)) return CustomMapFile;   // a missing --custom-map file is refused by LoadForPlay with its own message
+        if (CustomMaps.WireNameOfFile(CustomMapFile) is { } held && held != name)
+        {
+            GD.Print($"custom map {name}: --custom-map {System.IO.Path.GetFileName(CustomMapFile)} holds {held}, not the map the server plays now; finding {name} by its name instead");
+            return null;
+        }
+        return CustomMapFile;
+    }
 
     /// <summary>A custom map has no install file: "none" makes the readers of map files (sounds, effects) skip.</summary>
     void MapmakerMapFile(ref string file)
@@ -23,14 +60,19 @@ public partial class NetworkView
 
     void MapmakerContent(string name, ref MapContent? map)
     {
-        if (!CustomMap.IsCustomName(name)) return;
+        CurrentCustomMapFile = null;
+        if (!CustomMap.IsCustomName(name)) { _devPickedFile = null; return; }
         try
         {
-            if (string.IsNullOrEmpty(CustomMapFile) && CustomMaps.LocateAll(name) is { Count: > 1 } many)
+            string? file = CustomMapFileFor(name);
+            if (file is null && CustomMaps.LocateAll(name) is { Count: > 1 } many)
                 GD.PrintErr($"custom map {name}: {many.Count} files have this map's name ({string.Join(", ", many.Select(System.IO.Path.GetFileName))}); using the newest, {System.IO.Path.GetFileName(many[0])}. Start with --custom-map <file> to name the exact one.");
             // SM1 pieces, prefabs and imported models come from this PC's install and library: solid here exactly as on the server, and drawn below (a PC that lacks one refuses, see CustomMapDecor).
             var started = System.Diagnostics.Stopwatch.StartNew();
-            _customMap = CustomMaps.LoadForPlay(name, CustomMapFile, CompileOptions.ForPlay(_gameDir, textures: true));
+            _customMapPath = file ?? CustomMaps.Locate(name);
+            GD.Print($"custom map {name}: file {(_customMapPath is null ? "(none found)" : System.IO.Path.GetFileName(_customMapPath))}{(file is not null && file == _devPickedFile ? " (picked with the developer tools)" : file is not null ? " (--custom-map)" : " (found by its name)")}");
+            _customMap = CustomMaps.LoadForPlay(name, _customMapPath, CompileOptions.ForPlay(_gameDir, textures: true));
+            CurrentCustomMapFile = _customMapPath is null ? null : System.IO.Path.GetFullPath(_customMapPath);
             if (_customMap.Decor is { Placements.Count: > 0 } decor)
                 GD.Print($"custom map {name}: {decor.Placements.Count} SM1 / model placements, {decor.Triangles:N0} solid triangles from this install ({started.Elapsed.TotalSeconds:0.0} s)");
         }
@@ -78,7 +120,7 @@ public partial class NetworkView
         if (!CustomMap.IsCustomName(name) || _customMap is null || _gameSpace is null) return;
         try
         {
-            var view = CustomMapView.Build(_customMap, CustomMapFile ?? CustomMaps.Locate(name));
+            var view = CustomMapView.Build(_customMap, _customMapPath ?? CustomMaps.Locate(name));
             _gameSpace.AddChild(view);
             if (_lookScene is null && _sun is not null && _environment is not null) CustomMapView.ApplyLook(_sun, _environment);
             drawn = true;

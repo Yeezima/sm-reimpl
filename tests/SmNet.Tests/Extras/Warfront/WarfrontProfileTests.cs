@@ -10,7 +10,7 @@ public class WarfrontProfileTests
 
     // Captured on the tree before W1 (claude/warfront 5428594e, the W0 baseline): the switch must not move any of them.
     const uint MusouSimVersion = 63, ExtrasWireVersion = 2;   // main's numbers since 2026-11-19 (were 61 and 80 on the Warfront branch)
-    const ushort ProtocolVersion = 94;
+    const ushort ProtocolVersion = 95;
 
     [Fact]
     public void The_profile_is_musou_and_warfront_and_not_in_extended()

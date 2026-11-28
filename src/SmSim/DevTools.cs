@@ -67,6 +67,23 @@ public sealed partial class World
     /// <summary>The developer tools in force (ours; <see cref="DevToolsFlags.None"/> unless a loopback-only <c>--dev-tools</c> server set them). Server-side only; not in the config hash.</summary>
     public DevToolsFlags DevFlags { get; set; }
 
+    readonly HashSet<int> _devGod = new();
+
+    /// <summary>
+    /// God mode (devtools-god-custommap, owner 2026-11-28: "make only the player invincible"; ours, a test aid): player <paramref name="playerId"/> alone takes no damage, exactly as
+    /// <see cref="DevToolsFlags.Invincible"/> protects everyone (<see cref="DamageTakenScale"/> is 0 for it: shots, blasts, its own included, melee and charges; hit reactions still play, KILL ME and
+    /// what kills without damage still kill). Per player: kept across respawns, restarts and new matches of this server, dropped when the player leaves (<see cref="Remove"/>) or the id joins
+    /// anew (<see cref="Spawn"/>); a map change starts a new server, so it is gone with every other developer-tools switch. Only a loopback-only <c>--dev-tools</c> server sets it. Server-side
+    /// only; not in the config hash. False when nothing changed.
+    /// </summary>
+    public bool SetDevGod(int playerId, bool on) => on ? _devGod.Add(playerId) : _devGod.Remove(playerId);
+
+    /// <summary>Whether player <paramref name="playerId"/> is in god mode (<see cref="SetDevGod"/>).</summary>
+    public bool IsDevGod(int playerId) => _devGod.Contains(playerId);
+
+    /// <summary>The players in god mode (the log and tests).</summary>
+    public IReadOnlyCollection<int> DevGodPlayers => _devGod;
+
     /// <summary>After a tick: the ammunition and jump-pack flags' top-up of every living player, and the instant respawn's end of every death timer (nothing, and no allocation, with neither flag).</summary>
     public void ApplyDevTools()
     {

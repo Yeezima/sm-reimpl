@@ -99,7 +99,10 @@ public static class CustomMaps
     static readonly Regex NameField = new("\"name\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.){0,400})\"", RegexOptions.Compiled);
 
     /// <summary>The wire name of the map in <paramref name="file"/> from its <c>name</c> field in the first 4 KB, without parsing the file; null when it cannot be read.</summary>
-    public static string? WireNameOfFile(string file)
+    public static string? WireNameOfFile(string file) => NameOfFile(file) is { } name ? CustomMap.WireName(name) : null;
+
+    /// <summary>The map's own name (its <c>name</c> field, as the Mapmaker shows it) from the first 4 KB of <paramref name="file"/>, without parsing the file; null when it cannot be read.</summary>
+    public static string? NameOfFile(string file)
     {
         try
         {
@@ -108,9 +111,65 @@ public static class CustomMaps
             int n = s.Read(buffer, 0, buffer.Length);
             var m = NameField.Match(System.Text.Encoding.UTF8.GetString(buffer, 0, n));
             if (!m.Success) return null;
-            return CustomMap.WireName(JsonSerializer.Deserialize<string>("\"" + m.Groups[1].Value + "\"") ?? "");
+            return JsonSerializer.Deserialize<string>("\"" + m.Groups[1].Value + "\"") ?? "";
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { return null; }
+    }
+
+    // ---- the developer tools' map-file picker (devtools-god-custommap, owner 2026-11-28; protocol 95) ----
+
+    /// <summary>One map file the F6 panel offers: its full path, its file name and the label the list shows (the map's name and the file's).</summary>
+    public sealed record PickEntry(string File, string FileName, string Label);
+
+    /// <summary>Most map files the picker lists (the wire carries the index in one byte); the rest, by file name, are left out.</summary>
+    public const int MaxPicks = 255;
+
+    /// <summary>
+    /// The folder the developer tools' map-file picker lists: <c>SM_MAPS_DIR</c> when it is set (a test aid: a run that must not touch the owner's library), else the Mapmaker library's
+    /// <c>maps</c> folder, where the Mapmaker saves. The server and the panel are on the same PC (the tools are loopback only) and list it the same way.
+    /// </summary>
+    public static string PickDir() => Environment.GetEnvironmentVariable("SM_MAPS_DIR") is { Length: > 0 } env ? Path.GetFullPath(env) : new MapLibrary(null).MapsDir;
+
+    /// <summary>
+    /// The saved maps the F6 panel's CUSTOM MAP row offers, in the order the wire counts them: every <c>*.smmap</c> in <paramref name="dir"/> (default <see cref="PickDir"/>), by file name ignoring case,
+    /// at most <see cref="MaxPicks"/>. Nothing is compiled (a file that cannot be played is refused when it is picked); an unreadable folder lists nothing.
+    /// </summary>
+    public static IReadOnlyList<PickEntry> PickList(string? dir = null)
+    {
+        dir ??= PickDir();
+        var list = new List<PickEntry>();
+        try
+        {
+            if (!Directory.Exists(dir)) return list;
+            foreach (var f in Directory.EnumerateFiles(dir, "*.smmap").OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase).ThenBy(f => f, StringComparer.Ordinal).Take(MaxPicks))
+            {
+                string fileName = Path.GetFileName(f);
+                string? name = NameOfFile(f);
+                list.Add(new PickEntry(Path.GetFullPath(f), fileName, string.IsNullOrWhiteSpace(name) ? fileName : $"{name.Trim()}  ({fileName})"));
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        return list;
+    }
+
+    /// <summary>The 16-bit check of a file name the pick carries beside its index (FNV-1a over the lower-case name, folded): a folder that changed between two listings refuses the pick.</summary>
+    public static int PickCheck(string fileName)
+    {
+        uint h = 2166136261;
+        foreach (char c in fileName.ToLowerInvariant()) { h ^= c; h *= 16777619; }
+        return (int)((h ^ (h >> 16)) & 0xFFFF);
+    }
+
+    /// <summary>
+    /// The file in the picker's folder whose name is <paramref name="fileName"/> (a name the server sent: never a path, only a plain <c>.smmap</c> file name), or null. Used by the clients and bots of this PC to
+    /// load exactly the file the developer tools picked when they rejoin.
+    /// </summary>
+    public static string? ResolvePick(string? fileName, string? dir = null)
+    {
+        if (string.IsNullOrEmpty(fileName) || fileName.Length > 120 || fileName != Path.GetFileName(fileName) || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || fileName.StartsWith('.') || !fileName.EndsWith(".smmap", StringComparison.OrdinalIgnoreCase)) return null;
+        string path = Path.Combine(dir ?? PickDir(), fileName);
+        return File.Exists(path) ? Path.GetFullPath(path) : null;
     }
 
     /// <summary>
