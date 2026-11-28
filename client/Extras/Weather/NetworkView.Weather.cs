@@ -43,7 +43,7 @@ public partial class NetworkView
     }
 
     /// <summary>The view leaves the tree: the static link goes with it (a later Classic or Musou view must not keep this grade or show the F6 Weather section), and the rig is freed.</summary>
-    partial void ExtrasExit()
+    void WeatherExit()
     {
         WeatherAidsApply(false);   // the perf aid's vsync change goes back even when the view is freed while gated
         WeatherClientLink.Release(_wxModel);

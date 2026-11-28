@@ -177,6 +177,13 @@ public class ExtrasBoundaryTests
         ("client/DevToolsPanel.cs", "ExtrasPanelBuild"),            // DevToolsPanel.ExtrasPanelBuild(VBoxContainer), after the TIME section: added content's own section in the F6 panel (weather W1: the Weather buttons)
         ("client/DevToolsPanel.cs", "ExtrasPanelPress"),            // DevToolsPanel.ExtrasPanelPress(string, string, ref bool), the script words the panel does not know (weather:rain, weather:none, weather:follow)
         ("client/DevToolsPanel.cs", "ExtrasPanelSync"),             // DevToolsPanel.ExtrasPanelSync(), once per Sync: added content's section follows the server
+        // devtools-god-custommap (protocol 95, 2026-11-28): the F6 panel's CUSTOM MAP row (the Mapmaker's saved map files) and the pick's server side; the dispatcher is client/Extras/DevToolsPanel.Extras.cs.
+        ("client/DevToolsPanel.cs", "ExtrasPanelMapRows"),          // DevToolsPanel.ExtrasPanelMapRows(VBoxContainer), under the left column's MAP row: the Mapmaker's CUSTOM MAP row
+        ("client/DevToolsPanel.cs", "ExtrasPanelOpened"),           // DevToolsPanel.ExtrasPanelOpened(), when the panel opens: the CUSTOM MAP row lists the maps folder again
+        ("client/NetworkView.DevTools.cs", "ExtrasDevNextMap"),     // NetworkView.ExtrasDevNextMap(string), when DevState.NextMapFile changes: the rejoin loads exactly the picked file (client/Extras/Mapmaker)
+        ("src/SmServer/GameServer.DevTools.cs", "ExtrasDevPickFile"),      // GameServer.ExtrasDevPickFile(int, byte, int, ref bool), DevCommandKind.PickMapFile: the Mapmaker's map-file pick (unhandled: refused)
+        ("src/SmServer/GameServer.DevTools.cs", "ExtrasDevPoll"),          // GameServer.ExtrasDevPoll(), every Update with the tools on: the pick's file check, run off the tick, is finished here
+        ("src/SmServer/GameServer.DevTools.cs", "ExtrasDevCanPickFiles"),  // GameServer.ExtrasDevCanPickFiles(ref bool), in DevStateNow: DevState.CanPickFiles (the panel shows the CUSTOM MAP row)
         ("client/NetworkView.Seize.cs", "ExtrasSpectateView"),      // SpectateCamera asks added content for its own spectator view first (Warfront W5c: a fallen player, a held joiner)
         ("client/Customizer/CreatorView.cs", "ExtrasStepCount"),    // CreatorView.ExtrasStepCount(ref int), the Librarian's five steps
         ("client/Customizer/CreatorView.cs", "ExtrasOpenStep"),     // CreatorView.ExtrasOpenStep(string, ref bool), OpenStep (the --step aid): an added page's own step names (Warfront: retainers)

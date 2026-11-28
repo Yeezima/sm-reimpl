@@ -152,6 +152,15 @@ public static class ServerCommandLine
     /// <summary>Exit code of a Warfront stage child: the next stage is due, the Warfront supervisor starts it.</summary>
     public const int WarfrontStageExit = 12;
 
+    /// <summary>
+    /// Whether this start becomes the developer tools' supervisor (devtools-map-pick, RotationSupervisor.RunDev): <c>--dev-tools</c> on a loopback bind, not a child already (rotation or dev), not a
+    /// <c>--maps</c> rotation and not Musou Mode. devtools-god-custommap: a server that plays a map file (<c>--custom-map</c>, a Mapmaker play test) is supervised too, but only in a build with added
+    /// content (<paramref name="extrasCompiled"/>) and a profile other than <c>--content faithful</c> (no custom maps there: it runs alone, as before, and cannot change map).
+    /// </summary>
+    public static bool DevSupervises(ServerArguments cli, bool extrasCompiled) =>
+        cli.DevTools && System.Net.IPAddress.IsLoopback(cli.Bind) && !cli.RotationChild && !cli.DevSupervised && cli.Maps is null && !cli.Content.HasFlag(ContentExtras.Musou)
+        && (cli.CustomMap is null || (extrasCompiled && cli.Content != ContentExtras.None));
+
     public const string Usage =
         """
         smserver: headless dedicated server (UDP). Reads the game install, never writes to it.

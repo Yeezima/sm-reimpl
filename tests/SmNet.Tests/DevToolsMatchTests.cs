@@ -58,13 +58,13 @@ public class DevToolsMatchTests
         var state = new DevState(DevToolsFlags.Indefinite | DevToolsFlags.InstantRespawn, 1, 2, 3, 4, DevNote.TeleportBlocked, 6, 3, 450, 340, 80);
         Assert.Equal(state, Protocol.Read(Protocol.Write(state)));
         Assert.Equal(Protocol.DevStateBytes, Protocol.Write(state).Length);
-        Assert.Equal(15, Protocol.DevStateBytes);
+        Assert.Equal(18, Protocol.DevStateBytes);   // protocol 95 (devtools-god-custommap): the self byte and the two text lengths (15 before)
         var unset = new DevState(DevToolsFlags.None, 0, 0, 0, 0, DevNote.None, 0);
         Assert.Equal((Protocol.DevNoValue, 1000, 0, 0), (unset.BotAccuracy, unset.BotDamage, unset.BotRange, unset.TimeScale));
         var bytes = Protocol.Write(state);
         var badScale = (byte[])bytes.Clone(); badScale[8] = 9;
         Assert.Null(Protocol.Read(badScale));
-        var badKind = Protocol.Write(command); badKind[5] = 16;   // 14 is the cancel table's sync request (cancel-editor), 15 the map pick (protocol 85)
+        var badKind = Protocol.Write(command); badKind[5] = 18;   // 14 is the cancel table's sync request (cancel-editor), 15 the map pick (protocol 85), 16 god mode and 17 the map-file pick (protocol 95)
         Assert.Null(Protocol.Read(badKind));
         for (int length = 1; length < bytes.Length; length++) Assert.Null(Protocol.Read(bytes[..length]));
     }

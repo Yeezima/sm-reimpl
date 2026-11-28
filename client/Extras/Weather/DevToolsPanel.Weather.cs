@@ -17,7 +17,7 @@ public partial class DevToolsPanel
     Label? _wxStatus;
     readonly Dictionary<WeatherId, Button> _wxButtons = new();
 
-    partial void ExtrasPanelBuild(VBoxContainer column)
+    void WeatherPanelBuild(VBoxContainer column)
     {
         _wxBox = new VBoxContainer { Name = "Weather", Visible = false };
         _wxBox.AddThemeConstantOverride("separation", 4);
@@ -53,7 +53,7 @@ public partial class DevToolsPanel
 
     static void WeatherSend(WeatherCommand command) => WeatherClientLink.Send?.Invoke(WeatherWire.Encode(command));
 
-    partial void ExtrasPanelPress(string name, string arg, ref bool handled)
+    void WeatherPanelPress(string name, string arg, ref bool handled)
     {
         if (WeatherClientLink.TestMove is { } move && move(name, arg)) { handled = true; return; }   // repair 1: the locomotion test aid's words (wxmove:right:4, wxslide:20:3, wxstop)
         if (name != "weather" || !WeatherClientLink.Available) return;
@@ -61,7 +61,7 @@ public partial class DevToolsPanel
         if (WeatherCatalog.ByKey(arg) is { } def) { WeatherSend(new WeatherCommand(WeatherCommandKind.Set, def.Id)); handled = true; }
     }
 
-    partial void ExtrasPanelSync()
+    void WeatherPanelSync()
     {
         if (_wxBox is null) return;
         bool on = WeatherClientLink.Available;

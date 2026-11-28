@@ -129,4 +129,11 @@ public partial class NetworkView
     partial void ExtrasMapCollision(string name, ref SmSim.CollisionWorld world, ref ulong hash) => TfwMapCollision(name, ref world, ref hash);
 
     partial void ExtrasMapCollisionVisuals() => TfwMapCollisionVisuals();
+
+    /// <summary>The view leaves the tree: the Mapmaker forgets a picked map file unless a rotation's rejoin follows (devtools-god-custommap), then weather lets go of its static link and rig.</summary>
+    partial void ExtrasExit()
+    {
+        MapmakerExit();
+        WeatherExit();
+    }
 }

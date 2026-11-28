@@ -568,7 +568,11 @@ public static partial class Protocol
     //     a block of lean records (Protocol.Lean.cs, 33 bytes: a Warfront run's AI Marines) follows the slim and full ones; the shot record's index gains a fifth bit (Protocol.Lean.cs); the writer keeps every
     //     snapshot and scoreboard within the 1200-byte budget by leaving out the last records. With at most 16 records and no lean block the bytes are protocol 91's (Classic and Musou unchanged).
     //     Executions (input bit 6 InputButtons.Execute, the Execution wire under the extended and Warfront hashes) and the Chaos Warfront sections (WarfrontRules) ride this number.
-    public const ushort Version = 94;
+    // 95 (devtools-god-custommap; the owner 2026-11-28): developer tools only. DevCommandKind.SetGod (16: god mode for the requester alone) and PickMapFile (17: a saved Mapmaker map, argument an index
+    //     into the panel's file list, extra a 16-bit check of the file name); DevNote.MapLoading, MapRefused and MapModeFallback (16 to 18); DevState gains a per-recipient self byte (bit 0 god mode,
+    //     bit 1 map-file picks taken) and two u8-length UTF-8 texts (the answer in words, the picked map file's name while the pick is on its way): 18 bytes with both empty, was 15.
+    //     No sim change; the config hash is unchanged.
+    public const ushort Version = 95;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
