@@ -166,6 +166,15 @@ The playtest build holds the Mapmaker (docs/mapmaker.md) and the launcher has a 
   game window (`game\sm-reimpl.exe --connect 127.0.0.1:<port>`), and stops them by recorded pid and start time (`-Stop`, or when the game closes). `--mapmaker-check` checks the
   script, the server and the game are all there; the release smoke (step 1d) runs the script with `-Headless` (the player's client a hidden bot) on a starter map and needs the server log
   to show the custom map. Tests: `tests/SmLauncher.Tests/MapmakerPlaytestTests.cs` (`-Locate`).
+- **PLAY TEST MAP: play test without the Mapmaker open** (owner, 2026-11-28: the editor open beside the game, its server and its bots ran PCs out of memory; a
+  launcher button, this PC only). The launcher's third button (`MainForm.PlayTestMap`, `SmLauncher.Core.MapPlaytest`, `PlaytestDialog`) sits beside MAPMAKER, on under the
+  same conditions and only when the active build has `mapmaker\playtest.ps1`, `server\SmServer.exe`, `game\sm-reimpl.exe` and `game\sm-reimpl.console.exe` (the tooltip
+  says why it is off). It asks for a saved `.smmap` (Browse... opens `<data>\mapmaker\maps`), the mode, bots per side (0 to 6, default 3) and the side, remembers them
+  in `launcher-settings.json`, and runs **the build's own copy** of the script hidden: `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File
+  <version>\mapmaker\playtest.ps1 -Map <file> -Mode <m> -Bots <n> -Side <s> -VersionDir <version>` (an argument list, so an install folder with spaces is passed whole).
+  The status line follows `status.txt` and ends on the script's failure reason or "Play test over". A play test still running (this launcher's, or any process in
+  `run.json` alive with its recorded start time, which covers the Mapmaker's own button too) is never doubled: the button offers Stop (`-Stop`). Added content like the
+  rest of the Mapmaker: a build without `mapmaker\` has the button off. The Mapmaker's own Play test is unchanged.
 - **Guard scope:** the project's text types (`.cs .uid .tscn .cfg .godot .csproj`) are allowed only for entries under `mapmaker/` (`PackageScanner.ScopedExtensions`), not globally.
 - **Pins cross-checked (2026-11-17):** the .NET 10.0.15 runtime SHA-512 equals the `dotnet-runtime-win-x64.zip` entry of Microsoft's `https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json`, and the zip's Content-Length is 36,980,907.
 - **Smoke test** (release.ps1 step 1d, never a visible window and never a download): `0 - SM Reimpl Launcher.exe --root <install> --mapmaker-check` must print

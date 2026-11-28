@@ -23,6 +23,10 @@ static class MapmakerStart
     public static Process StartEditor(MapmakerLaunch launch) =>
         Process.Start(Info(launch, hidden: false)) ?? throw new InvalidOperationException("The Godot editor could not be started.");
 
+    /// <summary>A program with no window of its own (PLAY TEST MAP's PowerShell: the script opens the game window itself). The caller disposes the process.</summary>
+    public static Process StartHidden(MapmakerLaunch launch) =>
+        Process.Start(Info(launch, hidden: true)) ?? throw new InvalidOperationException(Path.GetFileName(launch.FileName) + " could not be started.");
+
     /// <summary>The first-time import: the editor with no window, quitting by itself. Returns its exit code (-1 over the time limit). Cancelling ends this process only (by its id).</summary>
     public static async Task<int> RunHiddenAsync(MapmakerLaunch launch, TimeSpan limit, CancellationToken ct)
     {

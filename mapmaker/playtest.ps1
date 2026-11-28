@@ -12,8 +12,11 @@
   -Plan                                      prints the command lines it would run (PLAN server|bot|client ...), starts nothing
   -Headless [-Seconds 30]                    a test aid: the player's client is a hidden bot that stays -Seconds, instead of a game window
 
-  Where the build is found, in order: -VersionDir, the SM_MAPMAKER_VERSION_DIR variable (the launcher sets it when it opens the editor), then the install's
-  current.json beside mapmaker-project\.
+  The launcher's PLAY TEST MAP button (owner, 2026-11-28) runs this script from <install>\versions\<tag>\mapmaker\ with no editor open, passing -VersionDir.
+
+  Where the build is found, in order: -VersionDir, the SM_MAPMAKER_VERSION_DIR variable (the launcher sets it when it opens the editor), the build whose
+  mapmaker\ folder holds this script, then the install's current.json beside mapmaker-project\.
+  SM_PLAYTEST_STATE_DIR (test aid) moves status.txt and run.json out of <data>\tmp-build\mapmaker-playtest.
   Starts a dedicated server on 127.0.0.1 only (a free port in 27701..27760) with --custom-map, -Bots bots on each side (hidden, no window), then the game
   client connected to it in a normal window. When the game closes the server and the bots it started are stopped, by process id. Nothing else is touched.
   The editor reads <data>\tmp-build\mapmaker-playtest\status.txt ("stage|text"). The last output line is `PLAYTEST ok` or `PLAYTEST failed: <reason>`.
@@ -26,15 +29,18 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $Data = if ($env:SM_DATA_DIR) { $env:SM_DATA_DIR } else { Join-Path $env:LOCALAPPDATA 'sm-reimpl' }
-$State = Join-Path $Data 'tmp-build\mapmaker-playtest'
+# SM_PLAYTEST_STATE_DIR (test aid): another folder for status.txt and run.json, so a test run never meets (or stops) a real play test's record
+$State = if ($env:SM_PLAYTEST_STATE_DIR) { $env:SM_PLAYTEST_STATE_DIR } else { Join-Path $Data 'tmp-build\mapmaker-playtest' }
 $RunFile = Join-Path $State 'run.json'
 function Say([string]$stage, [string]$text) { try { Set-Content -LiteralPath (Join-Path $State 'status.txt') -Value "$stage|$text" -Encoding utf8 } catch { } Write-Host $text }
 
-# The version folder of the build to run: the argument, the variable the launcher sets, or the install's current.json (this script sits in <install>\mapmaker-project).
+# The version folder of the build to run: the argument, the variable the launcher sets, the build this script came with (it sits in that build's own
+# <version>\mapmaker\ folder when the launcher's PLAY TEST MAP button runs it), or the install's current.json (this script sits in <install>\mapmaker-project).
 function Find-VersionDir([string]$explicit) {
     if ($explicit) { return $explicit }
     if ($env:SM_MAPMAKER_VERSION_DIR) { return $env:SM_MAPMAKER_VERSION_DIR }
     $installRoot = Split-Path -Parent $PSScriptRoot
+    if ((Split-Path -Leaf $PSScriptRoot) -eq 'mapmaker' -and (Test-Path -LiteralPath (Join-Path $installRoot 'server\SmServer.exe'))) { return $installRoot }
     $cur = Join-Path $installRoot 'current.json'
     if (Test-Path -LiteralPath $cur) {
         try {

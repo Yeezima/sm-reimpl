@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- The launcher has a new **PLAY TEST MAP** button next to MAPMAKER: pick a saved map, the mode, how many bots a side and your side, and play it with bots without the Mapmaker open (it uses much less memory than pressing Play test inside the Mapmaker). Close the game window to stop the server and the bots. Fewer bots use less memory.
