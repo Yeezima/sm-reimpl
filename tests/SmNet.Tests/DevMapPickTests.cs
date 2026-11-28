@@ -148,7 +148,7 @@ public sealed class DevMapPickTests
         Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--content", "musou"), extrasCompiled: true));
         Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--map", "mp_tdm_09", "--rotation-child"), extrasCompiled: true));
         Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--dev-supervised"), extrasCompiled: true));
-        Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "0.0.0.0", "--dev-tools", "--custom-map", "x.smmap", "--content", "extended"), extrasCompiled: true));
+        Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "192.168.1.20", "--dev-tools", "--custom-map", "x.smmap", "--content", "extended"), extrasCompiled: true));
         Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1"), extrasCompiled: true));   // no --dev-tools
     }
 
