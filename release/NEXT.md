@@ -9,3 +9,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Developer tools (F6, on a match you host on this PC): a new "God mode (me only)" switch makes only you take no damage, your own grenades included, while bots and other players still get hurt; KILL ME still works.
+- Developer tools: a new CUSTOM MAP row lists the maps you saved in the Mapmaker; pick one and press GO to end the match and continue on that map a few seconds later, also during a Mapmaker play test. A map without capture points plays Annihilation, and a map that cannot be loaded leaves the match running with the reason shown.
+- This build has a new network version: everyone must update to play together.

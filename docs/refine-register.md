@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4572 spec table rows: **3411 tagged**, 759 not tagged (read from data with high confidence), 402 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 859 rows of the changes document.
+Scanned 4584 spec table rows: **3422 tagged**, 759 not tagged (read from data with high confidence), 403 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 859 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -49,17 +49,17 @@ Scanned 4572 spec table rows: **3411 tagged**, 759 not tagged (read from data wi
 | Customizer and paint | 64 | 56 | 42 | 22 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 52 | 41 | 23 | 12 | 7 |
+| Networking and render smoothing | 63 | 52 | 23 | 12 | 7 |
 | Core simulation (provisional values) | 902 | 855 | 670 | 242 | 1 |
 | General game design | 359 | 357 | 125 | 145 | 0 |
 | Ork faction | 304 | 283 | 183 | 75 | 0 |
-| **All areas** | **3411** | 3094 | 2388 | 1042 | 37 |
+| **All areas** | **3422** | 3105 | 2388 | 1042 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2178 |
+| kind: ours | 2189 |
 | confidence: medium | 1171 |
 | confidence: low | 1106 |
 | notes: ours | 496 |
@@ -3105,7 +3105,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (52)
+### Networking and render smoothing (63)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -3187,6 +3187,27 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-558ACE53` | Instant respawn | a toggle: after each tick every dead player's death timer is 0, so it respawns on the next tick | kind: ours | the owner | Instant respawn: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a toggle: after each tick every dead player's death timer is 0, so it… | ☐ |
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
+
+*Spec section: Developer tools: god mode for one player (devtools-god-custommap; owner 2026-11-28; protocol 95; test aid, ours, never on a public server)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-5CD96697` | God mode (me only) | a toggle in the F6 panel's left column under "All players and bots invincible": the requester alone takes no damage, exactly as Invincible protects everyone (`World.DamageTakenScale` 0 for that player: shots, projectiles, cones, blasts including its own… | kind: ours | the owner (card answers 1 and 2) | God mode (me only): compare with SM1 by feel or video. Ours: a toggle in the F6 panel's left column under "All players and bots… | ☐ |
+| `R-6CF864EA` | God mode lifetime | per player: kept across respawns, restarts and new matches of the same server process; dropped when the player leaves (`World.Remove`) or the id joins anew (`World.Spawn`); a map pick starts a new server process, so it is off there, as every other F6 switch | kind: ours | ours (the existing switches' lifetime) | God mode lifetime: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: per player: kept across respawns, restarts and new matches of the… | ☐ |
+| `R-3A7194BA` | What each client is told | `DevState.God` is the recipient's own flag (the state is built per recipient; protocol 95) | kind: ours | ours | What each client is told: compare with SM1 by feel or video. Ours: DevState.God is the recipient's own flag (the state is built per… | ☐ |
+
+*Spec section: Added content: Mapmaker — the developer tools' CUSTOM MAP picker (devtools-god-custommap; owner 2026-11-28; protocol 95; test aid, ours)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7CFFAB21` | The list | every `*.smmap` in the Mapmaker library's `maps` folder (`SM_MAPS_DIR` instead when set, a test aid), by file name ignoring case, at most 255, labelled "map name (file name)"; listed again each time the panel opens; nothing is compiled for the list (files) | kind: ours | the owner (card answer 3) | The list: compare with SM1 by feel or video. Ours: every *.smmap in the Mapmaker library's maps folder (SM_MAPS_DIR… | ☐ |
+| `R-0D2F1BA4` | Load check | the server compiles the file as a `--custom-map` start would (`GameServer.CustomMap`, its SM1 pieces from the server's install), off the tick; meanwhile the match goes on ("Loading ...") (s) | kind: ours | ours | Load check: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server compiles the file as a --custom-map start would… | ☐ |
+| `R-3A441907` | A file that cannot be loaded | the match goes on on the current map; the panel's status line gives the reason in words (`DevNote.MapRefused`, `DevState.Text`, at most 200 UTF-8 bytes) | kind: ours | the owner (card answer 4) | A file that cannot be loaded: compare with SM1 by feel or video. Ours: the match goes on on the current map; the panel's status line gives… | ☐ |
+| `R-BEF687E9` | Mode clash | a map that cannot run the server's mode (Seize Ground with no capture points) loads anyway in Annihilation (`--mode annihilation` for that match only) and the panel says so (`DevNote.MapModeFallback`); a later pick returns to the server's own mode where the… | kind: ours | the owner (card answer 4) | Mode clash: compare with SM1 by feel or video. Ours: a map that cannot run the server's mode (Seize Ground with no capture… | ☐ |
+| `R-F7BD24DC` | The switch | as the Classic MAP row: the match ends at once, the snapshots say NEXT MAP, clients rejoin the same address and the supervisor starts the file (`--custom-map <file>`); the map being played is only restarted (fresh scores) | kind: ours | the owner (card answer 3) | The switch: compare with SM1 by feel or video. Ours: as the Classic MAP row: the match ends at once, the snapshots say… | ☐ |
+| `R-3E0B435F` | Which file the rejoin loads | while the pick is on its way the server names the file (`DevState.NextMapFile`, a file name only, at most 120 bytes); every client and bot of this PC then loads exactly that file from the picker's folder, even one started with `--custom-map <another file>`; a… | kind: ours | ours | Which file the rejoin loads: compare with SM1 by feel or video. Ours: while the pick is on its way the server names the file… | ☐ |
+| `R-5B820FAD` | Supervised custom-map servers | a loopback `--dev-tools` server started with `--custom-map` now runs under the dev supervisor (custom to custom, custom to Classic, Classic to custom); not under `--content faithful` (no custom maps: that server runs alone and cannot change map, as before)… | kind: ours | the lead's brief (2026-11-28) | Supervised custom-map servers: compare with SM1 by feel or video. Ours: a loopback --dev-tools server started with --custom-map now runs… | ☐ |
+| `R-068DDB42` | Bots the tools add | on a server that plays a map file, each new tool bot is started with `--custom-map <that file>`; the tool bots stop with the server process that started them, so after a switch they are gone and new ones are added on the new map (unchanged since dev-tools) | kind: ours | ours | Bots the tools add: compare with SM1 by feel or video. Ours: on a server that plays a map file, each new tool bot is started with… | ☐ |
 
 *Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94)*
 
@@ -7246,6 +7267,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-060A8DDF` | Musou weight: puff budget | Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only) |
 | `R-B20A1288` | Classic autocannon: config hash | Added content: Classic PvP's autocannon — the Musou autocannon in Annihilation and Seize Ground (extended profile only; owner 2026-11-11) |
 | `R-4D8893ED` | Ledge jump: wire | Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules; protocol 72, used by the simulation; Assault Marine and Raptor) |
+| `R-4230DC68` | The pick on the wire | Added content: Mapmaker — the developer tools' CUSTOM MAP picker (devtools-god-custommap; owner 2026-11-28; protocol 95; test aid, ours) |
 | `R-76716B41` | Coop wire | Added content: Warfront: co-op rules (W12: `WarfrontCoop`, `WarfrontCoopWire`; `WarfrontRules.Version` 3; saved fields `JoinedAtDeployment`, `ClassConfirmed`, run save version 4; added content, Warfront only) |
 | `R-5669C607` | Budget | Added content: Warfront: squads (W9: `WarfrontSquadSim`, `SquadRosters`; pure sim, not yet connected to World, the wire or the loadouts) |
 | `R-D059B1AC` | Search budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |

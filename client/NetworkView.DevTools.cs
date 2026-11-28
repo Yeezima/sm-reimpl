@@ -120,7 +120,7 @@ public partial class NetworkView
         }
         if (state is not null)
         {
-            string line = $"flags={(int)state.Flags} ({state.Flags}) loyalists={state.PlayersLoyalists} (tool bots {state.ToolBotsLoyalists}) chaos={state.PlayersChaos} (tool bots {state.ToolBotsChaos}) note={state.Note}#{state.NoteSerial} scale={state.TimeScale} acc={state.BotAccuracy} dmg={state.BotDamage} range={state.BotRange}";
+            string line = $"flags={(int)state.Flags} ({state.Flags}) loyalists={state.PlayersLoyalists} (tool bots {state.ToolBotsLoyalists}) chaos={state.PlayersChaos} (tool bots {state.ToolBotsChaos}) note={state.Note}#{state.NoteSerial} scale={state.TimeScale} acc={state.BotAccuracy} dmg={state.BotDamage} range={state.BotRange} god={state.God} files={state.CanPickFiles}{(state.NextMapFile.Length > 0 ? $" next={state.NextMapFile}" : "")}{(state.Text.Length > 0 ? $" text=\"{state.Text}\"" : "")}";
             if (!_bot && line != _devLogged) { _devLogged = line; GD.Print("devtools: state " + line); }
         }
         if (_devPanel is null) return;
