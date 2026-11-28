@@ -56,7 +56,10 @@ static class RotationSupervisor
         return WithWeatherLoad(child, weatherDraw);
     }
 
-    /// <summary>devtools-god-custommap: a pick is a saved Mapmaker map file (a full path to an existing <c>.smmap</c>), not a Classic map's archive name.</summary>
+    /// <summary>
+    /// devtools-god-custommap: whether a pick names a saved Mapmaker map file (a rooted path ending in <c>.smmap</c>) rather than a Classic map's archive name. The text alone decides: whether the file
+    /// exists is checked where a pick is read (<see cref="TakePick(string, out string?)"/>).
+    /// </summary>
     public static bool IsMapFilePick(string? pick) => pick is not null && Path.IsPathRooted(pick) && pick.EndsWith(".smmap", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
@@ -155,6 +158,7 @@ static class RotationSupervisor
         info.Environment[PickFileVariable] = pickFile;
         info.Environment[SupervisorPidVariable] = Environment.ProcessId.ToString();
         if (homeMode is not null) info.Environment[HomeModeVariable] = homeMode;
+        else info.Environment.Remove(HomeModeVariable);   // never an inherited one (a supervisor started from another server's child)
         var running = Process.Start(info) ?? throw new InvalidOperationException("the rotation child did not start");
         track(running);
         running.WaitForExit();
@@ -182,15 +186,48 @@ static class RotationSupervisor
         var (exe, host) = Self();
         Process? running = null;
         Console.CancelKeyPress += (_, e) => { try { if (running is { HasExited: false }) running.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } };
-        string? map = null, mode = null;
+        var plan = new DevPlan();
         string? homeMode = ModeOf(args);
         args = WithWeatherSeed(args, (uint)Random.Shared.NextInt64(0, uint.MaxValue));   // weather W3: one Random seed for every child of this supervisor
         for (int turn = 0; ; turn++)
         {
-            if (turn > 0) Console.WriteLine($"dev tools: starting the match on {map}{(mode is not null ? $" in {mode} (the map cannot run the server's mode)" : "")}");
-            var (code, pick, pickMode) = RunChild(exe, host, DevChildArguments(args, map, turn, mode), p => running = p, homeMode);
-            if (code != ServerCommandLine.RotationExit) return code;
-            if (pick is not null) { map = pick; mode = pickMode; }
+            if (turn > 0) Console.WriteLine($"dev tools: starting the match on {plan.Map ?? "the first map"}{(plan.Mode is not null ? $" in {plan.Mode} (the map cannot run the server's mode)" : "")}");
+            var (code, pick, pickMode) = RunChild(exe, host, DevChildArguments(args, plan.Map, turn, plan.Mode), p => running = p, homeMode);
+            string? failed = plan.Map;
+            if (!plan.Next(code, pick, pickMode)) return code;
+            if (code != ServerCommandLine.RotationExit) Console.WriteLine($"dev tools: the match on {failed} could not run (exit code {code}); back to {plan.Map ?? "the first map"}");
+        }
+    }
+
+    /// <summary>
+    /// devtools-god-custommap: the dev supervisor's map and mode from turn to turn. A pick replaces them for the next child; a child that fails (an exit code other than 0 and the rotation's) right after
+    /// a pick falls back once to the map and mode before it, instead of ending the server; any other exit ends it.
+    /// </summary>
+    public sealed class DevPlan
+    {
+        string? _previousMap, _previousMode;
+        bool _picked;
+
+        /// <summary>The map (archive name or map file) the next child plays; null: the server's own arguments.</summary>
+        public string? Map { get; private set; }
+        /// <summary>The mode override of the next child (<c>annihilation</c>), else null.</summary>
+        public string? Mode { get; private set; }
+
+        /// <summary>After a child exited: true and the next map and mode to start, or false (the supervisor ends with the child's code).</summary>
+        public bool Next(int code, string? pick, string? pickMode)
+        {
+            if (code == ServerCommandLine.RotationExit)
+            {
+                if (pick is not null) { _previousMap = Map; _previousMode = Mode; Map = pick; Mode = pickMode; _picked = true; }
+                else _picked = false;
+                return true;
+            }
+            if (_picked && code != 0)
+            {
+                Map = _previousMap; Mode = _previousMode; _picked = false;   // once: a failure of the fallback ends the server
+                return true;
+            }
+            return false;
         }
     }
 

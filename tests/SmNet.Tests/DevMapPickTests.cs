@@ -128,9 +128,49 @@ public sealed class DevMapPickTests
         bot.SendDevCommand(DevCommandKind.PickMap, 1, true);
         h.Run(TimeSpan.FromSeconds(0.5));
         Assert.Null(h.Server.PickedMap);
-        // the supervisor's forced map is separate from the list's turn: the args for a custom map are never rewritten (no supervisor for it)
-        Assert.True(ServerCommandLine.TryParse(["--bind", "127.0.0.1", "--dev-tools", "--custom-map", "x.smmap"], out var cli, out _));
-        Assert.NotNull(cli.CustomMap);
+    }
+
+    static ServerArguments Cli(params string[] args)
+    {
+        Assert.True(ServerCommandLine.TryParse(args, out var cli, out var error), error);
+        return cli;
+    }
+
+    [Fact]
+    public void Which_starts_run_under_the_dev_supervisor()
+    {
+        // devtools-god-custommap: a --custom-map dev server is supervised too, with added content and outside the faithful profile
+        Assert.True(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools"), extrasCompiled: false));
+        Assert.True(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--custom-map", "x.smmap", "--content", "extended"), extrasCompiled: true));
+        Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--custom-map", "x.smmap", "--content", "extended"), extrasCompiled: false));
+        Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--custom-map", "x.smmap", "--content", "faithful"), extrasCompiled: true));
+        Assert.True(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--content", "faithful"), extrasCompiled: true));   // a Classic faithful dev server, as before
+        Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--content", "musou"), extrasCompiled: true));
+        Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--map", "mp_tdm_09", "--rotation-child"), extrasCompiled: true));
+        Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1", "--dev-tools", "--dev-supervised"), extrasCompiled: true));
+        Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "0.0.0.0", "--dev-tools", "--custom-map", "x.smmap", "--content", "extended"), extrasCompiled: true));
+        Assert.False(ServerCommandLine.DevSupervises(Cli("--bind", "127.0.0.1"), extrasCompiled: true));   // no --dev-tools
+    }
+
+    [Fact]
+    public void A_child_that_fails_right_after_a_pick_falls_back_once_to_the_map_before_it()
+    {
+        var plan = new RotationSupervisor.DevPlan();
+        Assert.True(plan.Next(ServerCommandLine.RotationExit, "mp_tdm_17", null));
+        Assert.Equal(("mp_tdm_17", (string?)null), (plan.Map, plan.Mode));
+        Assert.True(plan.Next(ServerCommandLine.RotationExit, "c:\\maps\\open.smmap", "annihilation"));
+        Assert.True(plan.Next(1, null, null));   // the map file could not start: back to the map before it, in its mode
+        Assert.Equal(("mp_tdm_17", (string?)null), (plan.Map, plan.Mode));
+        Assert.False(plan.Next(1, null, null));   // the fallback failing too ends the server
+        var first = new RotationSupervisor.DevPlan();
+        Assert.False(first.Next(4, null, null));   // a failure with no pick before it ends the server, as before
+        var quit = new RotationSupervisor.DevPlan();
+        Assert.True(quit.Next(ServerCommandLine.RotationExit, "mp_tdm_17", null));
+        Assert.False(quit.Next(0, null, null));   // a clean exit after a pick is not a failure
+        var back = new RotationSupervisor.DevPlan();
+        Assert.True(back.Next(ServerCommandLine.RotationExit, "mp_tdm_17", null));
+        Assert.True(back.Next(2, null, null));
+        Assert.Null(back.Map);   // the server's own first map again
     }
 
     [Fact]

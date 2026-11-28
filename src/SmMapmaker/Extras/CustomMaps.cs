@@ -172,6 +172,41 @@ public static class CustomMaps
         return File.Exists(path) ? Path.GetFullPath(path) : null;
     }
 
+    /// <summary>Where a client's map file came from (<see cref="PlayFile"/>).</summary>
+    public enum PlaySource
+    {
+        /// <summary>The file the developer tools picked (the server named it before the switch).</summary>
+        Picked,
+        /// <summary>The file given with <c>--custom-map</c>.</summary>
+        Given,
+        /// <summary>None chosen: the map is found by its name in <see cref="SearchDirs"/> (<see cref="LoadForPlay"/>).</summary>
+        ByName,
+    }
+
+    /// <summary>
+    /// The file a client loads for the server's map <paramref name="wireName"/> (devtools-god-custommap, 2026-11-28): the file the developer tools picked (<paramref name="picked"/>, a full path the client
+    /// resolved with <see cref="ResolvePick"/>) when it still exists and holds that map; else the <c>--custom-map</c> file (<paramref name="given"/>) unless it holds another map (after a switch away from
+    /// it: then null, found by name), or when it does not exist (<see cref="LoadForPlay"/> then refuses with its own message); else null. <paramref name="pickSpent"/> is true when <paramref name="picked"/>
+    /// was given and is not this map's (the client forgets it); <paramref name="givenHolds"/> names the map the <c>--custom-map</c> file holds when it was set aside.
+    /// </summary>
+    public static string? PlayFile(string wireName, string? picked, string? given, out PlaySource source, out bool pickSpent, out string? givenHolds)
+    {
+        pickSpent = false; givenHolds = null;
+        if (picked is not null)
+        {
+            if (File.Exists(picked) && WireNameOfFile(picked) == wireName) { source = PlaySource.Picked; return picked; }
+            pickSpent = true;
+        }
+        if (!string.IsNullOrEmpty(given))
+        {
+            if (!File.Exists(given)) { source = PlaySource.Given; return given; }   // LoadForPlay refuses a missing --custom-map file with its own message (never a lookup by name)
+            if (WireNameOfFile(given) is { } held && held != wireName) givenHolds = held;
+            else { source = PlaySource.Given; return given; }
+        }
+        source = PlaySource.ByName;
+        return null;
+    }
+
     /// <summary>
     /// Loads the map a client was told to play: <paramref name="explicitFile"/> (typed by the user with <c>--custom-map</c>) when it exists, else the file for <paramref name="wireName"/> (from the
     /// server) found in the search folders, with a message that says what to do when it is missing.

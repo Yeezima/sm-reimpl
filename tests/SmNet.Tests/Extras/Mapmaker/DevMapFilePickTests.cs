@@ -41,10 +41,27 @@ public sealed class DevMapFilePickTests : IDisposable
     static DevToolsSetup Supervised(string? current = null, GameMode? home = null) =>
         new(IPAddress.Loopback, null, null, ["mp_tdm_09"], Supervised: true, HomeMode: home, CurrentMapFile: current);
 
-    (Harness H, List<string> Log) Make(DevToolsSetup? setup, SimConfig? config = null, MatchRules? match = null, GameMap? map = null, bool rules = true)
+    /// <summary>The server's map for a saved file, as a <c>--custom-map</c> start builds it.</summary>
+    static GameMap GameFor(string file)
+    {
+        var compiled = CustomMaps.Load(file);
+        return new GameMap(compiled.Name, compiled.ToCollisionWorld(), compiled.Content.SpawnPoints(), compiled.Hash, compiled.Content.SimControlPoints(), compiled.Content.SimStartAreas(), compiled.Content.SimBlockers());
+    }
+
+    sealed class AddressedTransport(IServerTransport inner, IPEndPoint remote) : IServerTransport
+    {
+        public void Send(int connection, byte[] packet) => inner.Send(connection, packet);
+        public bool TryReceive(out int connection, out byte[] packet) => inner.TryReceive(out connection, out packet);
+        public void Disconnect(int connection) => inner.Disconnect(connection);
+        public void Pin(int connection) => inner.Pin(connection);
+        public IPEndPoint? EndPointOf(int connection) => remote;
+    }
+
+    (Harness H, List<string> Log) Make(DevToolsSetup? setup, SimConfig? config = null, MatchRules? match = null, GameMap? map = null, bool rules = true, IPEndPoint? remote = null)
     {
         var clientOptions = map is null ? null : new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) };
-        var h = new Harness(Link, seed: 5, 1, config ?? Extended, new ServerOptions { DevTools = setup, Match = rules ? match ?? new MatchRules { TimeLimit = 0f, ScoreLimit = 1000, CountdownTime = 0f } : null }, map: map, clientOptions: clientOptions);
+        var h = new Harness(Link, seed: 5, 1, config ?? Extended, new ServerOptions { DevTools = setup, Match = rules ? match ?? new MatchRules { TimeLimit = 0f, ScoreLimit = 1000, CountdownTime = 0f } : null }, map: map, clientOptions: clientOptions,
+            wrapServer: remote is null ? null : t => new AddressedTransport(t, remote));
         h.Server.DevPickDirForTests = _dir;
         var log = new List<string>();
         h.Server.Log += log.Add;
@@ -80,6 +97,44 @@ public sealed class DevMapFilePickTests : IDisposable
         Assert.Null(CustomMaps.ResolvePick(list[1].File, _dir));
         Assert.Null(CustomMaps.ResolvePick("notes.txt", _dir));
         Assert.Null(CustomMaps.ResolvePick("gone.smmap", _dir));
+        Directory.CreateDirectory(Path.Combine(_dir, "sub"));
+        File.WriteAllText(Path.Combine(_dir, "sub", "x.smmap"), "{}");
+        File.WriteAllText(Path.Combine(_dir, ".smmap"), "{}");
+        string longName = new string('n', 115) + ".smmap";   // 121 characters
+        File.WriteAllText(Path.Combine(_dir, longName), "{}");
+        Assert.Null(CustomMaps.ResolvePick("sub/x.smmap", _dir));
+        Assert.Null(CustomMaps.ResolvePick("sub\\x.smmap", _dir));
+        Assert.Null(CustomMaps.ResolvePick("x.smmap:s", _dir));
+        Assert.Null(CustomMaps.ResolvePick(".smmap", _dir));
+        Assert.Null(CustomMaps.ResolvePick(longName, _dir));
+        Assert.Null(CustomMaps.ResolvePick("", _dir));
+    }
+
+    [Fact]
+    public void The_client_loads_the_picked_file_then_its_own_unless_it_holds_another_map_then_finds_it_by_name()
+    {
+        string a1 = Save("my-map.smmap", "arena", "My Map");
+        string a2 = Save("my-map-2.smmap", "blank", "My Map");   // the same map name (cm_my_map), other content
+        string b = Save("b.smmap", "arena", "Other");
+        Assert.Equal(CustomMaps.WireNameOfFile(a1), CustomMaps.WireNameOfFile(a2));
+        // the tools picked a2: it wins over the --custom-map file with the same map name
+        Assert.Equal(a2, CustomMaps.PlayFile("cm_my_map", a2, a1, out var source, out bool spent, out var held));
+        Assert.Equal((CustomMaps.PlaySource.Picked, false, (string?)null), (source, spent, held));
+        // no pick: the --custom-map file holds the map
+        Assert.Equal(a1, CustomMaps.PlayFile("cm_my_map", null, a1, out source, out spent, out held));
+        Assert.Equal(CustomMaps.PlaySource.Given, source);
+        // the server moved on to another map: the pick for cm_my_map is spent and the --custom-map file holds another map, so the client finds cm_other by its name
+        Assert.Null(CustomMaps.PlayFile("cm_other", a2, a1, out source, out spent, out held));
+        Assert.Equal((CustomMaps.PlaySource.ByName, true, "cm_my_map"), (source, spent, held));
+        // a picked file that was deleted meanwhile is spent too
+        string gone = Path.Combine(_dir, "gone.smmap");
+        Assert.Equal(b, CustomMaps.PlayFile("cm_other", gone, b, out source, out spent, out _));
+        Assert.Equal((CustomMaps.PlaySource.Given, true), (source, spent));
+        // a missing --custom-map file is still handed on (LoadForPlay refuses it with its own message; never a lookup by name)
+        Assert.Equal(gone, CustomMaps.PlayFile("cm_other", null, gone, out source, out _, out _));
+        Assert.Equal(CustomMaps.PlaySource.Given, source);
+        Assert.Null(CustomMaps.PlayFile("cm_other", null, null, out source, out _, out _));
+        Assert.Equal(CustomMaps.PlaySource.ByName, source);
     }
 
     [Fact]
@@ -99,12 +154,87 @@ public sealed class DevMapFilePickTests : IDisposable
         Assert.Equal(DevNote.Applied, me.Dev.Note);
         Assert.Contains(log, l => l.StartsWith("dev tools: map file pick b.smmap (cm_arena_b):"));
 
-        // the map being played is only restarted
-        var (h2, _) = Make(Supervised(current: a));
+    }
+
+    [Fact]
+    public void The_map_being_played_restarts_when_unchanged_and_reloads_when_it_was_edited()
+    {
+        string a = Save("a.smmap", "arena", "Arena A");
+        var (h, log) = Make(Supervised(current: a), map: GameFor(a));
+        Pick(h, 0, "a.smmap");
+        Assert.Null(h.Server.PickedMap);
+        Assert.False(h.Server.RotationDue);
+        Assert.Equal(DevNote.Applied, h.Clients[0].Dev!.Note);
+        Assert.Contains(log, l => l.Contains("is the map being played, unchanged: restart match"));
+
+        // edited and saved meanwhile (the same file, another layout): the pick reloads it through the supervisor
+        var (h2, _) = Make(Supervised(current: a), map: GameFor(a));
+        var s = MapSession.New("Arena A", new MapLibrary(Path.Combine(_dir, "lib")));
+        Assert.True(s.Apply(MapTemplate.Find("open-field")!.Ops()).Ok);
+        File.WriteAllText(a, s.Document.ToJson());
         Pick(h2, 0, "a.smmap");
-        Assert.Null(h2.Server.PickedMap);
-        Assert.False(h2.Server.RotationDue);
-        Assert.Equal(DevNote.Applied, h2.Clients[0].Dev!.Note);
+        Assert.Equal(Path.GetFullPath(a), h2.Server.PickedMap);
+        Assert.True(h2.Server.RotationDue);
+        Assert.Equal("a.smmap", h2.Clients[0].Dev!.NextMapFile);
+    }
+
+    [Fact]
+    public void A_pick_from_a_bot_or_a_remote_address_does_nothing()
+    {
+        Save("a.smmap", "arena", "Arena A");
+        var (h, _) = Make(Supervised());
+        var bot = h.AddClient(nonce: 77, options: new ClientOptions { Bot = true });
+        h.Run(TimeSpan.FromSeconds(1));
+        bot.SendDevCommand(DevCommandKind.PickMapFile, 0, true, CustomMaps.PickCheck("a.smmap"));
+        h.Run(TimeSpan.FromSeconds(0.2));
+        h.Server.WaitForDevFilePick();
+        h.Run(TimeSpan.FromSeconds(0.2));
+        Assert.Null(h.Server.PickedMap);
+        Assert.Equal(DevNote.None, h.Clients[0].Dev!.Note);
+
+        var (remote, log) = Make(Supervised(), remote: new IPEndPoint(IPAddress.Parse("203.0.113.9"), 40000));
+        Pick(remote, 0, "a.smmap");
+        Assert.Null(remote.Server.PickedMap);
+        Assert.Equal(MatchState.Warmup, remote.Server.World.State);
+        Assert.Contains(log, l => l.Contains("not a loopback address"));
+    }
+
+    [Fact]
+    public void While_a_check_runs_a_second_pick_and_a_Classic_pick_wait_and_a_check_finishing_after_the_match_ended_still_switches()
+    {
+        Save("a.smmap", "arena", "Arena A");
+        Save("b.smmap", "arena", "Arena B");
+        var (h, _) = Make(Supervised());
+        using var hold = new ManualResetEventSlim(false);
+        h.Server.DevFilePickHoldForTests = hold;
+        var me = h.Clients[0];
+        me.SendDevCommand(DevCommandKind.PickMapFile, 0, true, CustomMaps.PickCheck("a.smmap"));
+        h.Run(TimeSpan.FromSeconds(0.3));
+        Assert.Equal(DevNote.MapLoading, me.Dev!.Note);
+        me.SendDevCommand(DevCommandKind.PickMapFile, 1, true, CustomMaps.PickCheck("b.smmap"));
+        h.Run(TimeSpan.FromSeconds(0.3));
+        Assert.Equal((DevNote.MapLoading, "A map file is still being checked; wait a moment."), (me.Dev!.Note, me.Dev.Text));
+        me.SendDevCommand(DevCommandKind.PickMap, 0, true);
+        h.Run(TimeSpan.FromSeconds(0.3));
+        Assert.Equal((DevNote.MapLoading, "A map file is still being checked; wait a moment."), (me.Dev!.Note, me.Dev.Text));
+        Assert.Null(h.Server.PickedMap);
+        Assert.True(h.Server.World.DevEndMatch() || h.Server.World.DevPickEnd(900), "the match ends while the check runs");
+        Assert.Equal(MatchState.Ended, h.Server.World.State);
+        hold.Set();
+        h.Server.WaitForDevFilePick();
+        h.Run(TimeSpan.FromSeconds(0.3));
+        Assert.EndsWith("a.smmap", h.Server.PickedMap);   // the first pick, onto the end screen already showing
+        Assert.True(h.Server.RotationDue);
+    }
+
+    [Fact]
+    public void A_refusal_names_the_file_never_a_folder_of_this_PC()
+    {
+        string path = Path.Combine(_dir, "deep", "x.smmap");
+        string why = GameServer.RefusalReason($"cannot play '{path}': Cannot read the map file '{path}': locked by '{Path.Combine(_dir, "deep")}'", path, "x.smmap");
+        Assert.DoesNotContain(_dir, why, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Cannot read the map file 'x.smmap': locked by 'the maps folder'.", why);
+        Assert.Equal("it could not be compiled.", GameServer.RefusalReason(null, null, "x.smmap"));
     }
 
     [Fact]
@@ -153,8 +283,8 @@ public sealed class DevMapFilePickTests : IDisposable
         Assert.Equal(state, h.Server.World.State);
         var dev = h.Clients[0].Dev!;
         Assert.Equal(DevNote.MapRefused, dev.Note);
-        Assert.StartsWith("broken.smmap cannot be played: ", dev.Text);
-        Assert.EndsWith("The match goes on here.", dev.Text);
+        Assert.StartsWith("The match goes on here. broken.smmap cannot be played: ", dev.Text);   // the fixed part first: a long reason is cut at its end
+        Assert.DoesNotContain(_dir, dev.Text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(log, l => l.StartsWith("dev tools: map file pick broken.smmap refused:"));
 
         // a folder that changed since the panel listed it (another file at that index) is refused, nothing else is played
@@ -199,6 +329,7 @@ public sealed class DevMapFilePickTests : IDisposable
         Assert.Equal(["--bind", "127.0.0.1", "--dev-tools", "--mode", "seize", "--custom-map", b, "--dev-supervised"], RotationSupervisor.DevChildArguments(args, b));
         Assert.Equal(["--bind", "127.0.0.1", "--dev-tools", "--custom-map", b, "--mode", "annihilation", "--dev-supervised"], RotationSupervisor.DevChildArguments(args, b, modeOverride: "annihilation"));
         Assert.Equal(["--bind", "127.0.0.1", "--dev-tools", "--mode", "seize", "--map", "mp_tdm_17", "--dev-supervised"], RotationSupervisor.DevChildArguments(args, "mp_tdm_17"));   // custom to Classic
+        Assert.Equal(["--bind", "127.0.0.1", "--dev-tools", "--custom-map", b, "--dev-supervised"], RotationSupervisor.DevChildArguments(["--bind", "127.0.0.1", "--dev-tools", "--map", "mp_tdm_09"], b));   // Classic to custom
         Assert.True(ServerCommandLine.TryParse(RotationSupervisor.DevChildArguments(args, b, modeOverride: "annihilation"), out var child, out var error), error);
         Assert.Equal((b, GameMode.Annihilation, true), (child.CustomMap, child.Mode, child.DevSupervised));
         var rotation = RotationSupervisor.ChildArguments(["--maps", "all", "--mode", "seize"], b, 0, "annihilation");

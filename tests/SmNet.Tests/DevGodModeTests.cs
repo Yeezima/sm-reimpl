@@ -41,6 +41,20 @@ public sealed class DevGodModeTests
         Assert.Null(Protocol.Read(badSelf));
         var badKind = Protocol.Write(new DevCommand(5u, DevCommandKind.PickMapFile, 0, true)); badKind[5] = 18;
         Assert.Null(Protocol.Read(badKind));
+        // a text one byte over its limit, a file name one byte over its limit: refused (never cut on reading)
+        Assert.Null(Protocol.Read(WithTexts(Protocol.Write(plain), new byte[Protocol.MaxDevText + 1], [])));
+        Assert.Null(Protocol.Read(WithTexts(Protocol.Write(plain), [], new byte[Protocol.MaxDevFileName + 1])));
+        Assert.NotNull(Protocol.Read(WithTexts(Protocol.Write(plain), new byte[Protocol.MaxDevText], new byte[Protocol.MaxDevFileName])));
+        // with both texts set, every cut-off packet is refused
+        var both = Protocol.Write(full);
+        for (int length = 1; length < both.Length; length++) Assert.Null(Protocol.Read(both[..length]));
+    }
+
+    /// <summary>A state packet (written with both texts empty) with these raw text bytes in place of its two empty texts (the lengths written as bytes, 0 to 255).</summary>
+    static byte[] WithTexts(byte[] emptyState, byte[] text, byte[] file)
+    {
+        var head = emptyState[..^2];   // everything before the two zero lengths
+        return [.. head, (byte)text.Length, .. text, (byte)file.Length, .. file];
     }
 
     // ---- the world ----

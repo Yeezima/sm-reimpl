@@ -21,6 +21,7 @@ public partial class DevToolsPanel
     Label? _cmNote;
     IReadOnlyList<CustomMaps.PickEntry> _cmFiles = [];
     string _cmMarked = "";
+    bool _cmListed;
 
     void MapmakerPanelRows(VBoxContainer column)
     {
@@ -38,13 +39,16 @@ public partial class DevToolsPanel
         row.AddChild(go);
         _cmNote = new Label { Text = "", Modulate = new Color(0.7f, 0.7f, 0.7f), AutowrapMode = TextServer.AutowrapMode.WordSmart, Visible = false };
         _cmBox.AddChild(_cmNote);
-        MapmakerPanelOpened();
     }
 
-    /// <summary>Lists the maps folder again (each opening of the panel: a map saved meanwhile shows up), keeping the chosen file when it is still there.</summary>
+    /// <summary>
+    /// Lists the maps folder again (each opening of the panel: a map saved meanwhile shows up), keeping the chosen file when it is still there. Only on a server that takes map-file picks: elsewhere the
+    /// folder is never read.
+    /// </summary>
     void MapmakerPanelOpened()
     {
-        if (_cmPick is null) return;
+        if (_cmPick is null || _state()?.CanPickFiles != true) { _cmListed = false; return; }
+        _cmListed = true;
         string? kept = _cmPick.Selected >= 0 && _cmPick.Selected < _cmFiles.Count ? _cmFiles[_cmPick.Selected].File : null;
         _cmFiles = CustomMaps.PickList();
         _cmMarked = "";
@@ -83,6 +87,7 @@ public partial class DevToolsPanel
     void MapmakerPanelPress(string name, string arg, ref bool handled)
     {
         if (name != "cmap" || arg.Length == 0) return;
+        if (_state()?.CanPickFiles != true) { GD.Print("devtools: this server takes no map-file picks"); handled = true; return; }
         _cmFiles = CustomMaps.PickList();   // a script word picks from the folder as it is now (the panel need not be open)
         int at = int.TryParse(arg, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) ? n
             : _cmFiles.ToList().FindIndex(f => f.FileName.Equals(arg, StringComparison.OrdinalIgnoreCase) || System.IO.Path.GetFileNameWithoutExtension(f.FileName).Equals(arg, StringComparison.OrdinalIgnoreCase));
@@ -98,6 +103,7 @@ public partial class DevToolsPanel
         if (_cmBox is null) return;
         bool on = _state()?.CanPickFiles == true;
         _cmBox.Visible = on;
-        if (on && (NetworkView.CurrentCustomMapFile ?? "") != _cmMarked) FillFiles(null);   // the map being played changed: mark it
+        if (on && !_cmListed && IsOpen) MapmakerPanelOpened();   // the server's state said so only after the panel opened
+        else if (on && (NetworkView.CurrentCustomMapFile ?? "") != _cmMarked) FillFiles(null);   // the map being played changed: mark it
     }
 }

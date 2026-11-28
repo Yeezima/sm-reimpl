@@ -44,13 +44,8 @@ if (cli.Maps is not null)
     if (!RotationSupervisor.TryPlan(rotationInstall, cli, out var rotation, out var rotationError)) { Console.Error.WriteLine($"smserver: {rotationError}"); return 1; }
     return RotationSupervisor.Run(args, rotation);
 }
-bool devSupervisable = cli.CustomMap is null;
-#if SM_EXTRAS
-// devtools-god-custommap (added content, the Mapmaker): a dev-tools server that plays a map file (a Mapmaker play test) is supervised too, so F6 can switch it to another map file or a Classic map;
-// never under --content faithful (no custom maps there: the server runs alone, as before, and cannot change map).
-devSupervisable |= cli.Content != ContentExtras.None;
-#endif
-if (cli.DevTools && System.Net.IPAddress.IsLoopback(cli.Bind) && !cli.RotationChild && !cli.DevSupervised && devSupervisable && !cli.Content.HasFlag(ContentExtras.Musou))
+// devtools-god-custommap: a dev-tools server that plays a map file (a Mapmaker play test) is supervised too, outside --content faithful (ServerCommandLine.DevSupervises).
+if (ServerCommandLine.DevSupervises(cli, ContentExtras.Compiled))
 {
     // devtools-map-pick: a developer-tools server runs under its supervisor too, so the tools can switch its map (the supervisor starts the picked map as a rotation does); the player sees one server.
     return RotationSupervisor.RunDev(args);
