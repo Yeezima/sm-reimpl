@@ -104,9 +104,15 @@ public partial class NetworkView
     void DevToolsFrame()
     {
         if (_client is null) { if (_devScaleApplied != 1.0) DevTimeAndBots(null); return; }   // no connection: back to normal time at once
+        if (_client.Status == ClientStatus.Rejected && !_devRefusalSeen) { _devRefusalSeen = true; ExtrasDevNextMap(""); }   // EXTRAS-HOOK: a refused join (a map hash the server did not accept) forgets a picked map file
         var state = _client.Status == ClientStatus.Connected ? _client.Dev : null;   // a dropped connection (a rotation rejoin included) is back to normal time too
         if (state is null && _devPanel is null && _devScaleApplied == 1.0) return;   // a normal server: nothing
         DevTimeAndBots(state);
+        if (state is not null && state.NextMapFile != _devNextMapFile && DevServerLoopback)
+        {
+            _devNextMapFile = state.NextMapFile;
+            ExtrasDevNextMap(_devNextMapFile);   // EXTRAS-HOOK: the map file the tools picked (protocol 95), empty when the pick was withdrawn: the rejoin loads exactly it (bots too)
+        }
         if (_devPanel is null && !_bot && state is not null)
         {
             AddChild(_devPanel = NewDevPanel());
@@ -115,7 +121,7 @@ public partial class NetworkView
         }
         if (state is not null)
         {
-            string line = $"flags={(int)state.Flags} ({state.Flags}) loyalists={state.PlayersLoyalists} (tool bots {state.ToolBotsLoyalists}) chaos={state.PlayersChaos} (tool bots {state.ToolBotsChaos}) note={state.Note}#{state.NoteSerial} scale={state.TimeScale} acc={state.BotAccuracy} dmg={state.BotDamage} range={state.BotRange}";
+            string line = $"flags={(int)state.Flags} ({state.Flags}) loyalists={state.PlayersLoyalists} (tool bots {state.ToolBotsLoyalists}) chaos={state.PlayersChaos} (tool bots {state.ToolBotsChaos}) note={state.Note}#{state.NoteSerial} scale={state.TimeScale} acc={state.BotAccuracy} dmg={state.BotDamage} range={state.BotRange} god={state.God} files={state.CanPickFiles}{(state.NextMapFile.Length > 0 ? $" next={state.NextMapFile}" : "")}{(state.Text.Length > 0 ? $" text=\"{state.Text}\"" : "")}";
             if (!_bot && line != _devLogged) { _devLogged = line; GD.Print("devtools: state " + line); }
         }
         if (_devPanel is null) return;
@@ -131,6 +137,25 @@ public partial class NetworkView
     }
 
     double _devScriptNextReal = double.PositiveInfinity;
+
+    string _devNextMapFile = "";
+    bool _devRefusalSeen;
+    bool? _devServerLoopback;
+
+    /// <summary>Whether this view's server is on a loopback address (only such a server's named map file is taken: the tools are loopback only, and its folder is this PC's).</summary>
+    bool DevServerLoopback => _devServerLoopback ??= TryLoopback(_target);
+
+    static bool TryLoopback(string target)
+    {
+        try { return System.Net.IPAddress.IsLoopback(ParseEndpoint(target).Address); }
+        catch (Exception e) when (e is FormatException or ArgumentException or System.Net.Sockets.SocketException) { return false; }
+    }
+
+    /// <summary>
+    /// devtools-god-custommap (protocol 95): the server named the map file the developer tools picked (a file name, never a path), or "" when it withdrew the pick or the join was refused; added content
+    /// (the Mapmaker) remembers it for the rejoin, or forgets it.
+    /// </summary>
+    partial void ExtrasDevNextMap(string file);
 
     /// <summary>
     /// F6 shows or hides the panel (or, when the server has no developer tools, says so for a moment); Esc closes it. It does not open over the Esc menu, the customizer, the spawn choice, a Musou modal

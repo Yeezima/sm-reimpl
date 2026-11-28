@@ -43,6 +43,16 @@ static class LayoutCheck
         // small and large work areas (screen minus taskbar): the window must fit inside, centred, at the scale of that display
         foreach (var (sname, scale, wa, ha) in WorkAreas)
             foreach (string state in MainForm.DemoStates) One($"launcher-{state}-screen-{sname}", state, scale, null, (wa, ha));
+        // PLAY TEST MAP's dialog, as it opens and with the line that refuses a missing file
+        foreach (double scale in Scales)
+            foreach (bool refused in new[] { false, true })
+            {
+                string name = $"playtest-dialog{(refused ? "-refused" : "")}-{(int)Math.Round(scale * 100)}";
+                var problems = DialogProblems(scale, Path.Combine(folder, name + ".png"), refused);
+                shots++;
+                foreach (var p in problems) Console.WriteLine($"{name}: {p}");
+                if (problems.Count > 0) failures++;
+            }
         // tab order: PLAY is the first stop of the main view
         {
             Theme.SimScale = 1.0;
@@ -86,6 +96,38 @@ static class LayoutCheck
         int playHeight = form.PlayButtonSize().Height, expected = (int)Math.Round(44 * Theme.Scale(form));
         if (Math.Abs(playHeight - expected) > 1) problems.Add($"the PLAY button is {playHeight} px tall at {scale * 100:0} %, not {expected} px: the window's sizes do not follow the display scale");
         form.Close();
+        Theme.SimScale = 1.0;
+        return problems;
+    }
+
+    /// <summary>A long map path that has to fit (the text box scrolls, the rows must not overlap or cut text). A placeholder, not a real folder.</summary>
+    public const string DemoMap = @"D:\Games\A Rather Long Library Folder Name\sm-reimpl\mapmaker\maps\two-base arena with a long name.smmap";
+
+    /// <summary>
+    /// PLAY TEST MAP's dialog at one display scale: the problems found (overlaps, controls outside their container, cut text; none when clean), and a PNG when
+    /// <paramref name="png"/> is given. With <paramref name="refused"/> the line that refuses a missing file is shown, as after Start on a deleted map.
+    /// </summary>
+    public static List<string> DialogProblems(double scale, string? png = null, bool refused = false)
+    {
+        Theme.SimScale = 1.0;
+        using var dialog = new PlaytestDialog(new SmLauncher.Core.MapPlaytestChoice(DemoMap, "seize", 3, "chaos"), "", scale)
+        {
+            Quiet = true, StartPosition = FormStartPosition.Manual, Location = new Point(-4000, -4000), ShowInTaskbar = false,
+        };
+        if (refused) dialog.ShowProblemForTest("The map file two-base arena with a long name.smmap does not exist (moved or deleted?). Choose it again.");
+        dialog.Show();
+        var problems = new List<string>();
+        if (Settle(dialog) is { } unsettled) problems.Add(unsettled);
+        if (png is not null)
+        {
+            using var bmp = new Bitmap(dialog.Width, dialog.Height);
+            dialog.DrawToBitmap(bmp, new Rectangle(0, 0, dialog.Width, dialog.Height));
+            bmp.Save(png, ImageFormat.Png);
+        }
+        problems.AddRange(Problems(dialog));
+        int startHeight = dialog.StartButtonSize().Height, expected = (int)Math.Round(32 * Theme.Scale(dialog));
+        if (Math.Abs(startHeight - expected) > 2) problems.Add($"the Start button is {startHeight} px tall at {scale * 100:0} %, not {expected} px: the dialog's sizes do not follow the display scale");
+        dialog.Close();
         Theme.SimScale = 1.0;
         return problems;
     }

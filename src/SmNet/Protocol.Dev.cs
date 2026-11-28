@@ -35,6 +35,14 @@ public enum DevCommandKind : byte
     CancelSync = 14,
     /// <summary>Protocol 86: ends the current match at once and starts a new one on another map; argument an index into <c>DevMapPicks.For</c> (the maps of the server's mode, as the panel lists them). The server only changes map when it runs under its supervisor (a developer-tools server on loopback does); clients rejoin as they do after a rotation.</summary>
     PickMap = 15,
+    /// <summary>Protocol 95 (devtools-god-custommap, owner 2026-11-28): god mode for the requester alone on (the value) or off; nobody else's protection changes (<see cref="DevToolsFlags.Invincible"/> stays everyone's).</summary>
+    SetGod = 16,
+    /// <summary>
+    /// Protocol 95: ends the match and starts a new one on a saved Mapmaker map (added content; only a server whose <see cref="DevState.CanPickFiles"/> is set obeys it). The argument is the index into the
+    /// map files the panel listed (the Mapmaker maps folder of this PC, by file name), the extra a 16-bit check of that file's name, so a folder that changed between the panel's listing and the server's
+    /// is refused rather than another file played.
+    /// </summary>
+    PickMapFile = 17,
 }
 
 /// <summary>The server's answer to the last request, shown under the panel (protocol 80).</summary>
@@ -44,6 +52,12 @@ public enum DevNote : byte
     NotPlaying = 12, TeleportBlocked = 13, BadValue = 14,
     /// <summary>Protocol 86: this server cannot change its map (it does not run under its supervisor, or it has no map list).</summary>
     NoMapChange = 15,
+    /// <summary>Protocol 95: the picked map file is being read and checked; the answer follows.</summary>
+    MapLoading = 16,
+    /// <summary>Protocol 95: the picked map could not be loaded; the match goes on, and <see cref="DevState.Text"/> says why.</summary>
+    MapRefused = 17,
+    /// <summary>Protocol 95: the pick is under way, in Annihilation, because the map cannot run the server's mode (<see cref="DevState.Text"/> says why).</summary>
+    MapModeFallback = 18,
 }
 
 /// <summary>Side arguments of <see cref="DevCommandKind.AddBot"/> and <see cref="DevCommandKind.RemoveBot"/>.</summary>
@@ -61,10 +75,14 @@ public sealed record DevCommand(uint Session, DevCommandKind Kind, byte Argument
 /// <summary>
 /// Server to client (protocol 80; ours): the developer tools' state, sent once a second and whenever it changes, only by a server that has them on and only to a player on a loopback address (never to a bot or
 /// spectator; a server without <c>--dev-tools</c> sends nothing). The panel shows exactly this. Flags u8 (<see cref="DevToolsFlags"/>), the bots the tools started per side (u8, u8), the players per side (u8, u8),
-/// the answer to the last request (<see cref="DevNote"/>) with a counter that rises with each answer, then the time scale (an index into <see cref="DevTools.TimeScales"/>), the bots' accuracy and damage in permille (accuracy <see cref="Protocol.DevNoValue"/>: each bot's own) and the bots' range in metres (0: each weapon's own). Bots get it too, since they take the bot values and the time scale from it. 15 bytes.
+/// the answer to the last request (<see cref="DevNote"/>) with a counter that rises with each answer, then the time scale (an index into <see cref="DevTools.TimeScales"/>), the bots' accuracy and damage in permille (accuracy <see cref="Protocol.DevNoValue"/>: each bot's own) and the bots' range in metres (0: each weapon's own). Bots get it too, since they take the bot values and the time scale from it.
+/// Protocol 95 (devtools-god-custommap) adds, per recipient: a self byte (bit 0 <see cref="God"/>: the recipient's own god mode; bit 1 <see cref="CanPickFiles"/>: the server takes map-file picks),
+/// then two short UTF-8 texts with a u8 length each: <see cref="Text"/> (the answer in words when a plain note cannot say it, at most <see cref="Protocol.MaxDevText"/> bytes) and <see cref="NextMapFile"/>
+/// (while a map-file pick is on its way, that file's name without a folder, at most <see cref="Protocol.MaxDevFileName"/> bytes: the clients and bots of this PC load exactly that file when they rejoin).
+/// 18 bytes with both texts empty.
 /// </summary>
 public sealed record DevState(DevToolsFlags Flags, int ToolBotsLoyalists, int ToolBotsChaos, int PlayersLoyalists, int PlayersChaos, DevNote Note, byte NoteSerial,
-    int TimeScale = 0, int BotAccuracy = Protocol.DevNoValue, int BotDamage = 1000, int BotRange = 0) : Message;
+    int TimeScale = 0, int BotAccuracy = Protocol.DevNoValue, int BotDamage = 1000, int BotRange = 0, bool God = false, bool CanPickFiles = false, string Text = "", string NextMapFile = "") : Message;
 
 public static partial class Protocol
 {
@@ -72,8 +90,22 @@ public static partial class Protocol
     public const int DevCommandBytes = 1 + 4 + 1 + 1 + 1 + 2;
     /// <summary>A bot accuracy on the wire that means "not set by the tools".</summary>
     public const int DevNoValue = 0xFFFF;
-    /// <summary>Bytes of a DevState.</summary>
-    public const int DevStateBytes = 1 + 1 + 2 + 2 + 1 + 1 + 1 + 2 + 2 + 2;
+    /// <summary>Bytes of a DevState with both texts empty (protocol 95 added the self byte and the two text lengths).</summary>
+    public const int DevStateBytes = 1 + 1 + 2 + 2 + 1 + 1 + 1 + 2 + 2 + 2 + 1 + 1 + 1;
+    /// <summary>Longest <see cref="DevState.Text"/> in UTF-8 bytes (protocol 95); a longer text is cut at a character boundary.</summary>
+    public const int MaxDevText = 200;
+    /// <summary>Longest <see cref="DevState.NextMapFile"/> in UTF-8 bytes (protocol 95); a longer name is not sent at all (the client then finds the map by its name).</summary>
+    public const int MaxDevFileName = 120;
+
+    /// <summary>The UTF-8 bytes of <paramref name="text"/>, cut at a character boundary to at most <paramref name="max"/> bytes.</summary>
+    public static byte[] DevTextBytes(string? text, int max)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(text ?? "");
+        if (bytes.Length <= max) return bytes;
+        int n = max;
+        while (n > 0 && (bytes[n] & 0xC0) == 0x80) n--;   // never split a character
+        return bytes[..n];
+    }
 
     static void WriteDevCommand(Writer w, DevCommand c)
     {
@@ -84,7 +116,7 @@ public static partial class Protocol
     {
         uint session = r.U32();
         int kind = r.U8(), argument = r.U8(), value = r.U8(), extra = r.U16();
-        if (kind is < (int)DevCommandKind.SetFlag or > (int)DevCommandKind.PickMap || value > 1) return null;
+        if (kind is < (int)DevCommandKind.SetFlag or > (int)DevCommandKind.PickMapFile || value > 1) return null;
         return new DevCommand(session, (DevCommandKind)kind, (byte)argument, value == 1, extra);
     }
 
@@ -96,6 +128,12 @@ public static partial class Protocol
         w.U8((byte)s.Note); w.U8(s.NoteSerial);
         w.U8((byte)Math.Clamp(s.TimeScale, 0, DevTools.TimeScales.Length - 1));
         w.U16((ushort)Math.Clamp(s.BotAccuracy, 0, ushort.MaxValue)); w.U16((ushort)Math.Clamp(s.BotDamage, 0, 1000)); w.U16((ushort)Math.Clamp(s.BotRange, 0, ushort.MaxValue));
+        w.U8((byte)((s.God ? 1 : 0) | (s.CanPickFiles ? 2 : 0)));
+        var text = DevTextBytes(s.Text, MaxDevText);
+        w.U8((byte)text.Length); w.Bytes(text);
+        var file = System.Text.Encoding.UTF8.GetBytes(s.NextMapFile ?? "");
+        if (file.Length > MaxDevFileName) file = [];
+        w.U8((byte)file.Length); w.Bytes(file);
     }
 
     static DevState? ReadDevState(ref Reader r)
@@ -103,8 +141,15 @@ public static partial class Protocol
         int flags = r.U8(), bl = r.U8(), bc = r.U8(), pl = r.U8(), pc = r.U8(), note = r.U8();
         byte serial = r.U8();
         int scale = r.U8(), accuracy = r.U16(), damage = r.U16(), range = r.U16();
-        if ((flags & ~(int)DevTools.All) != 0 || bl > MaxPlayers || bc > MaxPlayers || pl > MaxPlayers || pc > MaxPlayers || note > (int)DevNote.NoMapChange
-            || scale >= DevTools.TimeScales.Length || damage > 1000 || (accuracy > 1000 && accuracy != DevNoValue)) return null;
-        return new DevState((DevToolsFlags)flags, bl, bc, pl, pc, (DevNote)note, serial, scale, accuracy, damage, range);
+        int self = r.U8();
+        int textLength = r.U8();
+        if (textLength > MaxDevText) return null;
+        string text = System.Text.Encoding.UTF8.GetString(r.Bytes(textLength));
+        int fileLength = r.U8();
+        if (fileLength > MaxDevFileName) return null;
+        string file = System.Text.Encoding.UTF8.GetString(r.Bytes(fileLength));
+        if ((flags & ~(int)DevTools.All) != 0 || bl > MaxPlayers || bc > MaxPlayers || pl > MaxPlayers || pc > MaxPlayers || note > (int)DevNote.MapModeFallback
+            || scale >= DevTools.TimeScales.Length || damage > 1000 || (accuracy > 1000 && accuracy != DevNoValue) || (self & ~3) != 0) return null;
+        return new DevState((DevToolsFlags)flags, bl, bc, pl, pc, (DevNote)note, serial, scale, accuracy, damage, range, (self & 1) != 0, (self & 2) != 0, text, file);
     }
 }

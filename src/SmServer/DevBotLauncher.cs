@@ -25,9 +25,10 @@ public interface IDevBotLauncher
 /// <summary>
 /// The real launcher: the Godot console executable (or an exported game's console build) with the headless bot arguments of <see cref="HostBots.ClientArguments"/>, connected to
 /// <c>127.0.0.1:port</c>. Each process is held by its handle; only those are ever stopped (never a process found by name or CPU), and each one's output goes to its own log file in
-/// <paramref name="logFolder"/> (not the server's console). A bot also quits by itself a few seconds after its server is gone, so none outlives a server that exits.
+/// <paramref name="logFolder"/> (not the server's console). A bot also quits by itself a few seconds after its server is gone, so none outlives a server that exits. devtools-god-custommap: on a server
+/// that plays a map file, <paramref name="customMapFile"/> (its full path) is handed to each bot with <c>--custom-map</c>, so a bot loads exactly that file, not another with the same map name.
 /// </summary>
-public sealed class ProcessBotLauncher(string exe, string? projectPath, int port, string? content, string logFolder) : IDevBotLauncher
+public sealed class ProcessBotLauncher(string exe, string? projectPath, int port, string? content, string logFolder, string? customMapFile = null) : IDevBotLauncher
 {
     int _started;
 
@@ -52,6 +53,7 @@ public sealed class ProcessBotLauncher(string exe, string? projectPath, int port
         };
         foreach (var a in HostBots.ClientArguments(port, slot, content, projectPath, logPath + ".godot")) info.ArgumentList.Add(a);
         info.ArgumentList.Add("--dev-bot-token"); info.ArgumentList.Add(token.ToString(CultureInfo.InvariantCulture));   // the client's Hello nonce (NetworkView.Demo.cs)
+        if (customMapFile is not null) { info.ArgumentList.Add("--custom-map"); info.ArgumentList.Add(customMapFile); }   // the server's own map file (Mapmaker, added content)
         try
         {
             var process = Process.Start(info);

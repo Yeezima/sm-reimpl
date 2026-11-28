@@ -128,12 +128,17 @@ public sealed class UpdateState
     };
 }
 
-/// <summary>Small per-install preferences of the launcher (the last server address typed into Join).</summary>
+/// <summary>Small per-install preferences of the launcher (the last server address typed into Join, safe mode, the last play test choices).</summary>
 public sealed class LauncherSettings
 {
     public string? LastServer { get; set; }
     /// <summary>hotfix/old-gpu: "Old GPU / safe mode" (<see cref="SafeModePolicy"/>): start the game on the Compatibility renderer with low settings.</summary>
     public bool SafeMode { get; set; }
+    /// <summary>PLAY TEST MAP (<see cref="MapPlaytest"/>): the last map file, mode, bots a side and side chosen in its dialog.</summary>
+    public string? PlaytestMap { get; set; }
+    public string? PlaytestMode { get; set; }
+    public int? PlaytestBots { get; set; }
+    public string? PlaytestSide { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UseStringEnumConverter = true)]

@@ -624,6 +624,7 @@ public partial class MapmakerPlugin
             try { if (File.Exists(PlayStatusFile)) last = File.ReadAllText(PlayStatusFile).Trim(); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
             int bar = last.IndexOf('|');
             if (last.StartsWith("failed")) SetPlayStatus("Play test failed: " + (bar >= 0 ? last[(bar + 1)..] : last));
+            else if (last.StartsWith("stopped")) SetPlayStatus("Play test stopped (the server and the bots are stopped).");      // Stop (the script's -Stop marker, 2026-11-28)
             else if (_playFromInstall && !last.StartsWith("done"))
             {
                 // the installed script writes "done|..." as its last act: anything else means PowerShell never ran it (execution policy, a parse error) or it died early

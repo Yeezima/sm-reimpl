@@ -9,11 +9,64 @@ namespace SmClient;
 /// Mapmaker maps on the client (added content, docs/mapmaker.md "Playing a map"): a map the server names <c>cm_...</c> is a <c>.smmap</c> file found by that name (or given with
 /// <c>--custom-map</c>) and compiled here, with the same code the server ran, into the collision the client predicts with. The core's <c>LoadMap</c> asks <see cref="MapmakerContent"/> for the map's
 /// content (nothing is read from the install) and <see cref="MapmakerVisuals"/> to draw it (<see cref="CustomMapView"/>). The handshake's map hash is the first 8 bytes of SHA-256(compiler version + the file's canonical JSON), so a different copy is refused by the server.
+/// <para>
+/// Which file (devtools-god-custommap, 2026-11-28): the file the developer tools picked, when the server named it before the switch (<see cref="ExtrasDevNextMap"/>; a file name looked up only in the
+/// picker's folder, <see cref="CustomMaps.ResolvePick"/>) and it holds the map the server now plays; else the <c>--custom-map</c> file, as long as it holds that map (after a switch to another map it no
+/// longer does, and the client says so and finds the new one by name instead of refusing); else the newest file in the search folders with that map's name.
+/// </para>
 /// </summary>
 public partial class NetworkView
 {
     CustomMap? _customMap;
+    string? _customMapPath;
     static readonly string? CustomMapFile = CmdArg("custom-map");
+
+    /// <summary>
+    /// The full path of the map file the developer tools picked last (from the server's state before the switch); kept across the rejoin's new view, dropped once another map loads, when the server
+    /// withdraws the pick, when a load or the join is refused, and when the view goes back to the menu (<see cref="MapmakerExit"/>).
+    /// </summary>
+    static string? _devPickedFile;
+
+    /// <summary>The map file this client plays now (null on a Classic map): the F6 panel's CUSTOM MAP row marks it.</summary>
+    public static string? CurrentCustomMapFile { get; private set; }
+
+    /// <summary>
+    /// The server's state named the picked map file (empty: the pick was withdrawn, or the join was refused); called only for a server on a loopback address, or for a refused join (NetworkView.DevTools.cs).
+    /// </summary>
+    partial void ExtrasDevNextMap(string file)
+    {
+        if (file.Length == 0)
+        {
+            if (_devPickedFile is not null)
+                GD.Print(_client?.Status == SmNet.ClientStatus.Rejected
+                    ? $"custom map: the server refused the join, so the developer tools' pick {System.IO.Path.GetFileName(_devPickedFile)} is forgotten; a new join finds the map by its usual file"
+                    : "custom map: the developer tools' pick was withdrawn (the match went on); the rejoin uses its usual file");
+            _devPickedFile = null;
+            return;
+        }
+        string? path = CustomMaps.ResolvePick(file);
+        if (path is null) { _devPickedFile = null; GD.PrintErr($"custom map: the developer tools picked {file}, which is not in {CustomMaps.PickDir()} on this PC; the rejoin finds the map by its name"); return; }
+        _devPickedFile = path;
+        GD.Print($"custom map: the developer tools picked {file}; the rejoin loads that file");
+    }
+
+    /// <summary>The view leaves the tree: unless it is replaced by a rotation's rejoin, the remembered pick is dropped (back to the menu, a refused join, a quit).</summary>
+    void MapmakerExit()
+    {
+        if (RotateRequested || RotationConnectionLost) return;   // the rejoin's view still needs it
+        _devPickedFile = null;
+        CurrentCustomMapFile = null;
+    }
+
+    /// <summary>The map file to load for the server's map <paramref name="name"/>, or null to find it by name in the search folders (<see cref="CustomMaps.PlayFile"/>; the order is in the class summary).</summary>
+    static string? CustomMapFileFor(string name, out CustomMaps.PlaySource source)
+    {
+        string? file = CustomMaps.PlayFile(name, _devPickedFile, CustomMapFile, out source, out bool spent, out string? held);
+        if (spent) _devPickedFile = null;   // another map now: the pick is spent
+        if (held is not null)
+            GD.Print($"custom map {name}: --custom-map {System.IO.Path.GetFileName(CustomMapFile)} holds {held}, not the map the server plays now; finding {name} by its name instead");
+        return file;
+    }
 
     /// <summary>A custom map has no install file: "none" makes the readers of map files (sounds, effects) skip.</summary>
     void MapmakerMapFile(ref string file)
@@ -23,25 +76,32 @@ public partial class NetworkView
 
     void MapmakerContent(string name, ref MapContent? map)
     {
-        if (!CustomMap.IsCustomName(name)) return;
+        CurrentCustomMapFile = null;
+        if (!CustomMap.IsCustomName(name)) { _devPickedFile = null; return; }
         try
         {
-            if (string.IsNullOrEmpty(CustomMapFile) && CustomMaps.LocateAll(name) is { Count: > 1 } many)
+            string? file = CustomMapFileFor(name, out var source);
+            if (file is null && CustomMaps.LocateAll(name) is { Count: > 1 } many)
                 GD.PrintErr($"custom map {name}: {many.Count} files have this map's name ({string.Join(", ", many.Select(System.IO.Path.GetFileName))}); using the newest, {System.IO.Path.GetFileName(many[0])}. Start with --custom-map <file> to name the exact one.");
             // SM1 pieces, prefabs and imported models come from this PC's install and library: solid here exactly as on the server, and drawn below (a PC that lacks one refuses, see CustomMapDecor).
             var started = System.Diagnostics.Stopwatch.StartNew();
-            _customMap = CustomMaps.LoadForPlay(name, CustomMapFile, CompileOptions.ForPlay(_gameDir, textures: true));
+            _customMapPath = file ?? CustomMaps.Locate(name);
+            GD.Print($"custom map {name}: file {(_customMapPath is null ? "(none found)" : System.IO.Path.GetFileName(_customMapPath))}{source switch { CustomMaps.PlaySource.Picked => " (picked with the developer tools)", CustomMaps.PlaySource.Given => " (--custom-map)", _ => " (found by its name)" }}");
+            _customMap = CustomMaps.LoadForPlay(name, _customMapPath, CompileOptions.ForPlay(_gameDir, textures: true));
+            CurrentCustomMapFile = _customMapPath is null ? null : System.IO.Path.GetFullPath(_customMapPath);
             if (_customMap.Decor is { Placements.Count: > 0 } decor)
                 GD.Print($"custom map {name}: {decor.Placements.Count} SM1 / model placements, {decor.Triangles:N0} solid triangles from this install ({started.Elapsed.TotalSeconds:0.0} s)");
         }
-        catch (MapException e) { throw new System.InvalidOperationException(e.Message); }
+        catch (MapException e) { _devPickedFile = null; throw new System.InvalidOperationException(e.Message); }   // a refused load forgets the pick
         catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.InvalidProgramException or System.InvalidOperationException))
         {
+            _devPickedFile = null;
             throw new System.InvalidOperationException($"The custom map could not be compiled ({e.GetType().Name}: {e.Message}).");
         }
         // The map's look (docs/mapmaker.md "Look in play"): a PC without that Classic map refuses the map here, before the Hello is sent (owner 2026-11-20: no daylight fallback). A lean bot draws nothing and does not need it.
         if (_customMap.Document.Look is { } look && !Lean && LookCheck.Refusal(_gameDir, look.Sm1Map, LookDisplayName(look.Sm1Map)) is { } refusal)
         {
+            _devPickedFile = null;
             _mapRefusal = refusal;   // the join's plain error (the server only sees a map it never got a hash for)
             throw new System.InvalidOperationException(refusal);
         }
@@ -78,7 +138,7 @@ public partial class NetworkView
         if (!CustomMap.IsCustomName(name) || _customMap is null || _gameSpace is null) return;
         try
         {
-            var view = CustomMapView.Build(_customMap, CustomMapFile ?? CustomMaps.Locate(name));
+            var view = CustomMapView.Build(_customMap, _customMapPath ?? CustomMaps.Locate(name));
             _gameSpace.AddChild(view);
             if (_lookScene is null && _sun is not null && _environment is not null) CustomMapView.ApplyLook(_sun, _environment);
             drawn = true;

@@ -58,6 +58,16 @@ public class LauncherLayoutTests
         Assert.True(problems.Count == 0, $"at {scale * 100:0} %:{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
     }
 
+    /// <summary>PLAY TEST MAP's dialog (owner, 2026-11-28): as it opens and with the line that refuses a missing file, at every display scale.</summary>
+    [Theory]
+    [MemberData(nameof(DisplayScales))]
+    public void The_play_test_dialog_lays_out_without_overlaps_or_cut_text(double scale)
+    {
+        var problems = OnUiThread(() => LayoutCheck.DialogProblems(scale).Select(p => "as opened: " + p)
+            .Concat(LayoutCheck.DialogProblems(scale, refused: true).Select(p => "refusing a missing file: " + p)).ToList());
+        Assert.True(problems.Count == 0, $"at {scale * 100:0} %:{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
+    }
+
     [Fact]
     public void A_window_clamped_to_a_small_screen_scrolls_instead_of_overlapping()
     {

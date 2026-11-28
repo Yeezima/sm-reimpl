@@ -44,7 +44,8 @@ if (cli.Maps is not null)
     if (!RotationSupervisor.TryPlan(rotationInstall, cli, out var rotation, out var rotationError)) { Console.Error.WriteLine($"smserver: {rotationError}"); return 1; }
     return RotationSupervisor.Run(args, rotation);
 }
-if (cli.DevTools && System.Net.IPAddress.IsLoopback(cli.Bind) && !cli.RotationChild && !cli.DevSupervised && cli.CustomMap is null && !cli.Content.HasFlag(ContentExtras.Musou))
+// devtools-god-custommap: a dev-tools server that plays a map file (a Mapmaker play test) is supervised too, outside --content faithful (ServerCommandLine.DevSupervises).
+if (ServerCommandLine.DevSupervises(cli, ContentExtras.Compiled))
 {
     // devtools-map-pick: a developer-tools server runs under its supervisor too, so the tools can switch its map (the supervisor starts the picked map as a rotation does); the player sees one server.
     return RotationSupervisor.RunDev(args);
@@ -402,13 +403,25 @@ if (devTools)
 {
     var (botExe, botProject) = ProcessBotLauncher.Locate(cli.DevBotExe, cli.DevBotProject, AppContext.BaseDirectory);
     IReadOnlyList<string>? pickable = null;   // devtools-map-pick: the maps the tools may switch to, only under the supervisor (it starts the next map)
-    if ((cli.RotationChild || cli.DevSupervised) && !contentExtras.HasFlag(ContentExtras.Musou))
+    bool supervised = (cli.RotationChild || cli.DevSupervised) && !contentExtras.HasFlag(ContentExtras.Musou);
+    // devtools-god-custommap: the mode the supervisor was started in; this match plays another only when a picked map could not run it (Annihilation); a pick returns to it where the map offers it.
+    GameMode? homeMode = supervised && RotationSupervisor.HomeModeFromEnvironment() is { } home && home != mode ? home : null;
+    IReadOnlyCollection<string>? homeMaps = null;
+    if (supervised)
     {
-        try { pickable = DevMapPicks.For(MapCatalog.Read(install), mode).Select(m => m.Name).ToList(); }
+        try
+        {
+            var catalog = MapCatalog.Read(install);
+            pickable = DevMapPicks.For(catalog, mode).Select(m => m.Name).ToList();
+            if (homeMode is { } h) homeMaps = DevMapPicks.For(catalog, h).Select(m => m.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException) { Console.WriteLine($"developer tools: the map list is unreadable ({e.Message}); the map picker is off"); }
     }
-    devSetup = new DevToolsSetup(bind, botExe is null ? null : new ProcessBotLauncher(botExe, botProject, port, ContentProfiles.Name(contentExtras), ProcessBotLauncher.DefaultLogFolder()), serverClock as ScalableClock, pickable);
-    Console.WriteLine($"developer tools: ON (--dev-tools, loopback only; F6 in the client): invincible, freeze bots, infinite ammunition and jump pack, indefinite match, end / restart / skip match, map pick{(devSetup.Maps is { Count: > 0 } picks ? $" ({picks.Count} maps)" : " (off: needs the supervisor)")}, teleport, instant respawn, kill me / kill bots, add / remove bots, bot difficulty, time scale and pause; bots {(botExe is null ? "unavailable: no Godot executable found (--dev-bot-exe)" : $"run {Path.GetFileName(botExe)}{(botProject is null ? "" : " with the client project")}, logs in " + ProcessBotLauncher.DefaultLogFolder())}; requests from other addresses are ignored");
+    string? currentMapFile = cli.CustomMap is { } playedFile ? Path.GetFullPath(playedFile) : null;
+    devSetup = new DevToolsSetup(bind, botExe is null ? null : new ProcessBotLauncher(botExe, botProject, port, ContentProfiles.Name(contentExtras), ProcessBotLauncher.DefaultLogFolder(), currentMapFile), serverClock as ScalableClock, pickable,
+        Supervised: supervised, HomeMode: homeMode, HomeModeMaps: homeMaps, GameDir: install, CurrentMapFile: currentMapFile);
+    if (homeMode is { } fallenFrom) Console.WriteLine($"developer tools: this match plays Annihilation because its map cannot run {(fallenFrom == GameMode.SeizeGround ? "Seize Ground" : fallenFrom.ToString())}, the server's mode; a map pick returns to it where the map offers it");
+    Console.WriteLine($"developer tools: ON (--dev-tools, loopback only; F6 in the client): invincible, freeze bots, infinite ammunition and jump pack, indefinite match, end / restart / skip match, map pick{(devSetup.Maps is { Count: > 0 } picks ? $" ({picks.Count} maps)" : " (off: needs the supervisor)")}, map file pick{(devSetup.CanChangeMap && contentExtras != ContentExtras.None && ContentExtras.Compiled ? "" : " (off)")}, god mode (one player), teleport, instant respawn, kill me / kill bots, add / remove bots, bot difficulty, time scale and pause; bots {(botExe is null ? "unavailable: no Godot executable found (--dev-bot-exe)" : $"run {Path.GetFileName(botExe)}{(botProject is null ? "" : " with the client project")}, logs in " + ProcessBotLauncher.DefaultLogFolder())}; requests from other addresses are ignored");
 }
 #if SM_WARFRONT
 WarfrontRunFiles.MaxHumans = cli.WarfrontMaxHumans ?? 4;
@@ -612,6 +625,7 @@ server.Stepped += world =>
             $"{d.Position.X:F1},{d.Position.Y:F1},{d.Position.Z:F1}: {d.Victims} hit, {d.ShieldDamage:F0} shield + {d.HealthDamage:F0} health damage, {d.Kills} kills");
 };
 Console.WriteLine($"smserver on UDP {port}; protocol {Protocol.Version}; content {fingerprint:X16}; config {config.Hash():X16}; {config.TickRate} Hz");
+RotationSupervisor.WriteStarted();   // devtools-god-custommap (review): the supervisor reads a later failure as a match that was up, never as "the picked map could not start"
 #if SM_WARFRONT
 // Dedicated Warfront stage: SIGTERM (systemd's KillMode=control-group reaches the child too) and Ctrl+C ask for the same save-and-leave as stop.request; the loop below exits 0 after the save.
 if (cli.WarfrontDedicated && cli.WarfrontStage)
@@ -653,8 +667,8 @@ while (true)
             rotationDueAt ??= clock.Now;
             if (clock.Now - rotationDueAt > TimeSpan.FromMilliseconds(800))
             {
-                if (server.PickedMap is { } picked) RotationSupervisor.WritePick(picked);   // devtools-map-pick: the supervisor starts this map next
-                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts{(server.PickedMap is { } p ? $" ({p}, picked with the developer tools)" : "")}");
+                if (server.PickedMap is { } picked) RotationSupervisor.WritePick(picked, server.PickedModeOverride);   // devtools-map-pick: the supervisor starts this map next (devtools-god-custommap: or this map file, in this mode)
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts{(server.PickedMap is { } p ? $" ({RotationSupervisor.MapLabel(p)}, picked with the developer tools)" : "")}");
                 return ServerCommandLine.RotationExit;
             }
         }

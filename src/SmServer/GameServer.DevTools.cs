@@ -7,7 +7,17 @@ namespace SmServer;
 
 /// <summary>The developer tools' setup (protocol 80): the address the server listens on (the gate needs loopback), the launcher of the tools' bots (null: bots cannot be added) and the scalable clock the server runs on (null: the time scale is recorded and sent but changes nothing).</summary>
 /// <param name="Maps">The maps the tools may switch to (<see cref="DevMapPicks.For"/>, in the panel's order), or null when this server cannot change map (it does not run under its supervisor, or Musou Mode): a map pick is then refused.</param>
-public sealed record DevToolsSetup(IPAddress Bind, IDevBotLauncher? Launcher, ScalableClock? Clock = null, IReadOnlyList<string>? Maps = null);
+/// <param name="Supervised">devtools-god-custommap: this server runs under a supervisor that starts the next map (a map pick can be obeyed even when the install's map list is unreadable); <see cref="Maps"/> given implies it.</param>
+/// <param name="HomeMode">The mode the server was started in (its supervisor's <c>--mode</c>), when this match plays another one (a map that could not run it fell back to Annihilation); null: this match's own.</param>
+/// <param name="HomeModeMaps">The names of <see cref="Maps"/> that offer <see cref="HomeMode"/> (null with no home mode): a pick of one plays in the home mode again, any other in Annihilation.</param>
+/// <param name="GameDir">The game install the server reads (a picked map file's SM1 pieces come from it); null: none (graybox maps only).</param>
+/// <param name="CurrentMapFile">The full path of the map file this server plays (<c>--custom-map</c>), else null.</param>
+public sealed record DevToolsSetup(IPAddress Bind, IDevBotLauncher? Launcher, ScalableClock? Clock = null, IReadOnlyList<string>? Maps = null, bool Supervised = false,
+    GameMode? HomeMode = null, IReadOnlyCollection<string>? HomeModeMaps = null, string? GameDir = null, string? CurrentMapFile = null)
+{
+    /// <summary>Whether a map pick can be obeyed at all: a supervisor starts the next map.</summary>
+    public bool CanChangeMap => Supervised || Maps is { Count: > 0 };
+}
 
 public sealed partial record ServerOptions
 {
@@ -83,7 +93,9 @@ public sealed partial class GameServer
         if (_devRefusals.Add(why)) Log?.Invoke($"dev tools request ignored: {why} (logged once)");
     }
 
-    void Answer(DevNote note) { _devNote = note; _devNoteSerial++; _devDirty = true; }
+    void Answer(DevNote note, string text = "") { _devNote = note; _devNoteText = text; _devNoteSerial++; _devDirty = true; }
+
+    string _devNoteText = "";
 
     void OnDevCommand(int connection, Peer peer, DevCommand cmd)
     {
@@ -120,6 +132,15 @@ public sealed partial class GameServer
                 else Answer(DevNote.NotPlaying);
                 break;
             case DevCommandKind.PickMap: PickMap(peer, cmd.Argument); break;
+            case DevCommandKind.SetGod: SetGod(peer, cmd.Value); break;
+            case DevCommandKind.PickMapFile:
+            {
+                // devtools-god-custommap (protocol 95): a saved Mapmaker map is added content (Extras/GameServer.MapmakerDevPick.cs); a build or profile without it refuses here.
+                bool handled = false;
+                ExtrasDevPickFile(peer.PlayerId, cmd.Argument, cmd.Extra, ref handled);   // EXTRAS-HOOK
+                if (!handled) { Log?.Invoke("dev tools: map file pick refused: this build or content profile has no custom maps"); Answer(DevNote.NotInThisMode, "Custom maps are added content: this server runs without them (--content faithful, or a build without added content)."); }
+                break;
+            }
             case DevCommandKind.KillMe:
                 if (World.DevKill(peer.PlayerId)) { Log?.Invoke($"dev tools: kill me (player {peer.PlayerId})"); Answer(DevNote.Applied); }
                 else Answer(DevNote.NotPlaying);
@@ -135,13 +156,27 @@ public sealed partial class GameServer
         if (DevToolsOn) SendDevStates();   // at once, not at the next tick: a paused server runs no ticks
     }
 
-    /// <summary>The map the tools picked (the match is ending; the server's supervisor starts it), else null.</summary>
+    /// <summary>
+    /// The map the tools picked (the match is ending; the server's supervisor starts it), else null: a Classic map's archive name, or (protocol 95, added content) the full path of a saved Mapmaker map file.
+    /// </summary>
     public string? PickedMap
     {
-        get { if (_pickedMap is not null && World.State != MatchState.Ended) _pickedMap = null; return _pickedMap; }   // a restart (or any leaving of the end screen) cancels a pick that has not left yet
+        get { if (_pickedMap is not null && World.State != MatchState.Ended) { _pickedMap = null; _pickedMode = null; } return _pickedMap; }   // a restart (or any leaving of the end screen) cancels a pick that has not left yet
         private set => _pickedMap = value;
     }
-    string? _pickedMap;
+    string? _pickedMap, _pickedMode;
+
+    /// <summary>
+    /// devtools-god-custommap: the mode the picked map plays in when it is not the server's own (<c>"annihilation"</c>: the map cannot run the mode the server was started in); null: the server's own mode.
+    /// The supervisor gives the next match <c>--mode</c> with it (RotationSupervisor.cs).
+    /// </summary>
+    public string? PickedModeOverride => PickedMap is null ? null : _pickedMode;
+
+    /// <summary>Records a pick (core and the added content's map-file pick): the map or file, and the mode override.</summary>
+    void SetPick(string map, string? modeOverride) { _pickedMap = map; _pickedMode = modeOverride; }
+
+    /// <summary>The mode the server was started in (its supervisor's), which a pick plays in when the map offers it.</summary>
+    GameMode HomeMode => _options.DevTools?.HomeMode ?? World.Rules?.Mode ?? GameMode.Annihilation;
 
     /// <summary>
     /// Protocol 86: ends the match now and starts a new one on the chosen map. The server cannot swap its map in place (one process, one map), so it does what a rotation does: the match ends, the
@@ -152,6 +187,7 @@ public sealed partial class GameServer
     {
         if (World.Config.Extras.HasFlag(ContentExtras.Musou)) { Log?.Invoke("dev tools: map pick refused: not in Musou Mode"); Answer(DevNote.NotInThisMode); return; }
         if (_options.DevTools?.Maps is not { Count: > 0 } maps) { Log?.Invoke("dev tools: map pick refused: this server cannot change its map (it does not run under its supervisor)"); Answer(DevNote.NoMapChange); return; }
+        if (_devFilePickBusy) { Answer(DevNote.MapLoading, "A map file is still being checked; wait a moment."); return; }
         if (index >= maps.Count) { Log?.Invoke($"dev tools: map pick refused: no map {index} of {maps.Count}"); Answer(DevNote.BadValue); return; }
         if (PickedMap is not null) { Answer(DevNote.Applied); return; }   // a pick is already on its way: the second click changes nothing
         string map = maps[index];
@@ -161,9 +197,37 @@ public sealed partial class GameServer
             else Answer(DevNote.NotPlaying);
             return;
         }
+        // devtools-god-custommap: a match that fell back to Annihilation goes back to the server's own mode on a map that offers it (the list is this match's mode's, so a pick always runs here).
+        bool fallback = _options.DevTools?.HomeModeMaps is { } home && !home.Contains(map);
         if (!World.DevPickEnd(MatchFlowWire.RotationRejoinTicks)) { Answer(DevNote.NotPlaying); return; }
-        PickedMap = map;
-        Log?.Invoke($"dev tools: map pick {map}: the match ends now and a new one starts on it (player {peer.PlayerId}); clients rejoin as after a rotation");
+        SetPick(map, fallback ? "annihilation" : null);
+        Log?.Invoke($"dev tools: map pick {map}{(fallback ? $" in Annihilation (it does not offer {HomeMode})" : "")}: the match ends now and a new one starts on it (player {peer.PlayerId}); clients rejoin as after a rotation");
+        if (fallback) Answer(DevNote.MapModeFallback, $"Starting {map} in Annihilation: it does not offer {(HomeMode == GameMode.SeizeGround ? "Seize Ground" : HomeMode.ToString())}.");
+        else Answer(DevNote.Applied);
+    }
+
+    /// <summary>Added content's map-file pick is under way (its file is being read and checked off the tick); a Classic pick waits for it.</summary>
+    bool _devFilePickBusy;
+
+    /// <summary>
+    /// Protocol 95 (devtools-god-custommap): a map-file pick (<see cref="DevCommandKind.PickMapFile"/>), for the added content that has map files (the Mapmaker): <paramref name="index"/> into its list and the
+    /// file name's 16-bit <paramref name="check"/>. Sets <paramref name="handled"/> when it answered. Unimplemented (a build without added content), the core refuses.
+    /// </summary>
+    partial void ExtrasDevPickFile(int player, byte index, int check, ref bool handled);
+
+    /// <summary>Once every <see cref="Update"/> on a server with the tools on (a paused one too): added content finishes a map-file pick whose check ran off the tick.</summary>
+    partial void ExtrasDevPoll();
+
+    /// <summary>Whether this server takes map-file picks (<see cref="DevState.CanPickFiles"/>): added content says so for a match that can play its map files.</summary>
+    partial void ExtrasDevCanPickFiles(ref bool can);
+
+    /// <summary>
+    /// Protocol 95: god mode for the requester alone (devtools-god-custommap, owner 2026-11-28). The world's <see cref="World.SetDevGod"/>: no damage to that player from anything that deals damage, as
+    /// Invincible gives everyone; bots and other players are untouched, and the "all players and bots invincible" switch stays as it is.
+    /// </summary>
+    void SetGod(Peer peer, bool on)
+    {
+        if (World.SetDevGod(peer.PlayerId, on)) Log?.Invoke($"dev tools: god mode {(on ? "ON" : "OFF")} for player {peer.PlayerId} only");
         Answer(DevNote.Applied);
     }
 
@@ -332,9 +396,16 @@ public sealed partial class GameServer
         _toolBots.Clear();
     }
 
-    /// <summary>Test seam: the state a player on a loopback address is sent now.</summary>
-    internal DevState DevStateNow() => new(World.DevFlags, _devCounts.ToolLoyalists, _devCounts.ToolChaos, _devCounts.Loyalists, _devCounts.Chaos, _devNote, _devNoteSerial,
-        _devTimeScale, _devAccuracy, _devDamage >= 0 ? _devDamage : (int)Math.Round(Math.Clamp(_options.BotDamageScale, 0f, 1f) * 1000f), _devRange);
+    /// <summary>Test seam: the state player <paramref name="playerId"/> on a loopback address is sent now (protocol 95: its own god mode in it).</summary>
+    internal DevState DevStateNow(int playerId = 0)
+    {
+        bool files = false;
+        ExtrasDevCanPickFiles(ref files);   // EXTRAS-HOOK: a match that can switch to a saved Mapmaker map says so (the panel shows its row)
+        string next = PickedMap is { } picked && Path.IsPathRooted(picked) ? Path.GetFileName(picked) : "";   // a map-file pick: its name, so this PC's clients and bots load exactly it on the rejoin
+        return new(World.DevFlags, _devCounts.ToolLoyalists, _devCounts.ToolChaos, _devCounts.Loyalists, _devCounts.Chaos, _devNote, _devNoteSerial,
+            _devTimeScale, _devAccuracy, _devDamage >= 0 ? _devDamage : (int)Math.Round(Math.Clamp(_options.BotDamageScale, 0f, 1f) * 1000f), _devRange,
+            playerId > 0 && World.IsDevGod(playerId), files, _devNoteText, next);
+    }
 
     /// <summary>Once a tick (one null check with the tools off): the bookkeeping of the tools' bots and the state to the panels, once a second and on every change.</summary>
     void DevToolsTick()
@@ -372,6 +443,7 @@ public sealed partial class GameServer
     /// </summary>
     void DevKeepAlive()
     {
+        if (DevToolsOn) ExtrasDevPoll();   // EXTRAS-HOOK: a map-file pick checked off the tick is finished here (also while paused)
         if (_devTimeScale == 0 || !DevToolsOn) return;
         var real = _options.DevTools?.Clock?.Real.Now ?? _clock.Now;
         if (real < _nextDevKeep) return;
@@ -379,14 +451,18 @@ public sealed partial class GameServer
         SendDevStates();
     }
 
-    /// <summary>Sends the state to every player and bot on a loopback address (a bot takes the bot values and the time scale from it).</summary>
+    /// <summary>Sends the state to every player and bot on a loopback address (a bot takes the bot values and the time scale from it); protocol 95: each its own, since god mode is per player.</summary>
     void SendDevStates()
     {
         _devDirty = false;
         _nextDevState = _clock.Now + TimeSpan.FromSeconds(1);
         _lastDevFlags = World.DevFlags;
-        var packet = Protocol.Write(DevStateNow());
+        byte[]? shared = null;   // the packet of everyone not in god mode (most of them): built once
         foreach (var (connection, peer) in _peers)
-            if (!peer.Spectator && DevToolsGate.FromLoopback(_transport.EndPointOf(connection))) _transport.Send(connection, packet);
+        {
+            if (peer.Spectator || !DevToolsGate.FromLoopback(_transport.EndPointOf(connection))) continue;
+            byte[] packet = World.IsDevGod(peer.PlayerId) ? Protocol.Write(DevStateNow(peer.PlayerId)) : shared ??= Protocol.Write(DevStateNow());
+            _transport.Send(connection, packet);
+        }
     }
 }

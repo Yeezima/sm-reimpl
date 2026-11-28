@@ -55,6 +55,12 @@ sealed class MainForm : Form
     readonly Button _btnCancel = new() { Text = "Cancel", AutoSize = true };
     readonly Button _btnPlay = new() { Text = "PLAY", AutoSize = false, Size = new Size(150, 44), Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
     readonly Button _btnMapmaker = new() { Text = "MAPMAKER", AutoSize = false, Size = new Size(150, 44), Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
+    readonly Button _btnPlaytest = new() { Text = "PLAY TEST MAP", AutoSize = false, Size = new Size(150, 44), Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
+    readonly ToolTip _tips = new() { InitialDelay = 300, AutoPopDelay = 15000 };
+    string? _playtestProblem = "No build is installed yet.";     // why PLAY TEST MAP is off (RefreshInstalled), null when the build can play a map
+    System.Diagnostics.Process? _playtest;                         // the hidden PowerShell of the play test this launcher started
+    System.Windows.Forms.Timer? _playtestPoll;
+    MapPlaytestWatch? _playtestWatch;
     readonly DarkCheckBox _cbSafeMode = new() { AutoSize = true, Text = "Old GPU / safe mode (simpler graphics for old graphics cards)", Margin = new Padding(0, 10, 3, 3) };
     readonly LinkLabel _lnkCheck = Link("Check files");
     readonly LinkLabel _lnkRollback = Link("Roll back to the previous version");
@@ -259,6 +265,18 @@ sealed class MainForm : Form
         Accentuate(_btnPlay, PlayGreen);
         buttons.Controls.Add(_btnPlay);
         buttons.Controls.Add(_btnMapmaker);       // next to PLAY, the theme's plain raised button (PLAY alone is green)
+        buttons.Controls.Add(_btnPlaytest);       // a saved map with bots, without the Mapmaker open (owner, 2026-11-28)
+        // a disabled button gets no mouse messages, so its tooltip (why it is off) is shown from the row it sits in
+        Control? tipOver = null;
+        buttons.MouseMove += (_, e) =>
+        {
+            var hit = buttons.GetChildAtPoint(e.Location);
+            if (hit == tipOver) return;
+            tipOver = hit;
+            if (hit is Button { Enabled: false } b && _tips.GetToolTip(b) is { Length: > 0 } tip) _tips.Show(tip, buttons, e.Location.X + 12, e.Location.Y + 18, 8000);
+            else _tips.Hide(buttons);
+        };
+        buttons.MouseLeave += (_, _) => { tipOver = null; _tips.Hide(buttons); };
         for (int i = 0; i < 5; i++) grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -278,7 +296,7 @@ sealed class MainForm : Form
         Wrap(_cbSafeMode);          // the check box's text wraps inside its row instead of running past the window's edge (narrow window, large text)
         KeepRowsApart(grid, _notes, _main);
         buttons.TabIndex = 0; _cbSafeMode.TabIndex = 1; updateRow.TabIndex = 2; _notes.TabIndex = 3;      // tab order: PLAY first, then safe mode, Update, the notes
-        _btnPlay.TabIndex = 0; _btnMapmaker.TabIndex = 1;
+        _btnPlay.TabIndex = 0; _btnMapmaker.TabIndex = 1; _btnPlaytest.TabIndex = 2;
         _main.Controls.Add(grid);
 
         // the set-up panel (first run)
@@ -354,6 +372,7 @@ sealed class MainForm : Form
         _btnCancel.Click += (_, _) => { _cts?.Cancel(); _btnCancel.Enabled = false; };
         _btnPlay.Click += (_, _) => PlayGame();
         _btnMapmaker.Click += async (_, _) => await OpenMapmakerAsync();
+        _btnPlaytest.Click += (_, _) => PlayTestMap();
         _cbSafeMode.CheckedChanged += (_, _) => SaveSafeMode();
         _lnkCheck.LinkClicked += async (_, _) => await CheckFilesAsync();
         _lnkRollback.LinkClicked += (_, _) => Rollback();
@@ -465,6 +484,7 @@ sealed class MainForm : Form
         var p = _updater.ReadPointer();
         _playable = p.Current is { } t0 && _updater.IsUsable(t0);
         _newerLauncher = _layout is null ? null : SelfUpdate.NewerBundled(_updater.CurrentDir(), _layout.LauncherExe);
+        _playtestProblem = MapPlaytest.Unavailable(_playable ? _updater.CurrentDir() : null);
         if (p.Current is { } tag && _updater.IsUsable(tag))
         {
             var meta = p.Versions.GetValueOrDefault(tag);
@@ -585,6 +605,10 @@ sealed class MainForm : Form
         bool playable = _playable;                     // cached by RefreshInstalled: this runs on every progress report
         bool locked = _busy && _busyPhase is not null and not UpdatePhase.Downloading;
         foreach (var b in new[] { _btnPlay, _btnMapmaker }) b.Enabled = playable && !locked;
+        // PLAY TEST MAP: as MAPMAKER, and only when the active build has the play test script, the server and the game (cached by RefreshInstalled)
+        _btnPlaytest.Enabled = playable && !locked && _playtestProblem is null;
+        string tip = !playable ? "Install a build first." : locked ? "Wait until the update has finished." : _playtestProblem ?? "Play a saved map with bots on this PC, without the Mapmaker open.";
+        if (_tips.GetToolTip(_btnPlaytest) != tip) _tips.SetToolTip(_btnPlaytest, tip);
         _btnInstall.Enabled = !_busy;
         _btnBrowse.Enabled = !_busy;
     }
@@ -1013,6 +1037,161 @@ sealed class MainForm : Form
         catch (Exception e) { _log?.Write("watching the Mapmaker: " + e.Message); }
     }
 
+    /// <summary>
+    /// PLAY TEST MAP (owner, 2026-11-28: play test a saved map without the Mapmaker open; the editor beside the game, its server and its bots ran PCs out of memory):
+    /// asks for a saved map, the mode, the bots a side and the side (remembered), then runs the active build's <c>mapmaker\playtest.ps1</c> in a hidden PowerShell
+    /// (<see cref="MapPlaytest.StartCommand"/>). The status line follows the script's status.txt; a run that is still going (this launcher's, or the Mapmaker's
+    /// own Play test) is never doubled: the button offers to stop it instead (the script's -Stop, which ends only what that run recorded).
+    /// </summary>
+    void PlayTestMap()
+    {
+        string? dir = _updater?.CurrentDir();
+        if (dir is null || _layout is null) return;
+        // a download leaves the active build alone (PLAY works meanwhile too); checking, unpacking or switching it does not (the button is off then)
+        if (_busy && _busyPhase is not UpdatePhase.Downloading) { SetLine("Wait until the update has finished, then press PLAY TEST MAP again.", Warn); return; }
+        if (MapPlaytest.Unavailable(dir) is { } why) { SetLine(why, Bad); return; }
+        string state, mapsDir;
+        try { state = MapPlaytest.StateDir(); mapsDir = MapPlaytest.MapsDir(); }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException or System.Security.SecurityException)
+        {
+            SetLine($"The play test cannot start: {CacheRepair.DataDirEnvVar} (or {MapPlaytest.StateDirVariable}) is not a usable folder path: {e.Message}", Bad);
+            return;
+        }
+        bool mine = OwnPlaytestAlive();
+        if (mine || MapPlaytest.RecordedRunAlive(state))
+        {
+            _log?.Write($"play test map: a play test is already running (started here: {mine}); offering Stop");
+            if (DarkBox.Show(this, "A play test is already running (its game, server or bots are still open). Only one runs at a time.\n\n" +
+                    "Stop it now? This ends only the server, the bots and the game of that play test. (Closing its game window ends it too.)", Text,
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                _ = StopPlaytestAsync(dir, state);
+            return;
+        }
+        var settings = Store.ReadSettings(_layout);
+        MapPlaytestChoice choice;
+        using (var dialog = new PlaytestDialog(MapPlaytest.FromSettings(settings), mapsDir))
+        {
+            if (dialog.ShowDialog(this) != DialogResult.OK || dialog.Choice is not { } c) return;
+            choice = c;
+        }
+        try { settings = Store.ReadSettings(_layout); MapPlaytest.Remember(settings, choice); Store.WriteSettings(_layout, settings); }
+        catch (Exception e) { _log?.Write("play test map: could not save the choices: " + e.Message); }
+        StartPlaytest(dir, choice, state, _cbSafeMode.Checked);
+    }
+
+    bool OwnPlaytestAlive()
+    {
+        try { return _playtest is { HasExited: false }; } catch (InvalidOperationException) { return false; }
+    }
+
+    void StartPlaytest(string dir, MapPlaytestChoice choice, string state, bool safeMode)
+    {
+        // the run's tag in run.json: after the script ended, processes still recorded under it are this run's leftovers (another button's run has its own)
+        string tag = $"launcher-{Environment.ProcessId}-{DateTime.UtcNow.Ticks}";
+        var launch = MapPlaytest.StartCommand(dir, choice, safeMode, tag);
+        var watch = new MapPlaytestWatch(DateTime.UtcNow);
+        MapPlaytest.WriteStarting(state);
+        _log?.Write("play test map: starting " + MapPlaytest.CommandLine(launch));
+        System.Diagnostics.Process proc;
+        try { proc = MapmakerStart.StartHidden(launch); }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
+        {
+            _log?.Write("play test map: PowerShell did not start: " + e.Message);
+            SetLine("The play test could not be started (PowerShell did not start): " + e.Message, Bad);
+            return;
+        }
+        _playtest?.Dispose();
+        _playtest = proc;
+        _playtestWatch = watch;
+        SetLine($"Play test of {Path.GetFileName(choice.MapFile)}: starting...", Muted);
+        _playtestPoll?.Dispose();
+        _playtestPoll = new System.Windows.Forms.Timer { Interval = 1000 };
+        _playtestPoll.Tick += (_, _) => PollPlaytest(proc, dir, state, watch, tag);
+        _playtestPoll.Start();
+    }
+
+    /// <summary>Once a second while the script runs: its status line on the launcher's when it changes (<see cref="MapPlaytestWatch"/>); when it has ended, how it ended.</summary>
+    void PollPlaytest(System.Diagnostics.Process proc, string dir, string state, MapPlaytestWatch watch, string tag)
+    {
+        if (IsDisposed || proc != _playtest || watch.Finished) return;
+        bool exited;
+        try { exited = proc.HasExited; } catch (InvalidOperationException) { exited = true; }
+        int code = -1;
+        if (exited) { try { code = proc.ExitCode; } catch (InvalidOperationException) { } }
+        var (line, bad) = watch.Tick(MapPlaytest.ReadStatus(state), exited, code);
+        if (line is not null) SetLine(line, bad ? Bad : Muted);
+        if (!watch.Finished) return;
+        _playtestPoll?.Stop();
+        _log?.Write($"play test map: the script ended with code {code}: {line}");
+        // The script stops what it started on its way out; if its PowerShell died first, what it recorded under this run's tag is still running: -Stop -RunTag
+        // (by recorded id and start time only; the script itself skips a run recorded under another tag). The line just shown stays, with a note appended.
+        if (!watch.StopAsked && MapPlaytest.RecordedTag(state) == tag && MapPlaytest.RecordedRunAlive(state))
+        {
+            _log?.Write("play test map: the script ended but processes of its run are still running; stopping them");
+            _ = CleanLeftoversAsync(dir, state, tag, line ?? "", bad);
+        }
+    }
+
+    /// <summary>Runs the script's <c>-Stop</c> (with <paramref name="runTag"/>: only that run) and waits for it. Null when it finished, else what went wrong.</summary>
+    async Task<string?> RunStopAsync(string dir, string? runTag)
+    {
+        try
+        {
+            using var stop = MapmakerStart.StartHidden(MapPlaytest.StopCommand(dir, runTag));
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try { await stop.WaitForExitAsync(limit.Token); return stop.ExitCode == 0 ? null : $"-Stop ended with code {stop.ExitCode}"; }
+            catch (OperationCanceledException) { return "-Stop did not finish within 30 s"; }
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException) { return e.Message; }
+    }
+
+    /// <summary>Leftovers of this launcher's own finished run: stopped by its tag; the run's own outcome line stays and gets a note.</summary>
+    async Task CleanLeftoversAsync(string dir, string state, string tag, string line, bool bad)
+    {
+        string? problem = await RunStopAsync(dir, tag);
+        if (IsDisposed) return;
+        bool still = MapPlaytest.RecordedTag(state) == tag && MapPlaytest.RecordedRunAlive(state);
+        _log?.Write($"play test map: leftovers of {tag}: {problem ?? "-Stop ok"}; still running: {still}");
+        SetLine(line + (still ? " (its leftover server or bots are still running: close them, or press PLAY TEST MAP to stop them)" : " (leftover server and bots were stopped)"), bad || still ? Bad : Muted);
+    }
+
+    /// <summary>
+    /// Stop: the script's <c>-Stop</c> (a stop marker that a run still starting checks between its steps, then the recorded processes by id and start time),
+    /// awaited. This launcher's own PowerShell that has not ended a few seconds later is ended by its handle, with what it started (never by name).
+    /// </summary>
+    async Task StopPlaytestAsync(string dir, string state)
+    {
+        bool mine = OwnPlaytestAlive();
+        var proc = _playtest;
+        if (mine && _playtestWatch is { } w) w.StopAsked = true;
+        SetLine("Stopping the play test (its server, bots and game)...", Muted);
+        string? problem = await RunStopAsync(dir, null);
+        if (mine && proc is not null)
+        {
+            using var grace = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try { await proc.WaitForExitAsync(grace.Token); }
+            catch (OperationCanceledException)
+            {
+                try
+                {
+                    proc.Kill(entireProcessTree: true);
+                    _log?.Write("play test map: ended its own PowerShell (by handle) after Stop");
+                    using var after = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    try { await proc.WaitForExitAsync(after.Token); } catch (OperationCanceledException) { }
+                }
+                catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException or AggregateException) { _log?.Write("play test map: " + e.Message); }
+            }
+        }
+        if (IsDisposed) return;
+        bool still = OwnPlaytestAlive() || MapPlaytest.RecordedRunAlive(state);
+        _log?.Write($"play test map: Stop finished ({problem ?? "ok"}; still running: {still})");
+        // this launcher's own run is judged on what is still running alone (a -Stop that hiccuped but whose run the kill ended is a stop); its poll then shows "Play test stopped"
+        bool failed = mine ? still : problem is not null || still;
+        if (failed)
+            SetLine("The play test could not be stopped" + (problem is null ? "" : $" ({problem})") + ". Close its game window, or press PLAY TEST MAP again to retry.", Bad);
+        else if (!mine) SetLine(MapPlaytest.StoppedText, Muted);
+    }
+
     // ---- check files, rollback, caches ----------------------------------------------------------------------------------------
 
     async Task CheckFilesAsync()
@@ -1245,7 +1424,7 @@ sealed class MainForm : Form
         _btnUpdate.Visible = false;
         _progressPanel.Visible = false;
         _lnkSelfUpdate.Visible = false;
-        foreach (var b in new[] { _btnPlay, _btnMapmaker }) b.Enabled = true;
+        foreach (var b in new[] { _btnPlay, _btnMapmaker, _btnPlaytest }) b.Enabled = true;
         foreach (var l in new[] { _lnkCheck, _lnkRollback, _lnkRelease, _lnkIssues, _lnkFolder, _lnkCaches }) l.Enabled = true;
         _cbSafeMode.Checked = true;
         switch (state)
@@ -1262,7 +1441,7 @@ sealed class MainForm : Form
                 _progressPanel.Visible = true;
                 _progress.Value = 430;
                 _progressText.Text = "Downloading: 438.8 MB of 1,020.4 MB (43 %) · 18.4 MB/s · about 32 s left · retrying after a short pause (the connection was reset)";
-                foreach (var b in new[] { _btnPlay, _btnMapmaker }) b.Enabled = false;
+                foreach (var b in new[] { _btnPlay, _btnMapmaker, _btnPlaytest }) b.Enabled = false;
                 break;
             case "error":
                 SetLine("Offline: the installed build can be played. The update check failed: The remote name could not be resolved: 'api.github.com'. An unfinished update is kept and continues when GitHub is reachable.", Warn);
@@ -1285,7 +1464,7 @@ sealed class MainForm : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _lock?.Dispose(); _http.Dispose(); _cts?.Dispose(); }
+        if (disposing) { _lock?.Dispose(); _http.Dispose(); _cts?.Dispose(); _tips.Dispose(); _playtestPoll?.Dispose(); _playtest?.Dispose(); }
         base.Dispose(disposing);
     }
 }
