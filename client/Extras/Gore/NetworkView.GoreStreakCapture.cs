@@ -225,7 +225,7 @@ public partial class NetworkView
                 // across the view, a little away from the camera; bolt-away: the shot leaving the camera's side through him, as the shooter sees it over his shoulder
                 var dir = kind == "bolt-away" ? (right * 0.35f - toCam).Normalized() : (right - toCam * 0.25f).Normalized();
                 c = new ClassicContact(victim.PlayerId, me, chest + dir * BodySurface, dir, HitVisual.Blood, true, false, false, false, 0.3f, 1f, 0.0, null, 0, null,
-                    Wargear: kind == "bolt" ? "sm_mp_ranged_bolter" : "sm_mp_ranged_lascannon");
+                    Wargear: kind == "lascannon" ? "sm_mp_ranged_lascannon" : "sm_mp_ranged_bolter");   // bolt and bolt-away: a bolter (review 2026-11-28: bolt-away drew a lascannon-weight streak)
                 break;
             }
             case "thrust":
