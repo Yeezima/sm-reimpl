@@ -113,6 +113,7 @@ public partial class MapmakerPlugin
             EditMode = true;
             _editLocked.Clear();
             foreach (var id in _editIds) if (NodeOf(id) is { } n) { LockForEdit(id, n); n.UpdateGizmos(); }   // Godot's move gizmo leaves them alone while their shape is edited
+            RefreshGodotTransformGizmo();   // Godot draws its move gizmo until it looks at the selection again: now, so it goes at once
             int skipped = picked.Count - pieces.Count;
             SetStatus($"Edit mode on {pieces.Count} piece(s){(skipped > 0 ? $" ({skipped} selected object(s) without an editable shape left out)" : "")}: 1 / 2 / 3 vertex, edge, face; click to select; G / R / S then X / Y / Z and a number; Tab back to Object mode.");
         }
@@ -122,6 +123,7 @@ public partial class MapmakerPlugin
             RestoreLockedSelection();   // the same objects stay selected in Object mode (owner 2026-11-28)
             EditMode = false;
             foreach (var id in _editLocked.Keys.ToList()) Unlock(id);
+            _refreshGizmoOnExit = true;   // after EditMode is off (below): Godot's move gizmo comes back on the same selection at once
             foreach (var id in _editIds) if (NodeOf(id) is { } n && GodotObject.IsInstanceValid(n) && n.IsInsideTree()) n.UpdateGizmos();
             _editIds.Clear(); _compSel.Clear(); _activeEdit = null; _lockedIds.Clear(); _lockedNodes.Clear(); _lockedOther.Clear(); _editableAtEntry.Clear();
             _eatLeftRelease = _eatRightRelease = _stopLeftRelease = false;
@@ -129,6 +131,7 @@ public partial class MapmakerPlugin
         }
         UpdateEditLayer();
         RefreshEditViews();
+        if (_refreshGizmoOnExit) { _refreshGizmoOnExit = false; RefreshGodotTransformGizmo(); }
         EditChanged?.Invoke();
         return true;
     }
@@ -184,11 +187,40 @@ public partial class MapmakerPlugin
     }
 
     /// <summary>Locks <paramref name="n"/> against Godot's move gizmo for the edit, remembering that Edit mode set it (a node that already had the lock keeps it afterwards).</summary>
-    void LockForEdit(string id, Node n)
+    bool LockForEdit(string id, Node n)
     {
-        if (n.HasMeta("_edit_lock_")) return;
+        if (n.HasMeta("_edit_lock_")) return false;
         n.SetMeta("_edit_lock_", true);
         _editLocked[id] = n.GetInstanceId();
+        return true;
+    }
+
+    bool _refreshGizmoOnExit;
+    Node? _node3DEditor;
+    /// <summary>Test aid: how often Edit mode asked Godot to redraw its own transform gizmo, and how (Godot's update call, or the selection put back as it was).</summary>
+    public int GodotGizmoRefreshes { get; private set; }
+    public string GodotGizmoRoute { get; private set; } = "";
+    /// <summary>Test aid (before / after stills): skip the 2026-11-28 cosmetic fixes (the transform-gizmo refresh, the picked-edge stroke).</summary>
+    public bool SkipCosmeticFixes { get; set; }
+
+    /// <summary>
+    /// Godot's own move / rotate gizmo leaves locked nodes out, but only when it next looks at the selection: setting or removing <c>_edit_lock_</c> alone leaves it drawn (inert)
+    /// over the walls after entering Edit mode, and missing after leaving, until the selection changes (owner's recording, 2026-11-28). This makes it look now: Node3DEditor's
+    /// <c>update_transform_gizmo</c> when Godot exposes it, otherwise the same selection put back in the same order (no undo step; the lock handler finds it equal).
+    /// </summary>
+    void RefreshGodotTransformGizmo()
+    {
+        if (SkipCosmeticFixes) return;
+        if (_node3DEditor is null || !GodotObject.IsInstanceValid(_node3DEditor))
+            _node3DEditor = EditorInterface.Singleton.GetEditorMainScreen().FindChildren("*", "Node3DEditor", true, false).FirstOrDefault();
+        GodotGizmoRefreshes++;
+        if (_node3DEditor is { } ed && ed.HasMethod("update_transform_gizmo")) { ed.Call("update_transform_gizmo"); GodotGizmoRoute = "update_transform_gizmo"; return; }
+        var sel = EditorInterface.Singleton.GetSelection();
+        var nodes = sel.GetSelectedNodes().ToList();
+        if (nodes.Count == 0) return;
+        sel.Clear();
+        foreach (var n in nodes) sel.AddNode(n);
+        GodotGizmoRoute = "reselect";
     }
 
     /// <summary>Removes the lock Edit mode set on a piece's node (wherever that node is now: in the map, or parked for undo).</summary>
@@ -694,7 +726,9 @@ public partial class MapmakerPlugin
             int count = ComponentMode switch { ComponentMode.Vertex => mesh.Vertices.Count, ComponentMode.Edge => mesh.Edges.Count, _ => mesh.Faces.Count };
             _compSel[id].RemoveWhere(c => c >= count);
         }
-        foreach (var id in _editIds) if (NodeOf(id) is { } n) LockForEdit(id, n);
+        bool newLock = false;
+        foreach (var id in _editIds) if (NodeOf(id) is { } n) newLock |= LockForEdit(id, n);
+        if (newLock) RefreshGodotTransformGizmo();   // a piece that rejoined: Godot's move gizmo leaves it at once
         RefreshEditViews();
         EditChanged?.Invoke();
     }
@@ -752,8 +786,30 @@ public partial class MapmakerPlugin
     {
         if (_editLayer is null || !EditMode) return;
         float scale = EditorInterface.Singleton.GetEditorScale();
+        _pickedEdgeSegments = SkipCosmeticFixes ? new() : PickedEdgeSegments();
+        EditModeViews.DrawPickedEdges(_editLayer, _pickedEdgeSegments, scale);   // under the gizmo, over the picture (Godot's orange selection box shares the box's edges)
         if (Gizmo() is { } g) EditModeViews.DrawGizmo(_editLayer, g, _drag is null ? null : (_dragKind, _dragAxis), scale);
         if (Readout is { } title) EditModeViews.DrawReadout(_editLayer, title, ReadoutDetail, scale);
+    }
+
+    List<(Vector2 A, Vector2 B)> _pickedEdgeSegments = new();
+    /// <summary>Test aid: the picked-edge strokes the view drew last (view pixels).</summary>
+    public IReadOnlyList<(Vector2 A, Vector2 B)> PickedEdgeStrokes => _pickedEdgeSegments;
+
+    /// <summary>In Edge mode: every selected edge of the edit set (the preview's during an edit) as a segment in view pixels, for the stroke drawn over the picture.</summary>
+    List<(Vector2 A, Vector2 B)> PickedEdgeSegments()
+    {
+        var list = new List<(Vector2, Vector2)>();
+        if (ComponentMode != ComponentMode.Edge || Session is null) return list;
+        foreach (var id in _editIds)
+        {
+            var ids = _drag?.Targets.FirstOrDefault(t => t.Id == id).Selection?.Ids ?? (IReadOnlyCollection<int>)SelectedComponents(id);
+            if (ids.Count == 0 || Session.Document.Find(id) is not { Piece: not null } o) continue;
+            var mesh = _drag?.Preview.GetValueOrDefault(id) ?? EditMesh.Of(o);
+            foreach (var e in ids)
+                if (e >= 0 && e < mesh.Edges.Count && Project(UnitToGlobal(id, mesh.Vertices[mesh.Edges[e].A]), out var a) && Project(UnitToGlobal(id, mesh.Vertices[mesh.Edges[e].B]), out var b)) list.Add((a, b));
+        }
+        return list;
     }
 
     /// <summary>Test aid: the gizmo handle at a point of the view, as a click would find it.</summary>
