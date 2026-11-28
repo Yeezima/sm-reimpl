@@ -40,7 +40,7 @@ public class MapPlaytestTests
 
     static string MakeMap(TempDir t, string name = "my map's arena.smmap")
     {
-        string map = t[@"Meine Karten\" + name];
+        string map = t[@"Meine Karten über\" + name];
         Directory.CreateDirectory(Path.GetDirectoryName(map)!);
         File.WriteAllText(map, "{}");
         return map;
@@ -73,7 +73,10 @@ public class MapPlaytestTests
         Assert.EndsWith("powershell.exe", cmd.FileName, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", Path.Combine(v, "mapmaker", "playtest.ps1"),
             "-Map", map, "-Mode", "seize", "-Bots", "2", "-Side", "chaos", "-VersionDir", v], cmd.Arguments);
-        Assert.Equal(v, cmd.WorkingDirectory);           // no trailing backslash: a quoted "...\" would swallow its closing quote
+        Assert.Equal(v, cmd.WorkingDirectory);
+        // the launcher's Old GPU / safe mode box and its run tag
+        var safe = MapPlaytest.StartCommand(v, new MapPlaytestChoice(map, "seize", 2, "chaos"), safeMode: true, runTag: "launcher-1-2");
+        Assert.Equal(["-SafeMode", "-RunTag", "launcher-1-2"], safe.Arguments.Skip(cmd.Arguments.Count));
         var stop = MapPlaytest.StopCommand(v);
         Assert.Equal("-Stop", stop.Arguments[^1]);
         Assert.Contains("Hidden", stop.Arguments);
@@ -144,8 +147,8 @@ public class MapPlaytestTests
         Assert.Null(MapPlaytest.Problem(new MapPlaytestChoice(map, "annihilation", 3, "marines")));
         Assert.Null(MapPlaytest.Problem(new MapPlaytestChoice("\"" + map + "\"", "seize", 0, "chaos")));        // pasted with quotes
         Assert.Contains("Choose a saved map", MapPlaytest.Problem(new MapPlaytestChoice("  ", "annihilation", 3, "marines")));
-        Assert.Contains("does not exist", MapPlaytest.Problem(new MapPlaytestChoice(t[@"Meine Karten\gone.smmap"], "annihilation", 3, "marines")));
-        string scene = t[@"Meine Karten\scene.tscn"]; File.WriteAllText(scene, "");
+        Assert.Contains("does not exist", MapPlaytest.Problem(new MapPlaytestChoice(t[@"Meine Karten über\gone.smmap"], "annihilation", 3, "marines")));
+        string scene = t[@"Meine Karten über\scene.tscn"]; File.WriteAllText(scene, "");
         Assert.Contains(".smmap", MapPlaytest.Problem(new MapPlaytestChoice(scene, "annihilation", 3, "marines")));
         Assert.NotNull(MapPlaytest.Problem(new MapPlaytestChoice(map, "annihilation", 7, "marines")));
         Assert.NotNull(MapPlaytest.Problem(new MapPlaytestChoice(map, "annihilation", -1, "marines")));
@@ -194,6 +197,37 @@ public class MapPlaytestTests
         Assert.False(ok);
         Assert.Contains("did not run to its end", text);
         Assert.Contains("did not run to its end", MapPlaytest.Outcome(null, 0).Text);
+        // a deliberate Stop ends as stopped, never as the step it cut short
+        Assert.Equal((MapPlaytest.StoppedText, true), MapPlaytest.Outcome(new MapPlaytestStatus("stopped", "Play test stopped", DateTime.UtcNow), 0));
+        Assert.Equal((MapPlaytest.StoppedText, true), MapPlaytest.Outcome(failed, 1, stopAsked: true));
+    }
+
+    static MapPlaytestStatus At(string stage, string text, DateTime t) => new(stage, text, t);
+    static readonly (string? Line, bool Bad) None = (null, false);
+
+    [Fact]
+    public void The_status_line_is_written_only_when_the_scripts_status_changes_and_an_earlier_runs_line_is_ignored()
+    {
+        var t0 = new DateTime(2026, 11, 28, 10, 0, 0, DateTimeKind.Utc);
+        var w = new MapPlaytestWatch(t0);
+        Assert.Equal(None, w.Tick(At("done", "Play test over (old run)", t0.AddMinutes(-5)), false, 0));      // an earlier run's line
+        Assert.Equal(((string?)"Starting the server on 127.0.0.1:27701...", false), w.Tick(At("server", "Starting the server on 127.0.0.1:27701...", t0.AddSeconds(1)), false, 0));
+        // the same status again (every second while the server starts): the launcher's other lines are not overwritten
+        Assert.Equal(None, w.Tick(At("server", "Starting the server on 127.0.0.1:27701...", t0.AddSeconds(1)), false, 0));
+        Assert.Equal(None, w.Tick(At("server", "Starting the server on 127.0.0.1:27701...", t0.AddSeconds(1)), false, 0));
+        Assert.Equal(((string?)"Starting 6 bots...", false), w.Tick(At("bots", "Starting 6 bots...", t0.AddSeconds(4)), false, 0));
+        Assert.Equal(((string?)"the server did not start", true), w.Tick(At("failed", "the server did not start", t0.AddSeconds(5)), false, 0));
+        var end = w.Tick(At("failed", "the server did not start", t0.AddSeconds(5)), true, 1);
+        Assert.Equal(("Play test failed: the server did not start", true), (end.Line!, end.Bad));
+        Assert.True(w.Finished);
+        Assert.Equal(None, w.Tick(null, true, 1));        // shown once
+
+        // Stop pressed during start-up: no more progress lines, and the end is "stopped" even if the script last said its server failed
+        var s = new MapPlaytestWatch(t0) { StopAsked = false };
+        s.Tick(At("server", "Starting the server...", t0.AddSeconds(1)), false, 0);
+        s.StopAsked = true;
+        Assert.Equal(None, s.Tick(At("failed", "the server did not start", t0.AddSeconds(2)), false, 0));
+        Assert.Equal(((string?)MapPlaytest.StoppedText, false), s.Tick(At("failed", "the server did not start", t0.AddSeconds(2)), true, 1));
     }
 
     [Fact]
@@ -204,6 +238,33 @@ public class MapPlaytestTests
         Assert.Equal(@"D:\sm data\mapmaker\maps", MapPlaytest.MapsDir(Env));
         string? Env2(string k) => k switch { "SM_DATA_DIR" => @"D:\sm data", MapPlaytest.StateDirVariable => @"D:\elsewhere", _ => null };
         Assert.Equal(@"D:\elsewhere", MapPlaytest.StateDir(Env2));
+        // only a full path counts, as in the script: a relative or blank one is ignored
+        string? Env3(string k) => k switch { "SM_DATA_DIR" => @"D:\sm data", MapPlaytest.StateDirVariable => @"relative\dir", _ => null };
+        Assert.Equal(@"D:\sm data\tmp-build\mapmaker-playtest", MapPlaytest.StateDir(Env3));
+        string? Env4(string k) => k switch { "SM_DATA_DIR" => @"D:\sm data", MapPlaytest.StateDirVariable => "   ", _ => null };
+        Assert.Equal(@"D:\sm data\tmp-build\mapmaker-playtest", MapPlaytest.StateDir(Env4));
+    }
+
+    [Fact]
+    public void The_run_tag_is_read_from_run_json()
+    {
+        using var t = new TempDir();
+        string state = t["state"];
+        Directory.CreateDirectory(state);
+        Assert.Null(MapPlaytest.RecordedTag(state));
+        File.WriteAllText(MapPlaytest.RunFile(state), "{ \"pids\": [ { \"pid\": 1, \"start\": 2 } ], \"tag\": \"launcher-9-99\" }");
+        Assert.Equal("launcher-9-99", MapPlaytest.RecordedTag(state));
+        File.WriteAllText(MapPlaytest.RunFile(state), "{ \"pids\": [ { \"pid\": 1, \"start\": 2 } ], \"tag\": \"\" }");      // the Mapmaker's run
+        Assert.Null(MapPlaytest.RecordedTag(state));
+    }
+
+    [Fact]
+    public void The_scripts_early_exit_window_and_safe_mode_options_match_the_launchers()
+    {
+        string text = File.ReadAllText(ScriptSource());
+        Assert.Contains($"$EarlyExitSeconds = {SafeModePolicy.EarlyExitWindow.TotalSeconds:0}", text);
+        Assert.Contains("$SafeEngineArgs = @(" + string.Join(", ", SafeModePolicy.EngineArgs.Select(a => $"'{a}'")) + ")", text);
+        Assert.Contains($"$SafeGameArg = '{SafeModePolicy.GameArg}'", text);
     }
 
     static (int Code, string Out) Run(MapmakerLaunch cmd, string stateDir, params string[] more)
@@ -237,8 +298,60 @@ public class MapPlaytestTests
         string client = lines.Single(l => l.StartsWith("PLAN client:", StringComparison.Ordinal));
         Assert.StartsWith("PLAN client: " + Path.Combine(v, "game", "sm-reimpl.exe") + " -- --connect 127.0.0.1:27705 --custom-map \"" + map + "\"", client);
         Assert.EndsWith("--side chaos --class tactical", client);
-        Assert.DoesNotContain("0.0.0.0", o);
+        Assert.True(Directory.Exists(t["state"]));                               // SM_PLAYTEST_STATE_DIR was taken
         Assert.False(File.Exists(MapPlaytest.RunFile(t["state"])));             // -Plan starts and records nothing
+    }
+
+    [Fact]
+    public void With_the_safe_mode_box_only_the_game_window_gets_the_compatibility_renderer_and_safe_mode()
+    {
+        using var t = new TempDir();
+        string v = MakeVersion(t);
+        string map = MakeMap(t);
+        string Line(string[] lines, string kind) => lines.Single(l => l.StartsWith(kind, StringComparison.Ordinal));
+        foreach (bool safe in new[] { false, true })
+        {
+            var cmd = MapPlaytest.StartCommand(v, new MapPlaytestChoice(map, "annihilation", 1, "marines"), safeMode: safe);
+            var (code, o) = Run(cmd, t["state"], "-Plan", "-Port", "27706");
+            Assert.True(code == 0, o);
+            var lines = o.Split('\n').Select(l => l.TrimEnd()).ToArray();
+            string client = Line(lines, "PLAN client:");
+            string game = "PLAN client: " + Path.Combine(v, "game", "sm-reimpl.exe") + " ";
+            if (safe)
+            {
+                Assert.StartsWith(game + "--rendering-method gl_compatibility --rendering-driver opengl3 -- --connect 127.0.0.1:27706 ", client);
+                Assert.EndsWith(" --class tactical --safe-mode", client);
+            }
+            else
+            {
+                Assert.StartsWith(game + "-- --connect 127.0.0.1:27706 ", client);
+                Assert.DoesNotContain("gl_compatibility", client);
+                Assert.DoesNotContain("--safe-mode", client);
+            }
+            string bot = Line(lines, "PLAN bot:");
+            Assert.Contains(" --headless ", bot);
+            Assert.DoesNotContain("gl_compatibility", bot);      // the bots stay headless either way
+            Assert.DoesNotContain("--safe-mode", bot);
+        }
+    }
+
+    [Fact]
+    public void Stop_leaves_the_marker_and_clears_a_record_whose_process_is_gone()
+    {
+        using var t = new TempDir();
+        string v = MakeVersion(t);
+        string state = t["state"];
+        Directory.CreateDirectory(state);
+        using var gone = Process.Start(new ProcessStartInfo("cmd.exe", "/d /c exit 0") { UseShellExecute = false, CreateNoWindow = true })!;
+        gone.WaitForExit();
+        long start = gone.StartTime.ToFileTimeUtc();
+        File.WriteAllText(MapPlaytest.RunFile(state), "{\"pids\":[{\"pid\":" + gone.Id + ",\"start\":" + start + "}],\"tag\":\"launcher-1-2\"}");
+        var (code, o) = Run(MapPlaytest.StopCommand(v), state);
+        Assert.True(code == 0, o);
+        Assert.Contains("Stopped 0 process(es)", o);
+        Assert.False(File.Exists(MapPlaytest.RunFile(state)));
+        Assert.True(File.Exists(MapPlaytest.StopFile(state)));                  // a run still starting sees it between its steps
+        Assert.False(MapPlaytest.RecordedRunAlive(state));
     }
 
     [Fact]

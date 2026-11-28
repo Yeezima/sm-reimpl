@@ -94,6 +94,7 @@ sealed class PlaytestDialog : Form
         var buttons = new TileFlow { AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Anchor = AnchorStyles.Right, WrapContents = false, Margin = new Padding(0, 14, 0, 0) };
         buttons.Controls.Add(_cancel);
         buttons.Controls.Add(_start);
+        _start.TabIndex = 0; _cancel.TabIndex = 1;        // drawn right to left (Cancel on the edge), tabbed Start first
         foreach (var c in new Control[] { intro, grid, _problem, buttons })
         {
             outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));

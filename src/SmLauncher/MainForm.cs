@@ -60,6 +60,7 @@ sealed class MainForm : Form
     string? _playtestProblem = "No build is installed yet.";     // why PLAY TEST MAP is off (RefreshInstalled), null when the build can play a map
     System.Diagnostics.Process? _playtest;                         // the hidden PowerShell of the play test this launcher started
     System.Windows.Forms.Timer? _playtestPoll;
+    MapPlaytestWatch? _playtestWatch;
     readonly DarkCheckBox _cbSafeMode = new() { AutoSize = true, Text = "Old GPU / safe mode (simpler graphics for old graphics cards)", Margin = new Padding(0, 10, 3, 3) };
     readonly LinkLabel _lnkCheck = Link("Check files");
     readonly LinkLabel _lnkRollback = Link("Roll back to the previous version");
@@ -1046,18 +1047,24 @@ sealed class MainForm : Form
     {
         string? dir = _updater?.CurrentDir();
         if (dir is null || _layout is null) return;
-        if (_busy) { SetLine("Wait until the download has finished, then press PLAY TEST MAP again.", Warn); return; }
+        // a download leaves the active build alone (PLAY works meanwhile too); checking, unpacking or switching it does not (the button is off then)
+        if (_busy && _busyPhase is not UpdatePhase.Downloading) { SetLine("Wait until the update has finished, then press PLAY TEST MAP again.", Warn); return; }
         if (MapPlaytest.Unavailable(dir) is { } why) { SetLine(why, Bad); return; }
-        string state = MapPlaytest.StateDir();
-        bool mine;
-        try { mine = _playtest is { HasExited: false }; } catch (InvalidOperationException) { mine = false; }
+        string state;
+        try { state = MapPlaytest.StateDir(); }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException or System.Security.SecurityException)
+        {
+            SetLine($"The play test cannot start: {CacheRepair.DataDirEnvVar} (or {MapPlaytest.StateDirVariable}) is not a usable folder path: {e.Message}", Bad);
+            return;
+        }
+        bool mine = OwnPlaytestAlive();
         if (mine || MapPlaytest.RecordedRunAlive(state))
         {
             _log?.Write($"play test map: a play test is already running (started here: {mine}); offering Stop");
             if (DarkBox.Show(this, "A play test is already running (its game, server or bots are still open). Only one runs at a time.\n\n" +
                     "Stop it now? This ends only the server, the bots and the game of that play test. (Closing its game window ends it too.)", Text,
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-                StopPlaytest(dir);
+                _ = StopPlaytestAsync(dir, state);
             return;
         }
         var settings = Store.ReadSettings(_layout);
@@ -1069,13 +1076,20 @@ sealed class MainForm : Form
         }
         try { settings = Store.ReadSettings(_layout); MapPlaytest.Remember(settings, choice); Store.WriteSettings(_layout, settings); }
         catch (Exception e) { _log?.Write("play test map: could not save the choices: " + e.Message); }
-        StartPlaytest(dir, choice, state);
+        StartPlaytest(dir, choice, state, _cbSafeMode.Checked);
     }
 
-    void StartPlaytest(string dir, MapPlaytestChoice choice, string state)
+    bool OwnPlaytestAlive()
     {
-        var launch = MapPlaytest.StartCommand(dir, choice);
-        var started = DateTime.UtcNow;
+        try { return _playtest is { HasExited: false }; } catch (InvalidOperationException) { return false; }
+    }
+
+    void StartPlaytest(string dir, MapPlaytestChoice choice, string state, bool safeMode)
+    {
+        // the run's tag in run.json: after the script ended, processes still recorded under it are this run's leftovers (another button's run has its own)
+        string tag = $"launcher-{Environment.ProcessId}-{DateTime.UtcNow.Ticks}";
+        var launch = MapPlaytest.StartCommand(dir, choice, safeMode, tag);
+        var watch = new MapPlaytestWatch(DateTime.UtcNow);
         MapPlaytest.WriteStarting(state);
         _log?.Write("play test map: starting " + MapPlaytest.CommandLine(launch));
         System.Diagnostics.Process proc;
@@ -1088,46 +1102,72 @@ sealed class MainForm : Form
         }
         _playtest?.Dispose();
         _playtest = proc;
+        _playtestWatch = watch;
         SetLine($"Play test of {Path.GetFileName(choice.MapFile)}: starting...", Muted);
         _playtestPoll?.Dispose();
         _playtestPoll = new System.Windows.Forms.Timer { Interval = 1000 };
-        _playtestPoll.Tick += (_, _) => PollPlaytest(proc, state, started);
+        _playtestPoll.Tick += (_, _) => PollPlaytest(proc, dir, state, watch, tag);
         _playtestPoll.Start();
     }
 
-    /// <summary>Once a second while the script runs: its status line on the launcher's; when it has ended, how it ended (the failure reason, or that it is over).</summary>
-    void PollPlaytest(System.Diagnostics.Process proc, string state, DateTime started)
+    /// <summary>Once a second while the script runs: its status line on the launcher's when it changes (<see cref="MapPlaytestWatch"/>); when it has ended, how it ended.</summary>
+    void PollPlaytest(System.Diagnostics.Process proc, string dir, string state, MapPlaytestWatch watch, string tag)
     {
-        if (IsDisposed || proc != _playtest) return;
-        var status = MapPlaytest.ReadStatus(state);
-        if (status is not null && status.WrittenUtc < started.AddSeconds(-2)) status = null;      // left by an earlier run
+        if (IsDisposed || proc != _playtest || watch.Finished) return;
         bool exited;
         try { exited = proc.HasExited; } catch (InvalidOperationException) { exited = true; }
-        if (!exited)
-        {
-            if (status is { Text.Length: > 0 } && status.Text != _update.Text) SetLine(status.Text, status.Failed ? Bad : Muted);
-            return;
-        }
+        int code = -1;
+        if (exited) { try { code = proc.ExitCode; } catch (InvalidOperationException) { } }
+        var (line, bad) = watch.Tick(MapPlaytest.ReadStatus(state), exited, code);
+        if (line is not null) SetLine(line, bad ? Bad : Muted);
+        if (!watch.Finished) return;
         _playtestPoll?.Stop();
-        int code;
-        try { code = proc.ExitCode; } catch (InvalidOperationException) { code = -1; }
-        var (text, ok) = MapPlaytest.Outcome(status, code);
-        _log?.Write($"play test map: the script ended with code {code}: {text}");
-        SetLine(text, ok ? Muted : Bad);
+        _log?.Write($"play test map: the script ended with code {code}: {line}");
+        // The script stops what it started on its way out; if its PowerShell died first, what it recorded under this run's tag is still running: -Stop
+        // (by recorded id and start time only). A run started meanwhile from the Mapmaker has no such tag and is left alone.
+        if (!watch.StopAsked && MapPlaytest.RecordedTag(state) == tag && MapPlaytest.RecordedRunAlive(state))
+        {
+            _log?.Write("play test map: the script ended but processes of its run are still running; stopping them");
+            _ = StopPlaytestAsync(dir, state);
+        }
     }
 
-    void StopPlaytest(string dir)
+    /// <summary>
+    /// Stop: the script's <c>-Stop</c> (a stop marker that a run still starting checks between its steps, then the recorded processes by id and start time),
+    /// awaited. This launcher's own PowerShell that has not ended a few seconds later is ended by its handle, with what it started (never by name).
+    /// </summary>
+    async Task StopPlaytestAsync(string dir, string state)
     {
+        bool mine = OwnPlaytestAlive();
+        var proc = _playtest;
+        if (mine && _playtestWatch is { } w) w.StopAsked = true;
+        SetLine("Stopping the play test (its server, bots and game)...", Muted);
+        string? problem = null;
         try
         {
             using var stop = MapmakerStart.StartHidden(MapPlaytest.StopCommand(dir));
-            _log?.Write("play test map: -Stop started");
-            SetLine("Stopping the play test (its server, bots and game)...", Muted);
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try { await stop.WaitForExitAsync(limit.Token); if (stop.ExitCode != 0) problem = $"-Stop ended with code {stop.ExitCode}"; }
+            catch (OperationCanceledException) { problem = "-Stop did not finish within 30 s"; }
         }
-        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException) { problem = e.Message; }
+        if (mine && proc is not null)
         {
-            SetLine("The play test could not be stopped: " + e.Message + " Close its game window instead.", Bad);
+            using var grace = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try { await proc.WaitForExitAsync(grace.Token); }
+            catch (OperationCanceledException)
+            {
+                try { proc.Kill(entireProcessTree: true); _log?.Write("play test map: ended its own PowerShell (by handle) after Stop"); }
+                catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException) { _log?.Write("play test map: " + e.Message); }
+            }
         }
+        if (IsDisposed) return;
+        bool still = OwnPlaytestAlive() || MapPlaytest.RecordedRunAlive(state);
+        _log?.Write($"play test map: Stop finished ({problem ?? "ok"}; still running: {still})");
+        if (problem is not null || still)
+            SetLine("The play test could not be stopped" + (problem is null ? "" : $" ({problem})") + ". Close its game window, or press PLAY TEST MAP again to retry.", Bad);
+        else if (!mine) SetLine(MapPlaytest.StoppedText, Muted);
+        // this launcher's own run: its poll shows "Play test stopped" once its PowerShell has ended
     }
 
     // ---- check files, rollback, caches ----------------------------------------------------------------------------------------

@@ -10,6 +10,7 @@ public sealed record MapPlaytestStatus(string Stage, string Text, DateTime Writt
 {
     public bool Failed => Stage == "failed";
     public bool Done => Stage == "done";
+    public bool Stopped => Stage == "stopped";
 }
 
 /// <summary>
@@ -50,11 +51,16 @@ public static class MapPlaytest
         return CacheRepair.DataRoot(env(CacheRepair.DataDirEnvVar), Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
     }
 
-    /// <summary>Where the script writes <c>status.txt</c> and <c>run.json</c> (the Mapmaker's Play test uses the same folder, so a run of either is seen).</summary>
+    /// <summary>
+    /// Where the script writes <c>status.txt</c>, <c>run.json</c> and <c>stop.flag</c> (the Mapmaker's Play test uses the same folder, so a run of either is seen).
+    /// <see cref="StateDirVariable"/> counts only when it is a full path, as in the script (the launcher and the script read it; the Mapmaker's plugin does not).
+    /// Throws <see cref="ArgumentException"/> (or a path exception) for an unusable SM_DATA_DIR.
+    /// </summary>
     public static string StateDir(Func<string, string?>? env = null)
     {
         env ??= Environment.GetEnvironmentVariable;
-        return env(StateDirVariable) is { Length: > 0 } s && !string.IsNullOrWhiteSpace(s) ? Path.GetFullPath(s.Trim()) : Path.Combine(DataRoot(env), "tmp-build", "mapmaker-playtest");
+        string s = env(StateDirVariable)?.Trim() ?? "";
+        return s.Length > 0 && Path.IsPathRooted(s) ? Path.GetFullPath(s) : Path.Combine(DataRoot(env), "tmp-build", "mapmaker-playtest");
     }
 
     public static string StatusFile(string stateDir) => Path.Combine(stateDir, "status.txt");
@@ -102,19 +108,21 @@ public static class MapPlaytest
 
     static List<string> Lead(string versionDir) => ["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", Script(versionDir)];
 
-    /// <summary>No trailing separator: a quoted argument that ends in a backslash ("C:\x\") would swallow its closing quote.</summary>
     static string Folder(string dir) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(dir));
 
     /// <summary>
     /// The hidden PowerShell that plays <paramref name="c"/>: <c>powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &lt;version&gt;\mapmaker\playtest.ps1
-    /// -Map &lt;file&gt; -Mode m -Bots n -Side s -VersionDir &lt;version&gt;</c>, one argument per item (the caller passes them as an argument list; no shell, so no quoting by hand).
+    /// -Map &lt;file&gt; -Mode m -Bots n -Side s -VersionDir &lt;version&gt; [-SafeMode]</c>, one argument per item (the caller passes them as an argument list; no shell, so no quoting by hand).
+    /// <paramref name="safeMode"/> is the launcher's "Old GPU / safe mode" box: the game window gets the same options as PLAY gives it (<see cref="SafeModePolicy"/>).
     /// <paramref name="extra"/> adds script arguments (the test run's <c>-Headless -Seconds 20</c>).
     /// </summary>
-    public static MapmakerLaunch StartCommand(string versionDir, MapPlaytestChoice c, IEnumerable<string>? extra = null)
+    public static MapmakerLaunch StartCommand(string versionDir, MapPlaytestChoice c, bool safeMode = false, string? runTag = null, IEnumerable<string>? extra = null)
     {
         string dir = Folder(versionDir);
         var args = Lead(dir);
         args.AddRange(["-Map", Path.GetFullPath(c.MapFile.Trim().Trim('"')), "-Mode", c.Mode, "-Bots", c.Bots.ToString(System.Globalization.CultureInfo.InvariantCulture), "-Side", c.Side, "-VersionDir", dir]);
+        if (safeMode) args.Add("-SafeMode");
+        if (!string.IsNullOrEmpty(runTag)) { args.Add("-RunTag"); args.Add(runTag); }
         if (extra is not null) args.AddRange(extra);
         return new MapmakerLaunch(PowerShellExe(), args, dir, new Dictionary<string, string>());
     }
@@ -202,6 +210,19 @@ public static class MapPlaytest
         return list;
     }
 
+    /// <summary>The run tag <c>run.json</c> carries (<c>-RunTag</c>: the launcher's runs have one, the Mapmaker's none), or null.</summary>
+    public static string? RecordedTag(string stateDir)
+    {
+        string f = RunFile(stateDir);
+        try
+        {
+            if (!File.Exists(f)) return null;
+            using var doc = JsonDocument.Parse(AtomicFile.ReadAllText(f).TrimStart('﻿'));
+            return doc.RootElement.TryGetProperty("tag", out var t) && t.ValueKind == JsonValueKind.String && t.GetString() is { Length: > 0 } s ? s : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { return null; }
+    }
+
     static bool ProcessAlive(int pid, long start)
     {
         try
@@ -216,11 +237,56 @@ public static class MapPlaytest
     /// The line for the launcher once the script's PowerShell ended: the script's failure reason, "over" when it finished, or that it never ran to its end (PowerShell
     /// blocked, a parse error: the script writes "done|..." or "failed|..." as its last act). <paramref name="status"/> is the status line written after the start.
     /// </summary>
-    public static (string Text, bool Ok) Outcome(MapPlaytestStatus? status, int exitCode)
+    public static (string Text, bool Ok) Outcome(MapPlaytestStatus? status, int exitCode, bool stopAsked = false)
     {
+        // a deliberate Stop ends as stopped, whatever step it cut short (a killed server is not "the server did not start")
+        if (stopAsked || status is { Stopped: true }) return (StoppedText, true);
         if (status is { Failed: true }) return ("Play test failed: " + status.Text, false);
         if (status is { Done: true } && exitCode == 0) return ("Play test over (the server and the bots are stopped).", true);
         string last = status is null ? "none" : $"{status.Stage}: {status.Text}";
         return ($"Play test failed: the play test script did not run to its end (exit code {exitCode}; last state {last}).", false);
+    }
+
+    public const string StoppedText = "Play test stopped (its server, bots and game are closed).";
+
+    public static string StopFile(string stateDir) => Path.Combine(stateDir, "stop.flag");
+}
+
+/// <summary>
+/// What the launcher's status line does while one play test runs (polled once a second): the script's status line is shown only when it CHANGES (so the
+/// launcher's other messages are not overwritten every second), a status left by an earlier run is ignored, and when the script has ended the outcome is shown
+/// once (<see cref="MapPlaytest.Outcome"/>; a deliberate Stop ends as stopped).
+/// </summary>
+public sealed class MapPlaytestWatch(DateTime startedUtc)
+{
+    (string Stage, string Text)? _shown;
+    bool _finished;
+
+    public DateTime StartedUtc { get; } = startedUtc;
+    /// <summary>Stop was pressed for this run: its end is "stopped", not the step it cut short.</summary>
+    public bool StopAsked { get; set; }
+    public bool Finished => _finished;
+
+    /// <summary>A status line counts for this run only when it was written after the start (2 s of clock slack); older ones are an earlier run's.</summary>
+    public MapPlaytestStatus? Fresh(MapPlaytestStatus? status) => status is not null && status.WrittenUtc >= StartedUtc.AddSeconds(-2) ? status : null;
+
+    /// <summary>
+    /// One poll: the line to show (null: leave the status line alone) and whether it is bad news. <paramref name="exited"/> and <paramref name="exitCode"/> are the
+    /// script's PowerShell. After the outcome has been shown once, every later call returns null.
+    /// </summary>
+    public (string? Line, bool Bad) Tick(MapPlaytestStatus? status, bool exited, int exitCode)
+    {
+        if (_finished) return (null, false);
+        var s = Fresh(status);
+        if (exited)
+        {
+            _finished = true;
+            var (text, ok) = MapPlaytest.Outcome(s, exitCode, StopAsked);
+            return (text, !ok);
+        }
+        if (s is null || s.Text.Length == 0 || StopAsked) return (null, false);
+        if (_shown is { } last && last.Stage == s.Stage && last.Text == s.Text) return (null, false);
+        _shown = (s.Stage, s.Text);
+        return (s.Text, s.Failed);
     }
 }

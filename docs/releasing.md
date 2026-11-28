@@ -171,10 +171,17 @@ The playtest build holds the Mapmaker (docs/mapmaker.md) and the launcher has a 
   same conditions and only when the active build has `mapmaker\playtest.ps1`, `server\SmServer.exe`, `game\sm-reimpl.exe` and `game\sm-reimpl.console.exe` (the tooltip
   says why it is off). It asks for a saved `.smmap` (Browse... opens `<data>\mapmaker\maps`), the mode, bots per side (0 to 6, default 3) and the side, remembers them
   in `launcher-settings.json`, and runs **the build's own copy** of the script hidden: `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File
-  <version>\mapmaker\playtest.ps1 -Map <file> -Mode <m> -Bots <n> -Side <s> -VersionDir <version>` (an argument list, so an install folder with spaces is passed whole).
-  The status line follows `status.txt` and ends on the script's failure reason or "Play test over". A play test still running (this launcher's, or any process in
-  `run.json` alive with its recorded start time, which covers the Mapmaker's own button too) is never doubled: the button offers Stop (`-Stop`). Added content like the
-  rest of the Mapmaker: a build without `mapmaker\` has the button off. The Mapmaker's own Play test is unchanged.
+  <version>\mapmaker\playtest.ps1 -Map <file> -Mode <m> -Bots <n> -Side <s> -VersionDir <version> [-SafeMode] -RunTag <tag>` (an argument list, so an install folder
+  with spaces is passed whole). **Safe mode:** with "Old GPU / safe mode" ticked, `-SafeMode` gives the game window PLAY's options (`SafeModePolicy`: the Compatibility
+  renderer before `--`, `--safe-mode` after it; the bots stay headless), and a game that closes with an error within 8 s (`EarlyExitWindow`) ends the play test with the
+  safe-mode hint. The status line shows the script's `status.txt` only when it changes (`MapPlaytestWatch`, so other launcher messages stay) and ends on the failure
+  reason, "Play test over" or "Play test stopped". A play test still running (this launcher's, or any process in `run.json` alive with its recorded start time, which
+  covers the Mapmaker's own button too) is never doubled: the button offers **Stop**: the script's `-Stop` (awaited) leaves `stop.flag`, which a run still starting
+  checks between its steps (it ends as "stopped", not "the server did not start"), and ends the recorded processes; this launcher's own PowerShell still running
+  10 s later is ended by its handle with what it started. The script stops only its own processes on its way out (not whatever `run.json` names by then), and its
+  `-RunTag` in `run.json` lets the launcher `-Stop` leftovers of its own run after a PowerShell that died early, never a Mapmaker run started meanwhile. Added content like the
+  rest of the Mapmaker: a build without `mapmaker\` has the button off. The Mapmaker's own Play test is unchanged apart from showing "Play test stopped" for a
+  stopped run.
 - **Guard scope:** the project's text types (`.cs .uid .tscn .cfg .godot .csproj`) are allowed only for entries under `mapmaker/` (`PackageScanner.ScopedExtensions`), not globally.
 - **Pins cross-checked (2026-11-17):** the .NET 10.0.15 runtime SHA-512 equals the `dotnet-runtime-win-x64.zip` entry of Microsoft's `https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json`, and the zip's Content-Length is 36,980,907.
 - **Smoke test** (release.ps1 step 1d, never a visible window and never a download): `0 - SM Reimpl Launcher.exe --root <install> --mapmaker-check` must print
