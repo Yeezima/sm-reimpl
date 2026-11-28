@@ -30,12 +30,17 @@ public partial class NetworkView
     /// <summary>The map file this client plays now (null on a Classic map): the F6 panel's CUSTOM MAP row marks it.</summary>
     public static string? CurrentCustomMapFile { get; private set; }
 
-    /// <summary>The server's state named the picked map file (empty: the pick was withdrawn); called only for a server on a loopback address (NetworkView.DevTools.cs).</summary>
+    /// <summary>
+    /// The server's state named the picked map file (empty: the pick was withdrawn, or the join was refused); called only for a server on a loopback address, or for a refused join (NetworkView.DevTools.cs).
+    /// </summary>
     partial void ExtrasDevNextMap(string file)
     {
         if (file.Length == 0)
         {
-            if (_devPickedFile is not null) GD.Print("custom map: the developer tools' pick was withdrawn (the match went on); the rejoin uses its usual file");
+            if (_devPickedFile is not null)
+                GD.Print(_client?.Status == SmNet.ClientStatus.Rejected
+                    ? $"custom map: the server refused the join, so the developer tools' pick {System.IO.Path.GetFileName(_devPickedFile)} is forgotten; a new join finds the map by its usual file"
+                    : "custom map: the developer tools' pick was withdrawn (the match went on); the rejoin uses its usual file");
             _devPickedFile = null;
             return;
         }

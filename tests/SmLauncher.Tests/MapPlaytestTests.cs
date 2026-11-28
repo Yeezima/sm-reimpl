@@ -429,6 +429,32 @@ public class MapPlaytestTests
         Assert.False(Directory.Exists(t["state"]));                              // the check touches nothing
     }
 
+    /// <summary>The text of a PowerShell function of the script, from its "function Name" line to the next top-level closing brace.</summary>
+    static string FunctionText(string script, string name)
+    {
+        var lines = script.Replace("\r\n", "\n").Split('\n');
+        int start = Array.FindIndex(lines, l => l.StartsWith("function " + name, StringComparison.Ordinal));
+        Assert.True(start >= 0, $"function {name} is in the script");
+        int end = Array.FindIndex(lines, start + 1, l => l == "}");
+        return string.Join("\n", lines[start..(end + 1)]);
+    }
+
+    [Fact]
+    public void Stop_kills_each_recorded_process_with_its_whole_tree_so_the_dev_servers_child_goes_too()
+    {
+        // review: the dev server is a supervisor with the server as its child (RotationSupervisor.RunDev); only taskkill /T reaches the child. A later change must not drop it silently.
+        string text = File.ReadAllText(ScriptSource());
+        foreach (var fn in new[] { "Stop-Recorded", "Stop-Own" })
+        {
+            string body = FunctionText(text, fn);
+            Assert.Contains("& taskkill.exe /PID $p.Id /T /F", body);
+            Assert.DoesNotContain("Stop-Process", body);
+        }
+        // a tagged Stop checks the tag again right before stopping, and takes back only its own marker
+        Assert.Contains("if ($tag -and [string]$run.tag -ne $tag) { return -1 }", FunctionText(text, "Stop-Recorded"));
+        Assert.Contains("$n = Stop-Recorded $RunTag", text);
+    }
+
     [Fact]
     public void A_replaced_run_ends_with_its_own_exit_code_and_the_launcher_says_so()
     {

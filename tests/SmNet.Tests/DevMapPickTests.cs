@@ -156,21 +156,62 @@ public sealed class DevMapPickTests
     public void A_child_that_fails_right_after_a_pick_falls_back_once_to_the_map_before_it()
     {
         var plan = new RotationSupervisor.DevPlan();
-        Assert.True(plan.Next(ServerCommandLine.RotationExit, "mp_tdm_17", null));
+        Assert.True(plan.Next(ServerCommandLine.RotationExit, "mp_tdm_17", null, started: true));
         Assert.Equal(("mp_tdm_17", (string?)null), (plan.Map, plan.Mode));
-        Assert.True(plan.Next(ServerCommandLine.RotationExit, "c:\\maps\\open.smmap", "annihilation"));
-        Assert.True(plan.Next(1, null, null));   // the map file could not start: back to the map before it, in its mode
+        Assert.True(plan.Next(ServerCommandLine.RotationExit, "c:\\maps\\open.smmap", "annihilation", started: true));
+        Assert.True(plan.Next(1, null, null, started: false));   // the map file could not start: back to the map before it, in its mode
         Assert.Equal(("mp_tdm_17", (string?)null), (plan.Map, plan.Mode));
-        Assert.False(plan.Next(1, null, null));   // the fallback failing too ends the server
+        Assert.False(plan.Next(1, null, null, started: false));   // the fallback failing too ends the server
         var first = new RotationSupervisor.DevPlan();
-        Assert.False(first.Next(4, null, null));   // a failure with no pick before it ends the server, as before
+        Assert.False(first.Next(4, null, null, started: false));   // a failure with no pick before it ends the server, as before
         var quit = new RotationSupervisor.DevPlan();
-        Assert.True(quit.Next(ServerCommandLine.RotationExit, "mp_tdm_17", null));
-        Assert.False(quit.Next(0, null, null));   // a clean exit after a pick is not a failure
+        Assert.True(quit.Next(ServerCommandLine.RotationExit, "mp_tdm_17", null, started: true));
+        Assert.False(quit.Next(0, null, null, started: true));   // a clean exit after a pick is not a failure
         var back = new RotationSupervisor.DevPlan();
-        Assert.True(back.Next(ServerCommandLine.RotationExit, "mp_tdm_17", null));
-        Assert.True(back.Next(2, null, null));
+        Assert.True(back.Next(ServerCommandLine.RotationExit, "mp_tdm_17", null, started: true));
+        Assert.True(back.Next(2, null, null, started: false));
         Assert.Null(back.Map);   // the server's own first map again
+    }
+
+    [Fact]
+    public void A_picked_maps_match_that_was_up_and_then_fails_ends_the_server_without_a_fallback()
+    {
+        // review: a play test's Stop (taskkill /T) kills the child before the supervisor; that exit code 1 after the match was up is no "picked map could not start"
+        var plan = new RotationSupervisor.DevPlan();
+        Assert.True(plan.Next(ServerCommandLine.RotationExit, "c:\\maps\\open.smmap", "annihilation", started: true));
+        Assert.False(plan.Next(1, null, null, started: true));
+        Assert.Equal(("c:\\maps\\open.smmap", (string?)"annihilation"), (plan.Map, plan.Mode));   // nothing else was planned
+        // and the early failure still falls back
+        var early = new RotationSupervisor.DevPlan();
+        Assert.True(early.Next(ServerCommandLine.RotationExit, "c:\\maps\\open.smmap", "annihilation", started: true));
+        Assert.True(early.Next(1, null, null, started: false));
+        Assert.Null(early.Map);
+    }
+
+    [Fact]
+    public void The_supervisors_log_names_a_picked_map_file_by_its_file_name_only()
+    {
+        Assert.Equal("open.smmap", RotationSupervisor.MapLabel("c:\\maps\\private\\open.smmap"));
+        Assert.Equal("mp_tdm_17", RotationSupervisor.MapLabel("mp_tdm_17"));
+        Assert.Null(RotationSupervisor.MapLabel(null));
+    }
+
+    [Fact]
+    public void A_child_tells_its_supervisor_it_listens_only_when_the_supervisor_named_a_file()
+    {
+        string file = Path.Combine(Path.GetTempPath(), $"sm-started-test-{Guid.NewGuid():N}.txt");
+        string? before = Environment.GetEnvironmentVariable(RotationSupervisor.StartedFileVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(RotationSupervisor.StartedFileVariable, file);
+            RotationSupervisor.WriteStarted();
+            Assert.True(File.Exists(file));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(RotationSupervisor.StartedFileVariable, before);
+            try { File.Delete(file); } catch (IOException) { }
+        }
     }
 
     [Fact]

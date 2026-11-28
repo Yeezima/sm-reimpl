@@ -29,6 +29,12 @@ public sealed partial class GameServer
     /// <summary>Test seam: the check waits for this before it lists the folder (a test holds a check under way).</summary>
     internal ManualResetEventSlim? DevFilePickHoldForTests { get; set; }
 
+    /// <summary>
+    /// Test seam (review, Low 2): the check runs on the tick's own thread and is complete when the pick returns, instead of waiting for a thread-pool thread (a loaded machine left the tests' 30 s
+    /// wait short). The same work and the same completed-task handling as off the tick; never with <see cref="DevFilePickHoldForTests"/> (that would hold the tick).
+    /// </summary>
+    internal bool DevFilePickInlineForTests { get; set; }
+
     /// <summary>Whether this server takes map-file picks: the tools on, a supervisor to start the next match, a profile with added content (never <c>--content faithful</c>) and Classic PvP (not Musou Mode).</summary>
     bool FilePicksPossible => DevToolsOn && _options.DevTools is { CanChangeMap: true } && World.Config.Extras != ContentExtras.None && !World.Config.Extras.HasFlag(ContentExtras.Musou);
 
@@ -50,7 +56,7 @@ public sealed partial class GameServer
         var hold = DevFilePickHoldForTests;
         Log?.Invoke($"dev tools: map file pick: entry {index} of {dir} (player {player}): reading and checking it; the match goes on meanwhile");
         // Off the tick: listing the folder, and a map with SM1 pieces or imported models takes seconds to compile; the clients and bots must keep hearing from the server meanwhile.
-        _filePick = Task.Run(() =>
+        var work = new Task<FilePickResult>(() =>
         {
             hold?.Wait(TimeSpan.FromSeconds(30));
             var list = CustomMaps.PickList(dir);
@@ -61,6 +67,9 @@ public sealed partial class GameServer
             var map = CustomMap(entry.File, ref name, out var error, install);
             return new FilePickResult(entry.File, name, map, error, dir, list.Count);
         });
+        _filePick = work;
+        if (DevFilePickInlineForTests && hold is null) work.RunSynchronously();
+        else work.Start();
         Answer(DevNote.MapLoading, "Loading the map...");
     }
 
@@ -82,7 +91,9 @@ public sealed partial class GameServer
         }
         if (r.Map is null)
         {
-            string why = RefusalReason(r.Error, r.File, fileName);
+            // a check that faulted has no file in its result: the name it found (or none) and the folder it listed are scrubbed all the same (review)
+            string? path = r.File ?? (_filePickName is { } found ? Path.Combine(r.Dir, found) : null);
+            string why = RefusalReason(r.Error, path, fileName, r.Dir);
             Log?.Invoke($"dev tools: map file pick {fileName} refused: {why} The match goes on on {Map?.Name ?? "this map"}.");
             Answer(DevNote.MapRefused, $"The match goes on here. {fileName} cannot be played: {why}");   // the fixed part first: a long reason is cut at its end
             SendDevStates();
@@ -109,21 +120,30 @@ public sealed partial class GameServer
 
     /// <summary>
     /// The reason a picked file was refused, in words for the panel and the log: never a folder of this PC (the full path is replaced by the file's name), without the server's "cannot play" prefix,
-    /// ending with a full stop.
+    /// ending with a full stop. <paramref name="dir"/>: the folder the picker listed, scrubbed too (a check that faulted may name it without the file).
     /// </summary>
-    internal static string RefusalReason(string? error, string? path, string fileName)
+    internal static string RefusalReason(string? error, string? path, string fileName, string? dir = null)
     {
         string why = error ?? "it could not be compiled";
         if (!string.IsNullOrEmpty(path))
         {
             why = why.Replace(path, fileName, StringComparison.OrdinalIgnoreCase);
             try { why = why.Replace(Path.GetFullPath(path), fileName, StringComparison.OrdinalIgnoreCase); } catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException) { }
-            if (Path.GetDirectoryName(path) is { Length: > 0 } dir) why = why.Replace(dir, "the maps folder", StringComparison.OrdinalIgnoreCase);
+            if (Path.GetDirectoryName(path) is { Length: > 0 } folder) why = why.Replace(folder, "the maps folder", StringComparison.OrdinalIgnoreCase);
+        }
+        if (!string.IsNullOrEmpty(dir))
+        {
+            why = why.Replace(dir, "the maps folder", StringComparison.OrdinalIgnoreCase);
+            try { why = why.Replace(Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar), "the maps folder", StringComparison.OrdinalIgnoreCase); } catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException) { }
         }
         why = why.Replace($"cannot play '{fileName}': ", "", StringComparison.Ordinal).Trim();
         return why.EndsWith('.') ? why : why + ".";
     }
 
-    /// <summary>Test seam: waits for a map-file check under way to finish (the tick then completes the pick).</summary>
-    internal void WaitForDevFilePick() => _filePick?.Wait(TimeSpan.FromSeconds(30));
+    /// <summary>Test seam: waits for a map-file check under way to finish (the tick then completes the pick); false when it is still running after two minutes.</summary>
+    internal bool WaitForDevFilePick()
+    {
+        try { return _filePick?.Wait(TimeSpan.FromMinutes(2)) ?? true; }
+        catch (AggregateException) { return true; }   // a check that faulted is finished; the tick reports it
+    }
 }

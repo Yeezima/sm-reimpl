@@ -114,10 +114,18 @@ if ($Locate) {
 }
 
 New-Item -ItemType Directory -Force -Path $State | Out-Null
-function Stop-Recorded {
-    if (-not (Test-Path -LiteralPath $RunFile)) { return 0 }
+# The recorded run's processes, each with its whole tree (/T: the dev server is a supervisor with the server as its child; the tests pin it).
+# With a tag, only a run still recorded under it, read here once more right before anything is stopped: -1 when run.json is gone, unreadable or names another run
+# (a Mapmaker run that started after -Stop first checked the tag), and nothing is removed or stopped.
+function Stop-Recorded([string]$tag = '') {
+    if (-not (Test-Path -LiteralPath $RunFile)) { if ($tag) { return -1 } else { return 0 } }
     $n = 0
-    try { $run = Get-Content -LiteralPath $RunFile -Raw | ConvertFrom-Json } catch { Remove-Item -LiteralPath $RunFile -Force -ErrorAction SilentlyContinue; return 0 }
+    try { $run = Get-Content -LiteralPath $RunFile -Raw | ConvertFrom-Json }
+    catch {
+        if ($tag) { return -1 }      # being written by another run right now: not ours to remove
+        Remove-Item -LiteralPath $RunFile -Force -ErrorAction SilentlyContinue; return 0
+    }
+    if ($tag -and [string]$run.tag -ne $tag) { return -1 }
     # the record goes first, then its processes: a run that is replaced sees its record gone as soon as its game or server dies, and ends as "replaced"
     Remove-Item -LiteralPath $RunFile -Force -ErrorAction SilentlyContinue
     foreach ($rec in @($run.pids)) {
@@ -131,14 +139,22 @@ function Stop-Recorded {
 }
 # The marker first: a run still starting (before it recorded anything, or between its steps) sees it and ends as "stopped" instead of starting the next step.
 # With -RunTag, only the run recorded under that tag is stopped (the launcher cleaning up its own run's leftovers); another run (the Mapmaker's) is left alone.
+# A tagged Stop checks the tag, leaves the marker, and Stop-Recorded checks the tag again right before stopping: a Mapmaker run that started in between (it clears
+# the marker and records itself) is then left alone, and the marker this Stop left is taken back (only if it is still this Stop's own), so that run does not end as "stopped".
 if ($Stop) {
     if ($RunTag) {
         $recorded = ''
         try { if (Test-Path -LiteralPath $RunFile) { $recorded = [string](Get-Content -LiteralPath $RunFile -Raw | ConvertFrom-Json).tag } } catch { }
         if ($recorded -ne $RunTag) { Write-Host "Not stopped: the recorded play test is another run (tag '$recorded', not '$RunTag')."; exit 0 }
     }
-    try { Set-Content -LiteralPath $StopFlag -Value (Get-Date).ToUniversalTime().ToString('o') -Encoding utf8 } catch { }
-    $n = Stop-Recorded; Write-Host "Stopped $n process(es) of the last play test."; exit 0
+    $mark = (Get-Date).ToUniversalTime().ToString('o') + ' ' + [guid]::NewGuid().ToString('N')
+    try { Set-Content -LiteralPath $StopFlag -Value $mark -Encoding utf8 } catch { }
+    $n = Stop-Recorded $RunTag
+    if ($n -lt 0) {
+        try { if ((Get-Content -LiteralPath $StopFlag -Raw -ErrorAction Stop).Trim() -eq $mark) { Remove-Item -LiteralPath $StopFlag -Force -ErrorAction SilentlyContinue } } catch { }
+        Write-Host "Not stopped: the recorded play test is another run (it started after this Stop checked the tag '$RunTag')."; exit 0
+    }
+    Write-Host "Stopped $n process(es) of the last play test."; exit 0
 }
 if (-not $Map) { Write-Host 'PLAYTEST failed: -Map <file.smmap> is required.'; exit 1 }
 if (-not (Test-Path -LiteralPath $Map)) { Say 'failed' "the map file '$Map' does not exist."; Write-Host "PLAYTEST failed: the map file '$Map' does not exist."; exit 1 }
@@ -165,11 +181,15 @@ $Replaced = $false
 # stops this run's recorded processes and records its own). Never with -Stop pending: that removes run.json too, and is checked first.
 function Test-Replaced {
     if ($records.Count -eq 0) { return $false }
-    if (-not (Test-Path -LiteralPath $RunFile)) { return $true }
-    try {
-        $first = @((Get-Content -LiteralPath $RunFile -Raw | ConvertFrom-Json).pids)[0]
-        return -not ($null -ne $first -and [int]$first.pid -eq $records[0].pid -and [int64]$first.start -eq $records[0].start)
-    } catch { return $false }     # being written right now: not decided on this read
+    # a read that cannot be parsed (run.json being written right now) is tried once more a moment later before deciding; still unreadable: not decided on this read
+    for ($attempt = 0; $attempt -lt 2; $attempt++) {
+        if (-not (Test-Path -LiteralPath $RunFile)) { return $true }
+        try {
+            $first = @((Get-Content -LiteralPath $RunFile -Raw | ConvertFrom-Json).pids)[0]
+            return -not ($null -ne $first -and [int]$first.pid -eq $records[0].pid -and [int64]$first.start -eq $records[0].start)
+        } catch { if ($attempt -eq 0) { Start-Sleep -Milliseconds 200 } }
+    }
+    return $false
 }
 # run.json: this run's processes (pid and start time) and its -RunTag (the launcher's: processes still recorded under it after the script ended are its leftovers).
 # A replaced run never writes it again (it would overwrite the new run's record); the process just started is in $records, so Stop-Own ends it.
@@ -202,7 +222,9 @@ function Test-StopAsked { Test-Path -LiteralPath $StopFlag }
 function Assert-NotStopped {
     if (Test-StopAsked) { throw [OperationCanceledException]::new('stopped') }
     if (Test-Replaced) { $script:Replaced = $true; throw [OperationCanceledException]::new('replaced') }
-}try {
+}
+
+try {
     $g = Find-Game $VersionDir
     if ($Port -eq 0) {
         foreach ($try in 27701..27760) {

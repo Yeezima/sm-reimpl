@@ -63,6 +63,7 @@ public sealed class DevMapFilePickTests : IDisposable
         var h = new Harness(Link, seed: 5, 1, config ?? Extended, new ServerOptions { DevTools = setup, Match = rules ? match ?? new MatchRules { TimeLimit = 0f, ScoreLimit = 1000, CountdownTime = 0f } : null }, map: map, clientOptions: clientOptions,
             wrapServer: remote is null ? null : t => new AddressedTransport(t, remote));
         h.Server.DevPickDirForTests = _dir;
+        h.Server.DevFilePickInlineForTests = true;   // the check completes on the tick (a test that holds a check runs it off the tick)
         var log = new List<string>();
         h.Server.Log += log.Add;
         h.Run(TimeSpan.FromSeconds(2));
@@ -74,7 +75,7 @@ public sealed class DevMapFilePickTests : IDisposable
     {
         h.Clients[0].SendDevCommand(DevCommandKind.PickMapFile, (byte)index, true, check ?? CustomMaps.PickCheck(fileName));
         h.Run(TimeSpan.FromSeconds(0.1));
-        h.Server.WaitForDevFilePick();
+        Assert.True(h.Server.WaitForDevFilePick(), "the map-file check finished");
         h.Run(TimeSpan.FromSeconds(0.3));
     }
 
@@ -187,7 +188,7 @@ public sealed class DevMapFilePickTests : IDisposable
         h.Run(TimeSpan.FromSeconds(1));
         bot.SendDevCommand(DevCommandKind.PickMapFile, 0, true, CustomMaps.PickCheck("a.smmap"));
         h.Run(TimeSpan.FromSeconds(0.2));
-        h.Server.WaitForDevFilePick();
+        Assert.True(h.Server.WaitForDevFilePick(), "the map-file check finished");
         h.Run(TimeSpan.FromSeconds(0.2));
         Assert.Null(h.Server.PickedMap);
         Assert.Equal(DevNote.None, h.Clients[0].Dev!.Note);
@@ -221,7 +222,7 @@ public sealed class DevMapFilePickTests : IDisposable
         Assert.True(h.Server.World.DevEndMatch() || h.Server.World.DevPickEnd(900), "the match ends while the check runs");
         Assert.Equal(MatchState.Ended, h.Server.World.State);
         hold.Set();
-        h.Server.WaitForDevFilePick();
+        Assert.True(h.Server.WaitForDevFilePick(), "the map-file check finished");
         h.Run(TimeSpan.FromSeconds(0.3));
         Assert.EndsWith("a.smmap", h.Server.PickedMap);   // the first pick, onto the end screen already showing
         Assert.True(h.Server.RotationDue);
@@ -235,6 +236,12 @@ public sealed class DevMapFilePickTests : IDisposable
         Assert.DoesNotContain(_dir, why, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Cannot read the map file 'x.smmap': locked by 'the maps folder'.", why);
         Assert.Equal("it could not be compiled.", GameServer.RefusalReason(null, null, "x.smmap"));
+        // a check that faulted: no file in its result, only the folder it listed (review)
+        string faulted = GameServer.RefusalReason($"Access to the path '{_dir}' is denied.", null, "the map file", _dir);
+        Assert.DoesNotContain(_dir, faulted, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Access to the path 'the maps folder' is denied.", faulted);
+        string named = GameServer.RefusalReason($"Could not find file '{Path.Combine(_dir, "y.smmap")}'", Path.Combine(_dir, "y.smmap"), "y.smmap", _dir);
+        Assert.Equal("Could not find file 'y.smmap'.", named);
     }
 
     [Fact]

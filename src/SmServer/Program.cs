@@ -625,6 +625,7 @@ server.Stepped += world =>
             $"{d.Position.X:F1},{d.Position.Y:F1},{d.Position.Z:F1}: {d.Victims} hit, {d.ShieldDamage:F0} shield + {d.HealthDamage:F0} health damage, {d.Kills} kills");
 };
 Console.WriteLine($"smserver on UDP {port}; protocol {Protocol.Version}; content {fingerprint:X16}; config {config.Hash():X16}; {config.TickRate} Hz");
+RotationSupervisor.WriteStarted();   // devtools-god-custommap (review): the supervisor reads a later failure as a match that was up, never as "the picked map could not start"
 #if SM_WARFRONT
 // Dedicated Warfront stage: SIGTERM (systemd's KillMode=control-group reaches the child too) and Ctrl+C ask for the same save-and-leave as stop.request; the loop below exits 0 after the save.
 if (cli.WarfrontDedicated && cli.WarfrontStage)
@@ -667,7 +668,7 @@ while (true)
             if (clock.Now - rotationDueAt > TimeSpan.FromMilliseconds(800))
             {
                 if (server.PickedMap is { } picked) RotationSupervisor.WritePick(picked, server.PickedModeOverride);   // devtools-map-pick: the supervisor starts this map next (devtools-god-custommap: or this map file, in this mode)
-                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts{(server.PickedMap is { } p ? $" ({p}, picked with the developer tools)" : "")}");
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts{(server.PickedMap is { } p ? $" ({RotationSupervisor.MapLabel(p)}, picked with the developer tools)" : "")}");
                 return ServerCommandLine.RotationExit;
             }
         }

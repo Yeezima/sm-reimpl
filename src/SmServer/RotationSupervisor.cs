@@ -89,6 +89,19 @@ static class RotationSupervisor
     public const string PickFileVariable = "SM_ROTATION_PICK_FILE", SupervisorPidVariable = "SM_SUPERVISOR_PID", HomeModeVariable = "SM_DEV_HOME_MODE";
 
     /// <summary>
+    /// devtools-god-custommap (review): the file a child creates once it listens (its "smserver on UDP" line, the map loaded), so its supervisor knows a later failure is not "the picked map could not
+    /// start" (a play test's Stop kills the child before the supervisor: that exit code 1 must not start a fallback child).
+    /// </summary>
+    public const string StartedFileVariable = "SM_ROTATION_STARTED_FILE";
+
+    /// <summary>The child says it is listening, by creating the file its supervisor named; nothing without one.</summary>
+    public static void WriteStarted()
+    {
+        if (Environment.GetEnvironmentVariable(StartedFileVariable) is { Length: > 0 } path)
+            try { File.WriteAllText(path, "listening"); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Console.WriteLine($"rotation: the supervisor could not be told the match is up ({e.Message})"); }
+    }
+
+    /// <summary>
     /// The child tells its supervisor which map the developer tools picked by writing it to the file the supervisor named; nothing without one. devtools-god-custommap: the map is a Classic archive
     /// name or a map file's full path, and a second line <c>annihilation</c> says the next match plays in Annihilation (the map cannot run the server's mode).
     /// </summary>
@@ -148,14 +161,19 @@ static class RotationSupervisor
         return (exe, Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? [Environment.GetCommandLineArgs()[0]] : []);
     }
 
-    /// <summary>Runs the server itself as a child with these arguments; its exit code, the map it asked for (null: none) and the mode that map plays in (null: the server's own).</summary>
-    static (int Code, string? Pick, string? Mode) RunChild(string exe, string[] host, IEnumerable<string> childArgs, Action<Process?> track, string? homeMode)
+    /// <summary>
+    /// Runs the server itself as a child with these arguments; its exit code, the map it asked for (null: none), the mode that map plays in (null: the server's own) and whether it got as far as
+    /// listening (<see cref="WriteStarted"/>).
+    /// </summary>
+    static (int Code, string? Pick, string? Mode, bool Started) RunChild(string exe, string[] host, IEnumerable<string> childArgs, Action<Process?> track, string? homeMode)
     {
-        string pickFile = Path.Combine(Path.GetTempPath(), $"sm-pick-{Environment.ProcessId}-{Guid.NewGuid():N}.txt");
+        string id = $"{Environment.ProcessId}-{Guid.NewGuid():N}";
+        string pickFile = Path.Combine(Path.GetTempPath(), $"sm-pick-{id}.txt"), startedFile = Path.Combine(Path.GetTempPath(), $"sm-started-{id}.txt");
         var info = new ProcessStartInfo(exe) { UseShellExecute = false };
         foreach (var h in host) info.ArgumentList.Add(h);
         foreach (var a in childArgs) info.ArgumentList.Add(a);
         info.Environment[PickFileVariable] = pickFile;
+        info.Environment[StartedFileVariable] = startedFile;
         info.Environment[SupervisorPidVariable] = Environment.ProcessId.ToString();
         if (homeMode is not null) info.Environment[HomeModeVariable] = homeMode;
         else info.Environment.Remove(HomeModeVariable);   // never an inherited one (a supervisor started from another server's child)
@@ -165,7 +183,9 @@ static class RotationSupervisor
         int code = running.ExitCode;
         running.Dispose(); track(null);
         string? pick = TakePick(pickFile, out string? mode);
-        return (code, pick, pick is null ? null : mode);
+        bool started = false;
+        try { started = File.Exists(startedFile); if (started) File.Delete(startedFile); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        return (code, pick, pick is null ? null : mode, started);
     }
 
     /// <summary>The home mode a child reads (<see cref="HomeModeVariable"/>), when its supervisor gave one and it is a mode the command line takes.</summary>
@@ -191,17 +211,21 @@ static class RotationSupervisor
         args = WithWeatherSeed(args, (uint)Random.Shared.NextInt64(0, uint.MaxValue));   // weather W3: one Random seed for every child of this supervisor
         for (int turn = 0; ; turn++)
         {
-            if (turn > 0) Console.WriteLine($"dev tools: starting the match on {plan.Map ?? "the first map"}{(plan.Mode is not null ? $" in {plan.Mode} (the map cannot run the server's mode)" : "")}");
-            var (code, pick, pickMode) = RunChild(exe, host, DevChildArguments(args, plan.Map, turn, plan.Mode), p => running = p, homeMode);
+            if (turn > 0) Console.WriteLine($"dev tools: starting the match on {MapLabel(plan.Map) ?? "the first map"}{(plan.Mode is not null ? $" in {plan.Mode} (the map cannot run the server's mode)" : "")}");
+            var (code, pick, pickMode, started) = RunChild(exe, host, DevChildArguments(args, plan.Map, turn, plan.Mode), p => running = p, homeMode);
             string? failed = plan.Map;
-            if (!plan.Next(code, pick, pickMode)) return code;
-            if (code != ServerCommandLine.RotationExit) Console.WriteLine($"dev tools: the match on {failed} could not run (exit code {code}); back to {plan.Map ?? "the first map"}");
+            if (!plan.Next(code, pick, pickMode, started)) return code;
+            if (code != ServerCommandLine.RotationExit) Console.WriteLine($"dev tools: the match on {MapLabel(failed)} could not run (exit code {code}); back to {MapLabel(plan.Map) ?? "the first map"}");
         }
     }
 
+    /// <summary>A map for server.log: a Classic archive name as it is, a picked map file by its file name only (never a folder of this PC; review).</summary>
+    public static string? MapLabel(string? map) => map is not null && IsMapFilePick(map) ? Path.GetFileName(map) : map;
+
     /// <summary>
     /// devtools-god-custommap: the dev supervisor's map and mode from turn to turn. A pick replaces them for the next child; a child that fails (an exit code other than 0 and the rotation's) right after
-    /// a pick falls back once to the map and mode before it, instead of ending the server; any other exit ends it.
+    /// a pick, before it said it listens (<see cref="WriteStarted"/>), falls back once to the map and mode before it, instead of ending the server; any other exit ends it, a failure of a picked map's
+    /// match that was up included (review: a play test's Stop kills the child before the supervisor, and that is no reason to start another child).
     /// </summary>
     public sealed class DevPlan
     {
@@ -213,8 +237,10 @@ static class RotationSupervisor
         /// <summary>The mode override of the next child (<c>annihilation</c>), else null.</summary>
         public string? Mode { get; private set; }
 
-        /// <summary>After a child exited: true and the next map and mode to start, or false (the supervisor ends with the child's code).</summary>
-        public bool Next(int code, string? pick, string? pickMode)
+        /// <summary>
+        /// After a child exited (<paramref name="started"/>: it had said it listens): true and the next map and mode to start, or false (the supervisor ends with the child's code).
+        /// </summary>
+        public bool Next(int code, string? pick, string? pickMode, bool started)
         {
             if (code == ServerCommandLine.RotationExit)
             {
@@ -222,7 +248,7 @@ static class RotationSupervisor
                 else _picked = false;
                 return true;
             }
-            if (_picked && code != 0)
+            if (_picked && code != 0 && !started)
             {
                 Map = _previousMap; Mode = _previousMode; _picked = false;   // once: a failure of the fallback ends the server
                 return true;
@@ -263,8 +289,8 @@ static class RotationSupervisor
         for (int turn = 0; ; )
         {
             string map = forced ?? maps[turn % maps.Count];
-            Console.WriteLine($"rotation: match {turn + 1} on {map}{(forced is not null ? " (picked with the developer tools)" : "")}{(forcedMode is not null ? $" in {forcedMode}" : "")}");
-            var (code, pick, pickMode) = RunChild(exe, host, ChildArguments(args, map, loads++, forced is null ? null : forcedMode), p => running = p, homeMode);
+            Console.WriteLine($"rotation: match {turn + 1} on {MapLabel(map)}{(forced is not null ? " (picked with the developer tools)" : "")}{(forcedMode is not null ? $" in {forcedMode}" : "")}");
+            var (code, pick, pickMode, _) = RunChild(exe, host, ChildArguments(args, map, loads++, forced is null ? null : forcedMode), p => running = p, homeMode);
             if (code != ServerCommandLine.RotationExit) return code;
             forced = pick; forcedMode = pickMode;
             if (forced is null) turn++;
