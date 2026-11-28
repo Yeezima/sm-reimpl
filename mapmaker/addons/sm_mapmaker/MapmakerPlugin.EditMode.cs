@@ -21,8 +21,12 @@ public partial class MapmakerPlugin
     public bool EditMode { get; private set; }
     public ComponentMode ComponentMode { get; private set; } = ComponentMode.Face;
     readonly List<string> _editIds = new();
-    /// <summary>The pieces whose <c>_edit_lock_</c> Edit mode set (they had none): only these lose it when Edit mode ends, so a lock the maker set stays.</summary>
-    readonly HashSet<string> _editLocked = new();
+    /// <summary>
+    /// The pieces whose <c>_edit_lock_</c> Edit mode set (they had none), with the node it was set on: only these lose it, so a lock the maker set stays. Unlocking goes by this
+    /// node, not through the edit set, so a piece that left the edit set (undo past its placement, a delete) or whose node is parked for undo is unlocked too.
+    /// </summary>
+    readonly Dictionary<string, ulong> _editLocked = new();
+    readonly HashSet<string> _editableAtEntry = new();   // the edit set as it began: a piece an undo brings back (the same node) rejoins it
     readonly Dictionary<string, SortedSet<int>> _compSel = new();
     string? _activeEdit;
     (string? Path, string Name) _editDoc;
@@ -69,8 +73,8 @@ public partial class MapmakerPlugin
     public IReadOnlyList<string> LockedIds => _lockedIds;
 
     /// <summary>
-    /// Which of the selected objects become editable when Edit mode begins (the one place for that rule). Today (owner 2026-11-28, groups still open): every Build and gameplay
-    /// piece of the selection; models, prefabs and SM1 pieces have no editable shape. A group adds nothing of its own: its members are what is selected.
+    /// Which of the selected objects become editable when Edit mode begins (the one place for that rule). Owner's decision 2026-11-28 (Blender's rule): every Build and gameplay
+    /// piece of the selection; models, prefabs and SM1 pieces have no editable shape. A group is not editable by itself: only the pieces among its selected members are.
     /// </summary>
     static List<string> EditableOnEntry(MapDocument doc, IReadOnlyList<string> selected) => selected.Where(i => doc.Find(i)?.Piece is not null).ToList();
 
@@ -93,10 +97,14 @@ public partial class MapmakerPlugin
                 return false;
             }
             if (MapHost.Tool != Tool.Select) SetTool(Tool.Select);
+            MapHost.Armed = null;   // nothing stays armed for placing (a drop on the view arms without the Place tool)
             CancelBox();
             _lockedIds.Clear(); _lockedIds.AddRange(picked);
             _lockedNodes.Clear();
             foreach (var id in picked) if (NodeOf(id) is { } ln) _lockedNodes[id] = ln.GetInstanceId();
+            _lockedOther.Clear();   // anything else selected (the map's root, say) stays selected too
+            foreach (var n in EditorInterface.Singleton.GetSelection().GetSelectedNodes()) if (n is not MapmakerObject) _lockedOther.Add(n.GetInstanceId());
+            _editableAtEntry.Clear(); foreach (var id in pieces) _editableAtEntry.Add(id);
             _eatLeftRelease = _eatRightRelease = _stopLeftRelease = false;
             _editIds.Clear(); _editIds.AddRange(pieces); _compSel.Clear(); _activeEdit = pieces[0];
             _editDoc = (Session.Path, Session.Name);
@@ -113,9 +121,9 @@ public partial class MapmakerPlugin
             if (_drag is not null) CancelEdit();
             RestoreLockedSelection();   // the same objects stay selected in Object mode (owner 2026-11-28)
             EditMode = false;
-            foreach (var id in _editIds) if (NodeOf(id) is { } n && GodotObject.IsInstanceValid(n)) { if (_editLocked.Contains(id) && n.HasMeta("_edit_lock_")) n.RemoveMeta("_edit_lock_"); n.UpdateGizmos(); }
-            _editLocked.Clear();
-            _editIds.Clear(); _compSel.Clear(); _activeEdit = null; _lockedIds.Clear(); _lockedNodes.Clear();
+            foreach (var id in _editLocked.Keys.ToList()) Unlock(id);
+            foreach (var id in _editIds) if (NodeOf(id) is { } n && GodotObject.IsInstanceValid(n) && n.IsInsideTree()) n.UpdateGizmos();
+            _editIds.Clear(); _compSel.Clear(); _activeEdit = null; _lockedIds.Clear(); _lockedNodes.Clear(); _lockedOther.Clear(); _editableAtEntry.Clear();
             _eatLeftRelease = _eatRightRelease = _stopLeftRelease = false;
             SetStatus("Object mode.");
         }
@@ -125,7 +133,8 @@ public partial class MapmakerPlugin
         return true;
     }
 
-    readonly Dictionary<string, ulong> _lockedNodes = new();   // the node of each locked object when Edit mode began (only those are put back: another map's o1 is not this one)
+    readonly Dictionary<string, ulong> _lockedNodes = new();
+    readonly List<ulong> _lockedOther = new();   // other nodes selected at entry (not map objects, e.g. the map's root)   // the node of each locked object when Edit mode began (only those are put back: another map's o1 is not this one)
 
     /// <summary>The locked objects' nodes that still exist (the same node instances as when Edit mode began).</summary>
     List<MapmakerObject> LockedNodes()
@@ -140,8 +149,9 @@ public partial class MapmakerPlugin
     /// <summary>Puts the editor selection back to the locked objects when it differs (false when it already matched or none of them is left). Never loops: an equal selection is left alone.</summary>
     bool RestoreLockedSelection()
     {
-        var want = LockedNodes();
+        var want = LockedNodes().Cast<Node>().ToList();
         if (want.Count == 0) return false;
+        foreach (var iid in _lockedOther) if (GodotObject.InstanceFromId(iid) is Node o && GodotObject.IsInstanceValid(o) && o.IsInsideTree()) want.Add(o);
         var sel = EditorInterface.Singleton.GetSelection();
         var now = sel.GetSelectedNodes();
         if (now.Count == want.Count && want.All(now.Contains)) return false;
@@ -162,13 +172,35 @@ public partial class MapmakerPlugin
         SetStatus("Edit mode keeps its objects selected; press Tab (mouse over the 3D view) for Object mode to select others.");
     }
 
+    /// <summary>
+    /// Placing from the library (a click with an armed item, a drag from the list onto the view, arming a row or a Build preset, the Place tool, a check's one-click fix) is
+    /// refused in Edit mode with a status line saying why (owner 2026-11-28: blocked on every route). True when refused.
+    /// </summary>
+    public bool RefusePlacingInEditMode()
+    {
+        if (!EditMode) return false;
+        SetStatus("Edit mode reshapes the selected pieces; press Tab (mouse over the 3D view) for Object mode to place from the library.");
+        return true;
+    }
+
     /// <summary>Locks <paramref name="n"/> against Godot's move gizmo for the edit, remembering that Edit mode set it (a node that already had the lock keeps it afterwards).</summary>
     void LockForEdit(string id, Node n)
     {
         if (n.HasMeta("_edit_lock_")) return;
         n.SetMeta("_edit_lock_", true);
-        _editLocked.Add(id);
+        _editLocked[id] = n.GetInstanceId();
     }
+
+    /// <summary>Removes the lock Edit mode set on a piece's node (wherever that node is now: in the map, or parked for undo).</summary>
+    void Unlock(string id)
+    {
+        if (!_editLocked.Remove(id, out var iid) || GodotObject.InstanceFromId(iid) is not Node3D n || !GodotObject.IsInstanceValid(n)) return;
+        if (n.HasMeta("_edit_lock_")) n.RemoveMeta("_edit_lock_");
+        if (n.IsInsideTree()) n.UpdateGizmos();
+    }
+
+    /// <summary>Test aid: how many pieces carry Edit mode's lock now.</summary>
+    public int EditLocksHeld => _editLocked.Count;
 
     /// <summary>1 / 2 / 3. The selection converts the way Blender's does: what the selected vertices fully cover in the new mode.</summary>
     public void SetComponentMode(ComponentMode mode)
@@ -646,8 +678,14 @@ public partial class MapmakerPlugin
         _editDoc = (Session.Path, Session.Name);
         if (_editIds.Any(id => _editNodes.TryGetValue(id, out var was) && NodeOf(id) is { } now && GodotObject.IsInstanceValid(now) && now.GetInstanceId() != was)) { SetEditMode(false); return; }
         if (_drag is not null && (!ReferenceEquals(Session, _dragSession) || Session.Version != _dragVersion)) CancelEdit();
-        _editIds.RemoveAll(id => Session.Document.Find(id)?.Piece is null);
+        foreach (var gone in _editIds.Where(id => Session.Document.Find(id)?.Piece is null).ToList()) { _editIds.Remove(gone); Unlock(gone); }
+        // a piece of the edit set that an undo or redo brings back with its own node rejoins it (and is locked again below)
+        bool rejoined = false;
+        foreach (var id in _lockedIds)
+            if (_editableAtEntry.Contains(id) && !_editIds.Contains(id) && Session.Document.Find(id)?.Piece is not null && NodeOf(id) is { } back
+                && _editNodes.TryGetValue(id, out var was0) && back.GetInstanceId() == was0 && back.IsInsideTree()) { _editIds.Add(id); rejoined = true; }
         if (_editIds.Count == 0) { SetEditMode(false); return; }
+        if (rejoined) RestoreLockedSelection();   // and is selected again, as when Edit mode began
         if (_activeEdit is not null && !_editIds.Contains(_activeEdit)) _activeEdit = _editIds[0];
         foreach (var id in _compSel.Keys.ToList())
         {
@@ -831,9 +869,9 @@ public partial class MapmakerPlugin
         bool hovered = EditKeysAnywhere || OverEditSurface(_mouse);
         if (!EditMode)
         {
-            if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab, CtrlPressed: false, AltPressed: false, ShiftPressed: false } && hovered && EditedHasMap && !TextHasFocus())
+            if (e is InputEventKey { Pressed: true, Keycode: Key.Tab, CtrlPressed: false, AltPressed: false, ShiftPressed: false } tab && hovered && EditedHasMap && !TextHasFocus() && !FreelookActive())
             {
-                SetEditMode(true);
+                if (!tab.Echo) SetEditMode(true);   // a held Tab's repeats are used too: they would otherwise move the keyboard focus through the editor
                 GetViewport().SetInputAsHandled();
                 return true;
             }
@@ -872,12 +910,26 @@ public partial class MapmakerPlugin
             case InputEventKey { Pressed: true } k:
                 if (!hovered && _drag is null) return false;
                 if (_drag is null && TextHasFocus()) return false;   // typing in a field (a name, a number, a search) is the field's, Tab included; a drag keeps its keys
-                if (_drag is null && Input.IsMouseButtonPressed(MouseButton.Right)) return false;   // right mouse held: WASD / QE fly the camera
+                if (_drag is null && FreelookActive()) return false;   // freelook (right mouse held, or Shift+F): every key is the camera's, Shift+F again included
+                if (IsFreelookToggle(k)) { if (_drag is not null) CancelEdit(); return false; }   // Shift+F starts freelook: never swallowed, an edit in progress is cancelled first
                 if (HandleEditKey(k)) { GetViewport().SetInputAsHandled(); return true; }
+                if (k is { Echo: true, Keycode: Key.Tab, CtrlPressed: false, AltPressed: false, ShiftPressed: false, MetaPressed: false }) { GetViewport().SetInputAsHandled(); return true; }   // a held Tab's repeats
                 return false;
         }
         return false;
     }
+
+    /// <summary>Test aid: treat the camera as in freelook (headless Godot never captures the mouse).</summary>
+    public bool FreelookForTest { get; set; }
+
+    /// <summary>
+    /// Godot's 3D freelook is on: the right button held, or Shift+F's toggle (Godot captures the mouse while freelook runs, in Godot 4.7.2 as before). Then the movement keys
+    /// (W A S D Q E, and Shift+F to end it) are the camera's and Edit mode takes none.
+    /// </summary>
+    bool FreelookActive() => FreelookForTest || Input.IsMouseButtonPressed(MouseButton.Right) || Input.MouseMode == Input.MouseModeEnum.Captured;
+
+    /// <summary>Godot's freelook toggle at its default, Shift+F (a rebound toggle is not read: EditorSettings does not expose its shortcuts to plugins).</summary>
+    static bool IsFreelookToggle(InputEventKey k) => k is { Keycode: Key.F, ShiftPressed: true, CtrlPressed: false, AltPressed: false, MetaPressed: false };
 
     /// <summary>True when keyboard focus is in a text field (LineEdit, including a SpinBox's, or TextEdit) of the editor or the Mapmaker dock's window.</summary>
     bool TextHasFocus()

@@ -895,6 +895,7 @@ public partial class MapmakerPlugin : EditorPlugin
     public bool ReadyToPlace()
     {
         if (MapHost.StartingEmptyMap) return false;
+        if (RefusePlacingInEditMode()) return false;
         if (!EditedHasMap)
         {
             // Placement targets the scene tab being edited; it never switches tabs (owner, 2026-11-18). A tab without a Mapmaker root is offered one.
@@ -998,6 +999,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public void SetTool(Tool tool)
     {
+        if (tool == Tool.Place && RefusePlacingInEditMode()) { RaiseDocChanged(); return; }   // the dock's tool buttons show Select again
         MapHost.Tool = tool;
         if (tool != Tool.Place) MapHost.Armed = null;
         RaiseDocChanged();
@@ -1023,6 +1025,7 @@ public partial class MapmakerPlugin : EditorPlugin
     /// <summary>Puts an item down at a point (snapped like the preview), optionally turned about the up axis (degrees) and scaled; one undo step.</summary>
     public OpResult PlaceAt(LibraryItem item, Vector3 game, float? yawDegrees = null, float scale = 1f)
     {
+        if (RefusePlacingInEditMode()) return OpResult.Fail("edit-mode", "Placing is off in Edit mode; press Tab for Object mode.");
         game = SnapPoint(game);
         if (item.Kind == LibraryKind.Piece) return yawDegrees is null && scale == 1f ? PlacePiece(item, game) : PlacePieceAt(item, game, yawDegrees, scale);
         var r = Do($"Place {item.Label}", PlaceOp(item, ToNum(Frame.Round(game)), yawDegrees, scale));

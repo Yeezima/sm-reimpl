@@ -295,7 +295,7 @@ public partial class MapmakerDock : VBoxContainer
         v.AddChild(Row(_source, _search));
         v.AddChild(BuildMapFilterRow());
         _list.ItemAt = i => i >= 0 && i < _items.Count && !_items[i].IsHeader ? _items[i] : null;
-        _list.DroppedOutside = (item, pos) => { if (_plugin.OverViewport(pos)) MapHost.Armed = item; if (_plugin.OverViewport(pos) && _plugin.ReadyToPlace() && _plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
+        _list.DroppedOutside = (item, pos) => { if (_plugin.OverViewport(pos) && _plugin.RefusePlacingInEditMode()) return; if (_plugin.OverViewport(pos)) MapHost.Armed = item; if (_plugin.OverViewport(pos) && _plugin.ReadyToPlace() && _plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
         _list.ItemSelected += i => { _lastRow = _items[(int)i]; Arm(_items[(int)i]); };
         _list.ItemActivated += i => { if (_items[(int)i].Kind is LibraryKind.Asset or LibraryKind.Prefab) BeginRename((int)i); else Arm(_items[(int)i]); };   // double click edits the name; SM1 rows are read-only
         _list.ItemClicked += (i, pos, button) =>
@@ -341,6 +341,7 @@ public partial class MapmakerDock : VBoxContainer
 
     void Arm(LibraryItem item)
     {
+        if (_plugin.RefusePlacingInEditMode()) { _plugin.NotifyDoc(); return; }   // Edit mode: nothing is armed (the status line says why)
         MapHost.Armed = item; MapHost.Tool = Tool.Place;
         if (item.Kind == LibraryKind.Sm1 && item.Map is { } armedMap && MapHost.Sm1For(armedMap) is null) { _status.Text = $"Loading {armedMap} from the install to draw {item.Id}..."; _plugin.RequestSm1Load(armedMap); }
         _plugin.NotifyDoc();
@@ -1260,6 +1261,10 @@ public partial class MapmakerDock : VBoxContainer
         _modeSelect.EmitSignal(OptionButton.SignalName.ItemSelected, index);   // a Godot build whose OptionButton does not listen to index_pressed: its item_selected directly
         return "item_selected";
     }
+
+    /// <summary>Test aid: a click on a Library row (it arms that item, as <c>ItemSelected</c> does) and a drop of it at a window point (as the list's drag ending there does).</summary>
+    public void TestArm(LibraryItem item) => Arm(item);
+    public void TestDropOutside(LibraryItem item, Vector2 window) => _list.DroppedOutside?.Invoke(item, window);
 
     public int TestTabCount => _tabs?.GetTabCount() ?? 0;
     public void TestShowTabIndex(int i) => ShowTab(i);

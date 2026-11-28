@@ -201,6 +201,7 @@ public partial class MapmakerPlugin
 
     OpResult PlacePiece(LibraryItem item, Vector3 game)
     {
+        if (RefusePlacingInEditMode()) return OpResult.Fail("edit-mode", "Placing is off in Edit mode; press Tab for Object mode.");
         var preset = PiecePreset.Find(item.Id);
         if (preset is null) return OpResult.Fail("unknown-piece", $"No piece '{item.Id}'.");
         var pos = ToNum(Frame.Round(game));
@@ -442,6 +443,7 @@ public partial class MapmakerPlugin
     public OpResult? Fix(Issue issue)
     {
         if (Session is null || issue.Action is null) return null;
+        if (RefusePlacingInEditMode()) return OpResult.Fail("edit-mode", "Placing is off in Edit mode; press Tab for Object mode.");
         var map = Compiled()!;
         var b = map.SolidBounds ?? new Bounds(new Num.Vector3(-30, -20, -1), new Num.Vector3(30, 20, 0));
         var size = b.Max - b.Min;

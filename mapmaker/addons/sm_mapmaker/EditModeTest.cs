@@ -163,7 +163,7 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
                 Key(Godot.Key.Escape);
                 Check(Near(Dims(wall), V(5, 2, 1)), "and Esc cancels it");
             }
-            else Check(false, "the gizmo has a layout (camera present)");
+            else Check(false, $"the gizmo has a layout (camera present; edit mode {plugin.EditMode}, set [{string.Join(",", plugin.EditIds)}], comps [{string.Join(",", plugin.SelectedComponents(wall))}], layout {plugin.GizmoLayoutNow?.Pivot} axes {(plugin.GizmoLayoutNow is { } gl ? string.Join(" ", gl.Axes) : "-")}, cam {plugin.Viewport3D?.GetCamera3D()?.GlobalPosition})");
 
             // save and reopen
             string mapFile = Path.Combine(outDir, "editmode-wall.smmap");
@@ -353,6 +353,15 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
         await Frames(1);
     }
     async Task RealKeys(params Key[] ks) { foreach (var k in ks) await RealKey(k); }
+    /// <summary>The editor's own Ctrl+Z, as a key through the window (no text field focused, the mouse over the 3D view).</summary>
+    async Task RealUndo(bool redo = false)
+    {
+        if (plugin.GetViewport().GuiGetFocusOwner() is { } fo && fo is LineEdit or TextEdit) fo.ReleaseFocus();
+        PushMove(View.GetGlobalRect().GetCenter()); await Frames(2);
+        await RealKey(Godot.Key.Z, shift: redo, ctrl: true);
+        await Frames(4);
+    }
+    void PushTab(bool pressed, bool echo = false) => Tree.Root.PushInput(new InputEventKey { Keycode = Godot.Key.Tab, PhysicalKeycode = Godot.Key.Tab, Pressed = pressed, Echo = echo });
 
     string[] GodotSelected() => EditorInterface.Singleton.GetSelection().GetSelectedNodes().OfType<MapmakerObject>().Select(n => n.ObjectId).OrderBy(i => i).ToArray();
     static string Ids(params string[] ids) => string.Join(",", ids.OrderBy(i => i));
@@ -407,7 +416,7 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
         Check(fm is not null && new[] { 4, 5, 6, 7 }.All(i => MathF.Abs(fm.Vertices[i].X - (MeshTopology.Box.StockVertices[i].X + 0.25f)) < 1e-5f) && new[] { 0, 1, 2, 3 }.All(i => fm.Vertices[i] == MeshTopology.Box.StockVertices[i]),
             "G X 1 Enter moves only the top face 1 m along X");
         Check(SelectedExactly(wall) && plugin.EditMode, "the wall stays selected after the edit");
-        plugin.UndoLast(); await Frames(4);
+        await RealUndo();
         Check(Obj(wall).Mesh is null && plugin.EditMode && SelectedExactly(wall), "undo: the stock shape again, Edit mode and the selection kept");
         // first click on a vertex
         await RealKey(Godot.Key.Key1);
@@ -418,7 +427,7 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
         await RealKeys(Godot.Key.G, Godot.Key.Z, Godot.Key.Key1, Godot.Key.Enter); await Frames(3);
         var vm = Obj(wall).Mesh;
         Check(vm is not null && vm.Vertices[7] == V(0.5f, 0.5f, 2f) && Enumerable.Range(0, 7).All(i => vm.Vertices[i] == MeshTopology.Box.StockVertices[i]), "G Z 1 Enter lifts that vertex only");
-        plugin.UndoLast(); await Frames(4);
+        await RealUndo();
         Check(Obj(wall).Mesh is null, "undo");
         // first click on an edge
         await RealKey(Godot.Key.Key2);
@@ -430,7 +439,7 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
         await RealKeys(Godot.Key.G, Godot.Key.Z, Godot.Key.Key1, Godot.Key.Enter); await Frames(3);
         var em = Obj(wall).Mesh;
         Check(em is not null && em.Vertices[6].Z == 2f && em.Vertices[7].Z == 2f && Enumerable.Range(0, 6).All(i => em.Vertices[i] == MeshTopology.Box.StockVertices[i]), "G Z 1 Enter lifts that edge only");
-        plugin.UndoLast(); await Frames(4);
+        await RealUndo();
         Check(Obj(wall).Mesh is null, "undo");
         // the component gizmo by real press, motion and release
         await RealKey(Godot.Key.Key3);
@@ -448,7 +457,7 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
             PushButton(tip + g.Axes[0] * 60f, MouseButton.Left, false); await Frames(3);
             Check(!plugin.EditDragging && during > 4.01f && MathF.Abs(Dims(wall).X - during) < 1e-4f, $"the real release applies the drag ({Dims(wall).X:0.00} m, previewed {during:0.00} m)");
             Check(SelectedExactly(wall) && plugin.SelectionRestores == restores0, "the wall stayed selected through the drag, with nothing put back");
-            plugin.UndoLast(); await Frames(4);
+            await RealUndo();
             Check(Obj(wall).Mesh is null, "undo");
         }
         else Check(false, "the gizmo has a layout (camera present)");
@@ -473,7 +482,7 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
         PushMove(topAt); await Frames(2);
         await RealKeys(Godot.Key.G, Godot.Key.X, Godot.Key.Key1, Godot.Key.Enter); await Frames(3);
         Check(Obj(wall).Mesh is { } mm && mm.Vertices[4].X > -0.5f + 0.2f, "and a move edits it");
-        plugin.UndoLast(); await Frames(4);
+        await RealUndo();
         how = dock.TestPickMode(0); await Frames(3);
         Check(!plugin.EditMode && SelectedExactly(wall), $"the menu's Object leaves like Tab, the wall still selected (via {how})");
 
@@ -483,7 +492,9 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
         var grp = plugin.GroupSelected("Props");
         string? groupId = plugin.Session!.Document.Groups.FirstOrDefault(gr => gr.Name == "Props")?.Id;
         Check(grp.Ok && groupId is not null, "a group holding the crate");
-        // the Scene dock's row of the crate, clicked in Object mode first (it selects the crate there)
+        // the Scene dock's row of the crate, clicked in Object mode first (it selects the crate there).
+        // Note: with ONE object selected the inspector edits that MapmakerObject, which this plugin handles, so Godot forwards the 3D view's input to it even without
+        // "forwarding always on"; the two-wall section below (the inspector edits several nodes, which the plugin does not handle) is the part that needs it.
         var sceneDock = EditorInterface.Singleton.GetBaseControl().FindChildren("*", "SceneTreeDock", true, false).OfType<Control>().FirstOrDefault();
         var sceneTree = sceneDock?.FindChildren("*", "Tree", true, false).OfType<Tree>().FirstOrDefault(t => t.IsVisibleInTree());
         Vector2? RowAt(string nodeName)
@@ -580,6 +591,7 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
         if (sceneDock?.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>().FirstOrDefault(l => l.IsVisibleInTree()) is { } fl) fields.Add(("the Scene dock's filter", fl));
         GD.Print($"EDITMODE note: text fields found: {string.Join(", ", fields.Select(f => f.What))}");
         Check(fields.Count >= 2, "text fields to type into are on screen");
+        string docBefore = plugin.Session!.Document.ToJson();
         foreach (var (what, edit) in fields)
         {
             string before = edit.Text;
@@ -592,9 +604,16 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
             Check(plugin.EditMode && !plugin.EditDragging && plugin.ComponentMode == ComponentMode.Face && edit.Text.Contains(typed), $"typing in {what} with the mouse over the view: the field gets '{typed}' ('{edit.Text}'), Edit mode takes none of the keys");
             await RealKey(Godot.Key.Tab);
             Check(plugin.EditMode, $"Tab in {what} is the field's: Edit mode stays on");
-            edit.Text = before;
             edit.ReleaseFocus();
             if (plugin.GetViewport().GuiGetFocusOwner() is { } fo) fo.ReleaseFocus();
+            await Frames(3);
+            if (plugin.Session!.Document.ToJson() != docBefore)
+            {
+                // the field applied what was typed to the locked walls (a rename, a set-transform): one undo step, taken back by the editor's real Ctrl+Z
+                await RealUndo();
+                Check(plugin.Session!.Document.ToJson() == docBefore && Obj(wall).Mesh is null && Obj(wall2).Mesh is null, $"{what}: its commit is one undo step and a real Ctrl+Z takes it back (walls as before)");
+            }
+            if (edit.Text != before && plugin.Session!.Document.ToJson() == docBefore) edit.Text = before;   // the Scene dock filter: show every row again
             await Frames(2);
         }
         // the Scene dock's rename (its row editor)
@@ -631,7 +650,154 @@ public sealed class EditModeTest(MapmakerPlugin plugin)
         EditorInterface.Singleton.GetSelection().Clear(); await Frames(2);
         await RealKey(Godot.Key.Tab);
         Check(!plugin.EditMode, "with nothing editable selected, Tab stays in Object mode");
+
+        await HeldTab(wall);
+        await Freelook(wall, topOff, topAt);
+        await PlacingBlocked(dock, wall);
+        await LockLeaks(wall, wall2);
         plugin.EditKeysAnywhere = true;
+    }
+
+    /// <summary>A held Tab: its repeats are used (no focus traversal through the editor), in Object mode and in Edit mode.</summary>
+    async Task HeldTab(string wall)
+    {
+        var centre = View.GetGlobalRect().GetCenter();
+        plugin.Select([wall]); await Frames(3);
+        PushMove(centre); await Frames(2);
+        var surface = plugin.GetViewport().GuiGetHoveredControl();
+        surface?.GrabFocus(); await Frames(1);
+        var focus0 = plugin.GetViewport().GuiGetFocusOwner();
+        PushTab(true); await Frames(1);
+        for (int i = 0; i < 4; i++) { PushTab(true, echo: true); await Frames(1); }
+        PushTab(false); await Frames(2);
+        Check(plugin.EditMode && plugin.GetViewport().GuiGetFocusOwner() == focus0, $"a held Tab enters Edit mode once; its repeats move no focus (focus {plugin.GetViewport().GuiGetFocusOwner()?.GetClass()}, was {focus0?.GetClass()})");
+        PushTab(true); await Frames(1);
+        for (int i = 0; i < 4; i++) { PushTab(true, echo: true); await Frames(1); }
+        PushTab(false); await Frames(2);
+        Check(!plugin.EditMode && plugin.GetViewport().GuiGetFocusOwner() == focus0 && SelectedExactly(wall), "held again it leaves once; the repeats neither re-enter nor move the focus");
+        focus0?.ReleaseFocus();
+    }
+
+    /// <summary>Freelook (right button held, or Shift+F): every key is the camera's; Shift+F during an edit cancels the edit and still reaches Godot.</summary>
+    async Task Freelook(string wall, Vector2 faceAt, Vector2 centreOfFace)
+    {
+        var centre = View.GetGlobalRect().GetCenter();
+        plugin.Select([wall]); await Frames(3);
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        await RealKey(Godot.Key.Key3);
+        await RealClick(faceAt);
+        Check(plugin.EditMode && plugin.SelectedComponents(wall).Count == 1, "Edit mode on the wall with a face selected");
+        PushMove(centre); await Frames(2);
+        var surface = plugin.GetViewport().GuiGetHoveredControl();   // the 3D view's input surface has the keyboard focus after a click in it, as for the user
+        Check(await WheelMovesCamera(), "before: Godot's freelook is off (the wheel zooms)");
+        plugin.FreelookForTest = true;   // Godot captures the mouse in freelook; a headless editor cannot, so the test says so
+        // (no digits here: passed on to Godot, 1 / 3 / 7 are its emulated-numpad views, which turn the camera orthogonal)
+        await RealKeys(Godot.Key.W, Godot.Key.A, Godot.Key.S, Godot.Key.D, Godot.Key.Q, Godot.Key.E, Godot.Key.G, Godot.Key.R);
+        bool shiftF = plugin.TestInput(new InputEventKey { Keycode = Godot.Key.F, PhysicalKeycode = Godot.Key.F, ShiftPressed = true, Pressed = true });   // not pushed here: Godot's freelook is not really on
+        await RealKey(Godot.Key.Tab);
+        Check(!shiftF && plugin.EditMode && !plugin.EditDragging && plugin.SelectedComponents(wall).Count == 1 && Obj(wall).Mesh is null,
+            "in freelook W A S D Q E, G, R, Shift+F and Tab are all left to Godot: no edit starts, still Edit mode");
+        plugin.FreelookForTest = false;
+        surface?.GrabFocus(); await Frames(1);   // Tab moved the focus on (it was Godot's); back to the view
+        await RealKey(Godot.Key.Q);   // Godot's Select tool again (W, E and R chose its Move, Rotate and Scale tools)
+        await RealKey(Godot.Key.G);
+        Check(plugin.EditDragging, "out of freelook, G starts a move again");
+        var before = plugin.Session!.Document.ToJson();
+        await RealKey(Godot.Key.F, shift: true);
+        Check(!plugin.EditDragging && plugin.Session!.Document.ToJson() == before, "Shift+F during an edit cancels it");
+        Check(!await WheelMovesCamera(), "and reaches Godot: its freelook is on (the wheel sets the fly speed, it no longer zooms)");
+        plugin.FreelookForTest = true;   // what the captured mouse says in a real window while freelook runs
+        await RealKey(Godot.Key.G);
+        await RealKey(Godot.Key.F, shift: true);
+        plugin.FreelookForTest = false;
+        Check(!plugin.EditDragging && await WheelMovesCamera(), "in freelook G is left alone and a second Shift+F reaches Godot: freelook off, the wheel zooms again");
+        GD.Print($"EDITMODE note: mouse mode during freelook stays {Input.MouseMode} headless (Godot captures it in a real window: FreelookActive's capture test and Godot's own Shift+F toggle need a windowed check)");
+        await RealKey(Godot.Key.Tab);
+        Check(!plugin.EditMode && SelectedExactly(wall), "Tab back to Object mode");
+    }
+
+    /// <summary>Godot's freelook is off when a wheel step zooms the camera (in freelook the wheel changes the fly speed). The step is taken back.</summary>
+    async Task<bool> WheelMovesCamera()
+    {
+        var centre = View.GetGlobalRect().GetCenter();
+        var cam = Vp.GetCamera3D()!;
+        var p0 = cam.GlobalPosition;
+        PushMove(centre); await Frames(1);
+        PushButton(centre, MouseButton.WheelUp, true); PushButton(centre, MouseButton.WheelUp, false);
+        await Frames(15);
+        bool moved = cam.GlobalPosition.DistanceTo(p0) > 1e-3f;
+        PushButton(centre, MouseButton.WheelDown, true); PushButton(centre, MouseButton.WheelDown, false);   // back (the zoom, or in freelook the fly speed)
+        await Frames(15);
+        return moved;
+    }
+
+    /// <summary>Library placing is refused in Edit mode on every route; something armed before is disarmed on entry.</summary>
+    async Task PlacingBlocked(MapmakerDock dock, string wall)
+    {
+        var centre = View.GetGlobalRect().GetCenter();
+        var preset = PiecePreset.All.First();
+        var item = new LibraryItem(LibraryKind.Piece, preset.Id, preset.Label);
+        int count0 = plugin.Session!.Document.Objects.Count;
+        plugin.Select([wall]); await Frames(2);
+        dock.TestArm(item); await Frames(2);
+        Check(MapHost.Tool == Tool.Place && MapHost.Armed == item, "Object mode: a Library row arms its item (Place tool)");
+        plugin.Select([wall]); await Frames(2);
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(plugin.EditMode && MapHost.Armed is null && MapHost.Tool == Tool.Select, "entering Edit mode disarms it");
+        await RealClick(View.GetGlobalRect().Position + new Vector2(30, View.GetGlobalRect().Size.Y - 30));
+        dock.TestArm(item); await Frames(2);
+        Check(MapHost.Armed is null && MapHost.Tool == Tool.Select && plugin.Status.Contains("Edit mode"), $"a Library row (or Build preset) does not arm in Edit mode, and says why ('{plugin.Status}')");
+        plugin.SetTool(Tool.Place); await Frames(1);
+        Check(MapHost.Tool == Tool.Select, "the Place tool stays off in Edit mode");
+        dock.TestDropOutside(item, centre); await Frames(3);
+        var placed = plugin.PlaceAt(item, new Vector3(20, 20, 0));
+        Check(plugin.Session!.Document.Objects.Count == count0 && MapHost.Armed is null && !placed.Ok, "a drag from the list onto the view and a direct placement place nothing in Edit mode");
+        Check(SelectedExactly(wall) && plugin.EditMode, "the wall stays selected in Edit mode");
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        dock.TestArm(item); await Frames(2);
+        Check(!plugin.EditMode && MapHost.Tool == Tool.Place && MapHost.Armed == item, "back in Object mode the row arms again");
+        plugin.SetTool(Tool.Select); await Frames(1);
+    }
+
+    /// <summary>Godot's move lock that Edit mode sets never outlives Edit mode: undo past a placement, a delete in Edit mode and its undo.</summary>
+    async Task LockLeaks(string wall, string wall2)
+    {
+        var centre = View.GetGlobalRect().GetCenter();
+        // place, Tab, undo past the placement (Edit mode ends by itself), redo
+        var wall3 = Place(PieceKind.Box, "Wall 3", V(0, 8, 0), V(4, 2, 1));
+        plugin.Select([wall3]); await Frames(3);
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(plugin.EditMode && plugin.NodeOf(wall3)!.HasMeta("_edit_lock_"), "a new wall in Edit mode carries the move lock");
+        await RealUndo();
+        Check(plugin.Session!.Document.Find(wall3) is null && !plugin.EditMode && plugin.EditLocksHeld == 0, "a real Ctrl+Z past its placement: the wall goes, Edit mode ends by itself, no lock is left");
+        await RealUndo(redo: true);
+        if (plugin.Session!.Document.Find(wall3) is null) { plugin.RedoLast(); await Frames(4); GD.Print("EDITMODE note: Ctrl+Shift+Z did not redo here; redone through the editor's history"); }
+        Check(plugin.NodeOf(wall3) is { } n3 && !n3.HasMeta("_edit_lock_"), "redo brings the wall back without the lock");
+        // two walls, one deleted in Edit mode, then Tab out and undo
+        plugin.Select([wall, wall2]); await Frames(3);
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        var del = plugin.Do("Delete", MapmakerPlugin.Op("delete", ("ids", MapmakerPlugin.Strs([wall2]))));
+        await Frames(3);
+        Check(del.Ok && plugin.EditMode && plugin.EditIds.SequenceEqual([wall]) && plugin.EditLocksHeld == 1, "deleting one of two walls in Edit mode (as the Scene dock or the dock would): the other stays in Edit mode");
+        await RealKey(Godot.Key.Tab);
+        await RealUndo();
+        Check(plugin.NodeOf(wall2) is { } n2 && !n2.HasMeta("_edit_lock_") && !plugin.NodeOf(wall)!.HasMeta("_edit_lock_") && plugin.EditLocksHeld == 0, "Tab out, then undo the delete: both walls without the lock");
+        // the same, undone while still in Edit mode: the wall rejoins
+        plugin.Select([wall, wall2]); await Frames(3);
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        plugin.Do("Delete", MapmakerPlugin.Op("delete", ("ids", MapmakerPlugin.Strs([wall2])))); await Frames(3);
+        await RealUndo();
+        Check(plugin.EditMode && Ids(plugin.EditIds.ToArray()) == Ids(wall, wall2) && plugin.NodeOf(wall2)!.HasMeta("_edit_lock_") && SelectedExactly(wall, wall2),
+            $"undoing the delete in Edit mode: the wall rejoins the edit set, locked and selected (edit set [{Ids(plugin.EditIds.ToArray())}], selected [{Ids(GodotSelected())}])");
+        PushMove(centre); await Frames(2);
+        await RealKey(Godot.Key.Tab);
+        Check(!plugin.EditMode && !plugin.NodeOf(wall)!.HasMeta("_edit_lock_") && !plugin.NodeOf(wall2)!.HasMeta("_edit_lock_") && plugin.EditLocksHeld == 0 && SelectedExactly(wall, wall2), "Tab out: both unlocked and still selected");
     }
 
     static void Save(SubViewport vp, string dir, string name) => vp.GetTexture().GetImage().SavePng(Path.Combine(dir, name));
