@@ -166,6 +166,26 @@ The playtest build holds the Mapmaker (docs/mapmaker.md) and the launcher has a 
   game window (`game\sm-reimpl.exe --connect 127.0.0.1:<port>`), and stops them by recorded pid and start time (`-Stop`, or when the game closes). `--mapmaker-check` checks the
   script, the server and the game are all there; the release smoke (step 1d) runs the script with `-Headless` (the player's client a hidden bot) on a starter map and needs the server log
   to show the custom map. Tests: `tests/SmLauncher.Tests/MapmakerPlaytestTests.cs` (`-Locate`).
+- **PLAY TEST MAP: play test without the Mapmaker open** (owner, 2026-11-28: the editor open beside the game, its server and its bots ran PCs out of memory; a
+  launcher button, this PC only). The launcher's third button (`MainForm.PlayTestMap`, `SmLauncher.Core.MapPlaytest`, `PlaytestDialog`) sits beside MAPMAKER, on under the
+  same conditions and only when the active build has `mapmaker\playtest.ps1`, `server\SmServer.exe`, `game\sm-reimpl.exe` and `game\sm-reimpl.console.exe` (the tooltip
+  says why it is off). It asks for a saved `.smmap` (Browse... opens `<data>\mapmaker\maps`), the mode, bots per side (0 to 6, default 3) and the side, remembers them
+  in `launcher-settings.json`, and runs **the build's own copy** of the script hidden: `powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File
+  <version>\mapmaker\playtest.ps1 -Map <file> -Mode <m> -Bots <n> -Side <s> -VersionDir <version> [-SafeMode] -RunTag <tag>` (an argument list, so an install folder
+  with spaces is passed whole). **Safe mode:** with "Old GPU / safe mode" ticked, `-SafeMode` gives the game window PLAY's options (`SafeModePolicy`: the Compatibility
+  renderer before `--`, `--safe-mode` after it; the bots stay headless), and a game that closes with an error within 8 s (`EarlyExitWindow`) ends the play test with the
+  safe-mode hint. The status line shows the script's `status.txt` only when it changes (`MapPlaytestWatch`, so other launcher messages stay) and ends on the failure
+  reason, "Play test over" or "Play test stopped". A play test still running (this launcher's, or any process in `run.json` alive with its recorded start time, which
+  covers the Mapmaker's own button too) is never doubled: the button offers **Stop**: the script's `-Stop` (awaited) leaves `stop.flag`, which a run still starting
+  checks between its steps (it ends as "stopped", not "the server did not start"), and ends the recorded processes; this launcher's own PowerShell still running
+  10 s later is ended by its handle with what it started. The script stops only its own processes on its way out (not whatever `run.json` names by then), and its
+  `-RunTag` in `run.json` lets the launcher `-Stop -RunTag` leftovers of its own run after a PowerShell that died early (the script skips a run recorded under another
+  tag; a plain `-Stop` stops whatever is recorded), keeping the run's outcome line with "(leftover server and bots were stopped)" appended. A run that another play
+  test replaced (`run.json` gone or naming another run) ends at its next step check, or as soon as its game wait notices, as "replaced" (exit code 3; the launcher
+  says so), never writes `run.json` or `status.txt` again and never shows the safe-mode hint for its killed game. Added content like the rest of the Mapmaker: a build
+  without `mapmaker\` has the button off. **The Mapmaker's own Play test** runs the same script without `-SafeMode` or `-RunTag`, so it gets the same script changes:
+  its Stop (`-Stop`) also leaves `stop.flag` (a run still starting ends as "stopped", and the plugin shows "Play test stopped"), its game window that closes with an
+  error within 8 s ends the play test with the safe-mode hint, and starting it still replaces a running play test.
 - **Guard scope:** the project's text types (`.cs .uid .tscn .cfg .godot .csproj`) are allowed only for entries under `mapmaker/` (`PackageScanner.ScopedExtensions`), not globally.
 - **Pins cross-checked (2026-11-17):** the .NET 10.0.15 runtime SHA-512 equals the `dotnet-runtime-win-x64.zip` entry of Microsoft's `https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json`, and the zip's Content-Length is 36,980,907.
 - **Smoke test** (release.ps1 step 1d, never a visible window and never a download): `0 - SM Reimpl Launcher.exe --root <install> --mapmaker-check` must print

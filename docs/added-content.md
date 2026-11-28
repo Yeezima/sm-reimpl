@@ -124,7 +124,9 @@ The client-to-server direction has one message of its own, kind 17 (`ExtrasComma
 ## 5b. The Mapmaker
 The Mapmaker (`docs/mapmaker.md`) is added content: its core `src/SmMapmaker` compiles only from `Extras/`, `smtool map` sits behind `SM_EXTRAS`, and the
 Godot plugin is its own project (`mapmaker/`) that no game build references. A faithful build carries none of it; no runtime flag is needed
-because nothing in a match uses it yet (custom maps in a match will take a flag when they arrive).
+because nothing in a match uses it yet (custom maps in a match will take a flag when they arrive). The launcher's MAPMAKER and PLAY TEST MAP buttons
+(2026-11-28) follow the build, with no switch of their own: for a build that does not ship `mapmaker\`, MAPMAKER says so in one line and PLAY TEST MAP is
+off (it also needs that folder's `playtest.ps1`, the server and the game).
 
 **Exception: the neutral `MeshVolume` branches in the core simulation (lead 39 decision, 2026-11-25).** Edit mode's exact gameplay shapes use
 `SmSim.MeshVolume` (`src/SmSim/MeshVolume.cs`), which lives in the core simulation, not under `Extras/`, together with an optional `Volume` /
