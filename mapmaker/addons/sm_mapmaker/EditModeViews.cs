@@ -15,6 +15,18 @@ public static class EditModeViews
 {
     public const string NodeName = "EditOverlay";
     public static readonly Color Selected = new(1f, 0.55f, 0.1f), Wire = new(0.06f, 0.06f, 0.08f), Fill = new(1f, 0.55f, 0.1f, 0.38f), ActiveFill = new(1f, 0.7f, 0.25f, 0.45f);
+    /// <summary>
+    /// A picked edge (Edge mode, owner's recording 2026-11-28: the orange edge could not be told from Godot's orange selection box on the same edge): a near-white stroke
+    /// with a dark border, drawn in view pixels so it keeps its width at any distance. Ours.
+    /// </summary>
+    public static readonly Color PickedEdge = new(1f, 0.97f, 0.78f), PickedEdgeBorder = new(0.05f, 0.05f, 0.07f, 0.9f);
+    public const float PickedEdgeWidth = 4f, PickedEdgeBorderWidth = 7f;
+
+    public static void DrawPickedEdges(Control c, IReadOnlyList<(Vector2 A, Vector2 B)> segments, float scale)
+    {
+        foreach (var (a, b) in segments) c.DrawLine(a, b, PickedEdgeBorder, PickedEdgeBorderWidth * scale, true);
+        foreach (var (a, b) in segments) c.DrawLine(a, b, PickedEdge, PickedEdgeWidth * scale, true);
+    }
 
     /// <summary>The faces whose every vertex the selection holds (Blender fills those in any mode): in Face mode exactly the selected faces.</summary>
     public static int[] FilledFaces(EditMesh mesh, ComponentMode mode, IReadOnlyCollection<int> ids)

@@ -116,6 +116,18 @@ public partial class MapmakerDock
         WithGroup(g => _plugin.Do("Rename group", MapmakerPlugin.Op("group-rename", ("id", g), ("name", name))));
     }
 
+    /// <summary>Test aid: selects the row of an object or group in the Objects or Groups list as a click on it would (that row only), through the lists' own handler.</summary>
+    public bool TestSelectSceneRow(string id, bool groupList)
+    {
+        var tree = groupList ? _groupTree : _objectTree;
+        TreeItem? Find(TreeItem? it) { for (; it is not null; it = it.GetNext()) { if (it.GetMetadata(0).AsString() == id) return it; if (Find(it.GetFirstChild()) is { } f) return f; } return null; }
+        if (Find(tree.GetRoot()?.GetFirstChild()) is not { } row) return false;
+        tree.DeselectAll();
+        row.Select(0);
+        SceneRowsSelected(tree);
+        return true;
+    }
+
     /// <summary>A row was clicked: the objects of every selected row (a group stands for all of its objects) become the selection in the 3D view, so they move together.</summary>
     void SceneRowsSelected(SceneRowTree tree)
     {

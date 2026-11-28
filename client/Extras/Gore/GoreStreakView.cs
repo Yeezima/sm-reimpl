@@ -56,6 +56,7 @@ uniform vec3 dense_rgb = vec3({{F(GoreStreakRules.DenseRgb.R)}}, {{F(GoreStreakR
 uniform float near_from = {{F(GoreStreakRules.NearFadeFrom)}};
 uniform float near_to = {{F(GoreStreakRules.NearFadeTo)}};
 uniform float scene_light = {{F(GoreStreakRules.SceneLight)}};   // the level's ambient and sun light on the blood (GoreStreakView.SceneLight, measured on the CPU): it never glows on a dark map
+uniform float spread = 1.0;              // the per-hit variation's share (GoreStreakRules.SprayTilt, BandScatter, LengthVariation): 1, or 0 with --old-gore-spread
 uniform bool srgb_out = false;           // Compatibility: its albedo goes through display-to-linear once more on the way, so the scene-linear values are sent in display form
 
 const int NK = {{GoreStreakRules.Keys.Length}};
@@ -129,7 +130,11 @@ void vertex() {
             if (band == 1) alpha = 1.0 - {{F(GoreStreakRules.UpperFade)}} * smoothstep({{F(GoreStreakRules.Keys[2].T)}}, {{F(GoreStreakRules.Keys[4].T)}}, age);
             if (gb <= 0.0) { len = 0.0; alpha = 0.0; }
         }
-        float ang = radians(deg);
+        // the hit's variation (owner 2026-11-28; GoreStreakRules.Varied): the band's own length and in-plane turn about its root
+        len *= 1.0 + spread * ({{F(GoreStreakRules.SprayLengthShare)}} * (2.0 * h01(seed, {{F(GoreStreakRules.SprayLengthSalt)}}) - 1.0) + {{F(GoreStreakRules.BandLengthShare)}} * (2.0 * h01(seed, {{F(GoreStreakRules.BandLengthSalt)}} + float(band)) - 1.0));
+        float br = spread * {{F(GoreStreakRules.BandScatterDegrees * MathF.PI / 180f)}} * sqrt(h01(seed, {{F(GoreStreakRules.ScatterSalt)}} + float(band))), bp = 6.2831853 * h01(seed, {{F(GoreStreakRules.ScatterTurnSalt)}} + float(band));
+        float ang = radians(deg) + br * cos(bp);
+        float bet = br * sin(bp);
         float bend = INSTANCE_CUSTOM.z * B_BEND[band];
         float phase = h01(seed, 60.0 + float(band)) * 6.2831853;
         // the strip vertex on the plane (GoreStreakRules.RibbonPoint, GoreStreakRules.Meander)
@@ -137,7 +142,16 @@ void vertex() {
         float s = uu * len;
         float meander = ({{F(GoreStreakRules.MeanderWidth)}} * w + {{F(GoreStreakRules.MeanderLength)}} * len) * sin(3.14159265 * uu) * sin(6.2831853 * s / {{F(GoreStreakRules.MeanderWave)}} + phase);
         float across = bend * s * s / max(len, 0.05) + meander + vv * w * prof(uu) * {{F(GoreStreakRules.EdgePad)}};
-        VERTEX = vec3(B_ROOT[band] * ex + cs * s - sn * across, B_ACROSS[band] * (0.3 + 0.7 * g * g) + sn * s + cs * across, 0.0);   // the roots part late (GoreStreakRules.BandOf)
+        vec2 rt = vec2(B_ROOT[band] * ex, B_ACROSS[band] * (0.3 + 0.7 * g * g));   // the roots part late (GoreStreakRules.BandOf)
+        vec2 pp = rt + vec2(cs * s - sn * across, sn * s + cs * across);
+        // the band turned out of the plane about its root, then the whole spray turned about the wound (GoreStreakRules.VariedPoint): the start stays at the wound, the far ends scatter
+        float ra = dot(pp - rt, vec2(cs, sn));
+        pp -= vec2(cs, sn) * ra * (1.0 - cos(bet));
+        float pz = ra * sin(bet);
+        float tr = spread * {{F(GoreStreakRules.SprayTiltDegrees * MathF.PI / 180f)}} * sqrt(h01(seed, {{F(GoreStreakRules.TiltSalt)}})), tq = 6.2831853 * h01(seed, {{F(GoreStreakRules.TiltTurnSalt)}});
+        float t_in = tr * cos(tq), t_out = tr * sin(tq);
+        pp = vec2(pp.x * cos(t_in) - pp.y * sin(t_in), pp.x * sin(t_in) + pp.y * cos(t_in));
+        VERTEX = vec3(pp.x * cos(t_out) - pz * sin(t_out), pp.y, pp.x * sin(t_out) + pz * cos(t_out));
         vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
         v_depth = -view.z;
         POSITION = PROJECTION_MATRIX * view;   // written in both branches: once a shader writes POSITION, Godot takes it for every vertex
@@ -188,7 +202,7 @@ void fragment() {
     static Shader? _shader;
     static ImageTexture? _tex;
     static ArrayMesh? _strip;
-    static readonly StringName PNow = "now", PAgeOverride = "age_override", PFil = "fil", PNearFrom = "near_from", PNearTo = "near_to", PSrgbOut = "srgb_out", PProbe = "probe", PSceneLight = "scene_light";
+    static readonly StringName PNow = "now", PAgeOverride = "age_override", PFil = "fil", PNearFrom = "near_from", PNearTo = "near_to", PSrgbOut = "srgb_out", PProbe = "probe", PSceneLight = "scene_light", PSpread = "spread";
 
     MultiMesh _mm = null!;
     MultiMeshInstance3D _node = null!;
@@ -300,6 +314,9 @@ void fragment() {
     /// <summary>Capture aid <c>--capture-1080</c> (live recordings with <c>--write-movie</c>): the window made borderless at 1920 x 1080 when the view starts (the private test desktop otherwise caps it).</summary>
     static readonly bool Capture1080 = System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--capture-1080") >= 0;
 
+    /// <summary>Before / after switch <c>--old-gore-spread</c> (<see cref="GoreStreakRules.OldSpreadFlag"/>): no per-hit variation (the look before 2026-11-28).</summary>
+    static readonly bool OldSpread = System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--" + GoreStreakRules.OldSpreadFlag) >= 0;
+
     /// <summary>Makes <paramref name="w"/> a borderless 1920 x 1080 window at the corner (true 1080p frames for the capture aids).</summary>
     public static void CaptureWindow(Window w)
     {
@@ -317,6 +334,7 @@ void fragment() {
         _mat.SetShaderParameter(PFil, Filament()); _mat.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f);
         _mat.SetShaderParameter(PNearFrom, _nearFrom); _mat.SetShaderParameter(PNearTo, _nearTo);
         _mat.SetShaderParameter(PSrgbOut, RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility"); _mat.SetShaderParameter(PProbe, _probe ?? -1f);
+        _mat.SetShaderParameter(PSpread, OldSpread ? 0f : 1f);   // --old-gore-spread: every band on its designed line and reach (the look before 2026-11-28)
         _mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true, Mesh = StripMesh() };
         _mm.InstanceCount = GoreStreakRules.PoolSize * NB;
         _mm.VisibleInstanceCount = 0;
@@ -324,7 +342,7 @@ void fragment() {
         _node = new MultiMeshInstance3D
         {
             Name = "GoreStreaks", Multimesh = _mm, MaterialOverride = _mat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, TopLevel = true,
-            Layers = FxBatch.FxRenderLayer, CustomAabb = new Aabb(new Vector3(-5000f, -5000f, -5000f), new Vector3(10000f, 10000f, 10000f)),
+            Layers = FxBatch.FxRenderLayer, CustomAabb = new Aabb(-Vector3.One * GoreStreakRules.ViewBoundsMetres, Vector3.One * (2f * GoreStreakRules.ViewBoundsMetres)),
         };
         AddChild(_node);
     }
@@ -429,6 +447,14 @@ void fragment() {
         foreach (var (v, sl) in _victimSlot)
             if (_slotVictim[sl] != v || !GoreStreakRules.Live(_starts[sl], _clock)) _victimStale.Add(v);
         foreach (int v in _victimStale) _victimSlot.Remove(v);
+    }
+
+    /// <summary>Retires every streak and forgets the victims (the capture aid's repeated hit, <c>--gore-streak-capture-repeat</c>: each repeat a fresh hit, never merged into the last).</summary>
+    public void ClearAll()
+    {
+        if (_mm is null) return;
+        for (int i = 0; i < _high; i++) if (i != _prewarmSlot) Retire(i);
+        _victimSlot.Clear();
     }
 
     void Retire(int slot)

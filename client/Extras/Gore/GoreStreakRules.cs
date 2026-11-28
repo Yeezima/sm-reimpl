@@ -378,6 +378,77 @@ public static class GoreStreakRules
     }
     /// <summary>The entry band fades out between these ages (s; the reference's entry lasts to frame 8 and is gone by frame 9).</summary>
     public const float EntryFadeFrom = 0.76f, EntryFadeTo = 0.86f;
+
+    // ---- the per-hit variation (owner 2026-11-28; mirrored by the shader) ----
+
+    /// <summary>The command-line switch that draws the streak without the per-hit variation below (the look before 2026-11-28: every band on its designed line and reach).</summary>
+    public const string OldSpreadFlag = "old-gore-spread";
+    /// <summary>
+    /// The per-hit variation (owner 2026-11-28: "the gore should always fly away following the direction of impact, but needs to vary in the exact position that ribbons fly to";
+    /// card answers: about 15 degrees at most, never sideways or backwards; both the whole spray and each ribbon; about 20 % in length; ours otherwise). The whole spray turns rigidly
+    /// about the wound by a seeded angle up to <see cref="SprayTiltDegrees"/> in a seeded direction (in its plane and out of it), and each band turns about its own root by up to
+    /// <see cref="BandScatterDegrees"/> (in the plane and out of it), so the band's start stays at the wound and its far end scatters. A band's far end therefore strays at most
+    /// <see cref="MaxStrayDegrees"/> from the line it took before (its designed angle in the fan; the fan itself is unchanged), and the bands that ran ahead of the wound still run ahead.
+    /// </summary>
+    public const float SprayTiltDegrees = 7f, BandScatterDegrees = 8f;
+    /// <summary>The most a band's far end strays from its designed line (degrees): the spray's tilt plus the band's own scatter.</summary>
+    public const float MaxStrayDegrees = SprayTiltDegrees + BandScatterDegrees;
+    /// <summary>
+    /// The length variation (owner 2026-11-28: about 20 %): a band's reach is its designed reach times 1 + <see cref="SprayLengthShare"/> x (the spray's seeded -1..1) +
+    /// <see cref="BandLengthShare"/> x (the band's own -1..1), 0.8 to 1.2 with a mean of 1, so heavier and lethal hits keep their longer reach on average (on top of the bands'
+    /// designed reach jitter, <see cref="BandShape.ReachJitter"/>).
+    /// </summary>
+    public const float SprayLengthShare = 0.1f, BandLengthShare = 0.1f;
+    /// <summary>The variation's hash salts in the shader's <c>h01</c> (<see cref="ShaderHash"/>): clear of the bands' 20 to 35 and 50 to 65.</summary>
+    public const float TiltSalt = 1f, TiltTurnSalt = 2f, SprayLengthSalt = 3f, BandLengthSalt = 10f, ScatterSalt = 36f, ScatterTurnSalt = 42f;
+
+    /// <summary>A seeded turn inside a cone of <paramref name="maxDegrees"/>: (in the plane, out of it) in radians, its size uniform over the cone's disc, its direction uniform round it.</summary>
+    static (float In, float Out) Cone(float maxDegrees, float hSize, float hTurn)
+    {
+        float r = maxDegrees * MathF.PI / 180f * MathF.Sqrt(hSize), p = MathF.Tau * hTurn;
+        return (r * MathF.Cos(p), r * MathF.Sin(p));
+    }
+
+    /// <summary>The whole spray's seeded turn about the wound (radians: in its plane, out of it), up to <see cref="SprayTiltDegrees"/>; <paramref name="spread"/> 0 none (<see cref="OldSpreadFlag"/>).</summary>
+    public static (float In, float Out) SprayTilt(int seed, float spread = 1f) =>
+        Cone(spread * SprayTiltDegrees, ShaderHash(seed, TiltSalt), ShaderHash(seed, TiltTurnSalt));
+
+    /// <summary>Band <paramref name="band"/>'s own seeded turn about its root (radians: in the plane, out of it), up to <see cref="BandScatterDegrees"/>.</summary>
+    public static (float In, float Out) BandScatter(Band band, int seed, float spread = 1f) =>
+        Cone(spread * BandScatterDegrees, ShaderHash(seed, ScatterSalt + (int)band), ShaderHash(seed, ScatterTurnSalt + (int)band));
+
+    /// <summary>Band <paramref name="band"/>'s seeded length factor (0.8..1.2, mean 1; <see cref="SprayLengthShare"/>, <see cref="BandLengthShare"/>).</summary>
+    public static float LengthVariation(Band band, int seed, float spread = 1f) =>
+        1f + spread * (SprayLengthShare * (2f * ShaderHash(seed, SprayLengthSalt) - 1f) + BandLengthShare * (2f * ShaderHash(seed, BandLengthSalt + (int)band) - 1f));
+
+    /// <summary>The band <paramref name="b"/> (<see cref="BandOf"/>) with its varied reach and in-plane angle (the vertex stage's math; its out-of-plane turn and the spray's tilt are in <see cref="VariedPoint"/>).</summary>
+    public static BandAt Varied(BandAt b, Band band, int seed, float spread = 1f) =>
+        b with { Length = b.Length * LengthVariation(band, seed, spread), Angle = b.Angle + BandScatter(band, seed, spread).In };
+
+    /// <summary>
+    /// The strip vertex (<paramref name="u"/>, <paramref name="v"/>) of band <paramref name="designed"/> (<see cref="BandOf"/>) with the hit's variation, in the plane frame (table units:
+    /// x along the exit axis, y across, z out of the plane; the vertex shader's math): <see cref="RibbonPoint"/> of <see cref="Varied"/>, turned out of the plane about the band's root
+    /// by the band's own out-of-plane scatter, then the whole spray turned about the wound by <see cref="SprayTilt"/> (in the plane, then out of it).
+    /// </summary>
+    public static Vector3 VariedPoint(BandAt designed, Band band, int seed, float u, float v, float spread = 1f)
+    {
+        var b = Varied(designed, band, seed, spread);
+        var (x, y) = RibbonPoint(b, u, v);
+        float bet = BandScatter(band, seed, spread).Out;
+        float cs = MathF.Cos(b.Angle), sn = MathF.Sin(b.Angle);
+        float a = (x - b.Root) * cs + (y - b.Across) * sn;   // along the band from its root
+        x -= cs * a * (1f - MathF.Cos(bet)); y -= sn * a * (1f - MathF.Cos(bet));
+        float z = a * MathF.Sin(bet);
+        var (ti, to) = SprayTilt(seed, spread);
+        float x1 = x * MathF.Cos(ti) - y * MathF.Sin(ti), y1 = x * MathF.Sin(ti) + y * MathF.Cos(ti);
+        return new Vector3(x1 * MathF.Cos(to) - z * MathF.Sin(to), y1, x1 * MathF.Sin(to) + z * MathF.Cos(to));
+    }
+
+    /// <summary>
+    /// The streak view's drawn bounds, half a side (m; ours): the one MultiMesh is never culled while any streak shows anywhere on a map (the variation's longest, most tilted band
+    /// included, tested).
+    /// </summary>
+    public const float ViewBoundsMetres = 5000f;
     /// <summary>How much the upper band fades between frames 2 and 4 (its outer part begins fading at frame 3, ahead of the main band).</summary>
     public const float UpperFade = 0.25f;
 

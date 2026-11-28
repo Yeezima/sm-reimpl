@@ -21,8 +21,12 @@ public partial class MapmakerPlugin
     public bool EditMode { get; private set; }
     public ComponentMode ComponentMode { get; private set; } = ComponentMode.Face;
     readonly List<string> _editIds = new();
-    /// <summary>The pieces whose <c>_edit_lock_</c> Edit mode set (they had none): only these lose it when Edit mode ends, so a lock the maker set stays.</summary>
-    readonly HashSet<string> _editLocked = new();
+    /// <summary>
+    /// The pieces whose <c>_edit_lock_</c> Edit mode set (they had none), with the node it was set on: only these lose it, so a lock the maker set stays. Unlocking goes by this
+    /// node, not through the edit set, so a piece that left the edit set (undo past its placement, a delete) or whose node is parked for undo is unlocked too.
+    /// </summary>
+    readonly Dictionary<string, ulong> _editLocked = new();
+    readonly HashSet<string> _editableAtEntry = new();   // the edit set as it began: a piece an undo brings back (the same node) rejoins it
     readonly Dictionary<string, SortedSet<int>> _compSel = new();
     string? _activeEdit;
     (string? Path, string Name) _editDoc;
@@ -56,9 +60,27 @@ public partial class MapmakerPlugin
     /// <summary>Test aid: the hover check for keys is skipped (headless runs have no real mouse over the view).</summary>
     public bool EditKeysAnywhere { get; set; }
 
+    /// <summary>
+    /// The objects that were selected when Edit mode began (owner 2026-11-28: entering "locks the current object selection"): while Edit mode lasts, any other selection (a click on
+    /// another object, a Scene dock row, a group row) is put back to exactly these, and leaving keeps them selected.
+    /// </summary>
+    readonly List<string> _lockedIds = new();
+    /// <summary>Test aid: how often Edit mode put the locked selection back after something else changed it.</summary>
+    public int SelectionRestores { get; private set; }
+    /// <summary>Test aid: left presses in the 3D view that Edit mode used for a component pick or a gizmo handle (each counted once).</summary>
+    public int EditClicks { get; private set; }
+    /// <summary>Test aid: the objects Edit mode keeps selected.</summary>
+    public IReadOnlyList<string> LockedIds => _lockedIds;
+
+    /// <summary>
+    /// Which of the selected objects become editable when Edit mode begins (the one place for that rule). Owner's decision 2026-11-28 (Blender's rule): every Build and gameplay
+    /// piece of the selection; models, prefabs and SM1 pieces have no editable shape. A group is not editable by itself: only the pieces among its selected members are.
+    /// </summary>
+    static List<string> EditableOnEntry(MapDocument doc, IReadOnlyList<string> selected) => selected.Where(i => doc.Find(i)?.Piece is not null).ToList();
+
     // ---- entering and leaving ----
 
-    /// <summary>Tab: Edit mode on the selected pieces (false and a status line when none is selected), or back to Object mode.</summary>
+    /// <summary>Tab (or the mode menu): Edit mode on the selected pieces (false and a status line when none is selected), or back to Object mode with the same objects selected.</summary>
     public bool SetEditMode(bool on)
     {
         if (on == EditMode) return true;
@@ -67,7 +89,7 @@ public partial class MapmakerPlugin
             if (Session is null) { SetStatus("Edit mode: open or make a map first."); return false; }
             var doc = Session.Document;
             var picked = SelectedIds().ToList();
-            var pieces = picked.Where(i => doc.Find(i)?.Piece is not null).ToList();
+            var pieces = EditableOnEntry(doc, picked);
             if (pieces.Count == 0)
             {
                 SetStatus(picked.Count == 0 ? "Edit mode: select one or more Build or gameplay pieces first (Object mode), then press Tab."
@@ -75,7 +97,15 @@ public partial class MapmakerPlugin
                 return false;
             }
             if (MapHost.Tool != Tool.Select) SetTool(Tool.Select);
+            MapHost.Armed = null;   // nothing stays armed for placing (a drop on the view arms without the Place tool)
             CancelBox();
+            _lockedIds.Clear(); _lockedIds.AddRange(picked);
+            _lockedNodes.Clear();
+            foreach (var id in picked) if (NodeOf(id) is { } ln) _lockedNodes[id] = ln.GetInstanceId();
+            _lockedOther.Clear();   // anything else selected (the map's root, say) stays selected too
+            foreach (var n in EditorInterface.Singleton.GetSelection().GetSelectedNodes()) if (n is not MapmakerObject) _lockedOther.Add(n.GetInstanceId());
+            _editableAtEntry.Clear(); foreach (var id in pieces) _editableAtEntry.Add(id);
+            _eatLeftRelease = _eatRightRelease = _stopLeftRelease = false;
             _editIds.Clear(); _editIds.AddRange(pieces); _compSel.Clear(); _activeEdit = pieces[0];
             _editDoc = (Session.Path, Session.Name);
             _editNodes.Clear();
@@ -83,31 +113,126 @@ public partial class MapmakerPlugin
             EditMode = true;
             _editLocked.Clear();
             foreach (var id in _editIds) if (NodeOf(id) is { } n) { LockForEdit(id, n); n.UpdateGizmos(); }   // Godot's move gizmo leaves them alone while their shape is edited
+            RefreshGodotTransformGizmo();   // Godot draws its move gizmo until it looks at the selection again: now, so it goes at once
             int skipped = picked.Count - pieces.Count;
             SetStatus($"Edit mode on {pieces.Count} piece(s){(skipped > 0 ? $" ({skipped} selected object(s) without an editable shape left out)" : "")}: 1 / 2 / 3 vertex, edge, face; click to select; G / R / S then X / Y / Z and a number; Tab back to Object mode.");
         }
         else
         {
             if (_drag is not null) CancelEdit();
+            RestoreLockedSelection();   // the same objects stay selected in Object mode (owner 2026-11-28)
             EditMode = false;
-            foreach (var id in _editIds) if (NodeOf(id) is { } n && GodotObject.IsInstanceValid(n)) { if (_editLocked.Contains(id) && n.HasMeta("_edit_lock_")) n.RemoveMeta("_edit_lock_"); n.UpdateGizmos(); }
-            _editLocked.Clear();
-            _editIds.Clear(); _compSel.Clear(); _activeEdit = null;
+            foreach (var id in _editLocked.Keys.ToList()) Unlock(id);
+            _refreshGizmoOnExit = true;   // after EditMode is off (below): Godot's move gizmo comes back on the same selection at once
+            foreach (var id in _editIds) if (NodeOf(id) is { } n && GodotObject.IsInstanceValid(n) && n.IsInsideTree()) n.UpdateGizmos();
+            _editIds.Clear(); _compSel.Clear(); _activeEdit = null; _lockedIds.Clear(); _lockedNodes.Clear(); _lockedOther.Clear(); _editableAtEntry.Clear();
+            _eatLeftRelease = _eatRightRelease = _stopLeftRelease = false;
             SetStatus("Object mode.");
         }
         UpdateEditLayer();
         RefreshEditViews();
+        if (_refreshGizmoOnExit) { _refreshGizmoOnExit = false; RefreshGodotTransformGizmo(); }
         EditChanged?.Invoke();
         return true;
     }
 
-    /// <summary>Locks <paramref name="n"/> against Godot's move gizmo for the edit, remembering that Edit mode set it (a node that already had the lock keeps it afterwards).</summary>
-    void LockForEdit(string id, Node n)
+    readonly Dictionary<string, ulong> _lockedNodes = new();   // the node of each locked object when Edit mode began (only those are put back: another map's o1 is not this one)
+    readonly List<ulong> _lockedOther = new();   // other nodes selected at entry (not map objects, e.g. the map's root)
+
+    /// <summary>The locked objects' nodes that still exist (the same node instances as when Edit mode began).</summary>
+    List<MapmakerObject> LockedNodes()
     {
-        if (n.HasMeta("_edit_lock_")) return;
-        n.SetMeta("_edit_lock_", true);
-        _editLocked.Add(id);
+        var list = new List<MapmakerObject>();
+        foreach (var id in _lockedIds)
+            if (_lockedNodes.TryGetValue(id, out var iid) && GodotObject.InstanceFromId(iid) is MapmakerObject n && GodotObject.IsInstanceValid(n) && n.IsInsideTree()
+                && _nodes.GetValueOrDefault(id) == n && Session?.Document.Find(id) is not null) list.Add(n);
+        return list;
     }
+
+    /// <summary>Puts the editor selection back to the locked objects when it differs (false when it already matched or none of them is left). Never loops: an equal selection is left alone.</summary>
+    bool RestoreLockedSelection()
+    {
+        var want = LockedNodes().Cast<Node>().ToList();
+        if (want.Count == 0) return false;
+        foreach (var iid in _lockedOther) if (GodotObject.InstanceFromId(iid) is Node o && GodotObject.IsInstanceValid(o) && o.IsInsideTree()) want.Add(o);
+        var sel = EditorInterface.Singleton.GetSelection();
+        var now = sel.GetSelectedNodes();
+        if (now.Count == want.Count && want.All(now.Contains)) return false;
+        sel.Clear();
+        foreach (var n in want) sel.AddNode(n);
+        return true;
+    }
+
+    /// <summary>
+    /// The editor selection changed while Edit mode is on (a click on a Scene dock row, a group row in the Mapmaker dock, anything that selects): Edit mode keeps its objects
+    /// (owner 2026-11-28), so the selection goes straight back to them. The restore changes the selection once more; that second notice finds it equal and stops.
+    /// </summary>
+    void OnSelectionChangedForEdit()
+    {
+        if (!EditMode) return;
+        if (!RestoreLockedSelection()) return;
+        SelectionRestores++;
+        SetStatus("Edit mode keeps its objects selected; press Tab (mouse over the 3D view) for Object mode to select others.");
+    }
+
+    /// <summary>
+    /// Placing from the library (a click with an armed item, a drag from the list onto the view, arming a row or a Build preset, the Place tool, a check's one-click fix) is
+    /// refused in Edit mode with a status line saying why (owner 2026-11-28: blocked on every route). True when refused.
+    /// </summary>
+    public bool RefusePlacingInEditMode()
+    {
+        if (!EditMode) return false;
+        SetStatus("Edit mode reshapes the selected pieces; press Tab (mouse over the 3D view) for Object mode to place from the library.");
+        return true;
+    }
+
+    /// <summary>Locks <paramref name="n"/> against Godot's move gizmo for the edit, remembering that Edit mode set it (a node that already had the lock keeps it afterwards).</summary>
+    bool LockForEdit(string id, Node n)
+    {
+        if (n.HasMeta("_edit_lock_")) return false;
+        n.SetMeta("_edit_lock_", true);
+        _editLocked[id] = n.GetInstanceId();
+        return true;
+    }
+
+    bool _refreshGizmoOnExit;
+    Node? _node3DEditor;
+    /// <summary>Test aid: how often Edit mode asked Godot to redraw its own transform gizmo, and how (Godot's update call, or the selection put back as it was).</summary>
+    public int GodotGizmoRefreshes { get; private set; }
+    public string GodotGizmoRoute { get; private set; } = "";
+    /// <summary>Test aid (before / after stills): skip the 2026-11-28 cosmetic fixes (the transform-gizmo refresh, the picked-edge stroke).</summary>
+    public bool SkipCosmeticFixes { get; set; }
+
+    /// <summary>
+    /// Godot's own move / rotate gizmo leaves locked nodes out, but only when it next looks at the selection: setting or removing <c>_edit_lock_</c> alone leaves it drawn (inert)
+    /// over the walls after entering Edit mode, and missing after leaving, until the selection changes (owner's recording, 2026-11-28). This makes it look now: Node3DEditor's
+    /// <c>update_transform_gizmo</c> when Godot exposes it, otherwise the same selection put back in the same order (no undo step; the lock handler finds it equal).
+    /// </summary>
+    void RefreshGodotTransformGizmo()
+    {
+        if (SkipCosmeticFixes) return;
+        if (_node3DEditor is null || !GodotObject.IsInstanceValid(_node3DEditor))
+            _node3DEditor = EditorInterface.Singleton.GetEditorMainScreen().FindChildren("*", "Node3DEditor", true, false).FirstOrDefault();
+        GodotGizmoRefreshes++;
+        if (_node3DEditor is { } ed && ed.HasMethod("update_transform_gizmo")) { ed.Call("update_transform_gizmo"); GodotGizmoRoute = "update_transform_gizmo"; return; }
+        var sel = EditorInterface.Singleton.GetSelection();
+        var nodes = sel.GetSelectedNodes().ToList();
+        if (nodes.Count == 0) return;
+        sel.Clear();
+        foreach (var n in nodes) sel.AddNode(n);
+        GodotGizmoRoute = "reselect";
+    }
+
+    /// <summary>Removes the lock Edit mode set on a piece's node (wherever that node is now: in the map, or parked for undo).</summary>
+    void Unlock(string id)
+    {
+        if (!_editLocked.Remove(id, out var iid) || GodotObject.InstanceFromId(iid) is not Node3D n || !GodotObject.IsInstanceValid(n)) return;
+        if (n.HasMeta("_edit_lock_")) n.RemoveMeta("_edit_lock_");
+        if (n.IsInsideTree()) n.UpdateGizmos();
+    }
+
+    /// <summary>Test aid: how many pieces carry Edit mode's lock now.</summary>
+    public int EditLocksHeld => _editLocked.Count;
 
     /// <summary>1 / 2 / 3. The selection converts the way Blender's does: what the selected vertices fully cover in the new mode.</summary>
     public void SetComponentMode(ComponentMode mode)
@@ -177,7 +302,7 @@ public partial class MapmakerPlugin
     /// <summary>Window coordinates to the 3D view's own pixels (what the camera projects to).</summary>
     Vector2 WindowToView(Vector2 window)
     {
-        if (Viewport3D is not { } vp || vp.GetParent() is not Control c) return window;
+        if (EditViewport is not { } vp || vp.GetParent() is not Control c) return window;
         var rect = c.GetGlobalRect();
         return (window - rect.Position) / rect.Size * new Vector2(vp.Size.X, vp.Size.Y);
     }
@@ -185,7 +310,7 @@ public partial class MapmakerPlugin
     bool Project(Vector3 global, out Vector2 px)
     {
         px = default;
-        if (Viewport3D?.GetCamera3D() is not { } cam || cam.IsPositionBehind(global)) return false;
+        if (EditCamera is not { } cam || cam.IsPositionBehind(global)) return false;
         px = cam.UnprojectPosition(global);
         return true;
     }
@@ -230,7 +355,7 @@ public partial class MapmakerPlugin
     /// <summary>The component under a point of the view (viewport pixels): a face by the ray, a vertex or an edge by the nearest one on screen (14 / 10 px).</summary>
     public (string Id, int Component)? PickComponentAt(Vector2 viewPx)
     {
-        if (Session is null || Viewport3D?.GetCamera3D() is not { } cam || MapHost.Root is not { } root) return null;
+        if (Session is null || EditCamera is not { } cam || MapHost.Root is not { } root) return null;
         if (ComponentMode == ComponentMode.Face)
         {
             var inv = root.GlobalTransform.AffineInverse();
@@ -394,7 +519,7 @@ public partial class MapmakerPlugin
                     if (MapHost.SnapGrid) metres = Snap.Grid(metres, MapHost.GridStep);
                     _dragAmount = AxisVector(a, metres);
                 }
-                else if (Viewport3D?.GetCamera3D() is { } cam && Num.Matrix4x4.Invert(WorldOf(id), out var inv))
+                else if (EditCamera is { } cam && Num.Matrix4x4.Invert(WorldOf(id), out var inv))
                 {
                     var n = -cam.GlobalTransform.Basis.Z;
                     var plane = new Plane(n, _dragPivotGlobal);
@@ -434,7 +559,7 @@ public partial class MapmakerPlugin
                 _dragLastAngle = now; _dragAngle += step;
                 // counter-clockwise on screen turns counter-clockwise about an axis that points at the camera (screen y runs down)
                 var axisG = AxisStepGlobal(id, _dragAxis ?? 2);
-                bool toward = Viewport3D?.GetCamera3D() is { } cam && axisG.Dot(cam.GlobalPosition - _dragPivotGlobal) > 0;
+                bool toward = EditCamera is { } cam && axisG.Dot(cam.GlobalPosition - _dragPivotGlobal) > 0;
                 float deg = Mathf.RadToDeg(_dragAngle) * (toward ? -1f : 1f);
                 if (MapHost.SnapAngle) deg = Snap.Angle(deg, MathF.Max(MapHost.AngleStep, 1f));
                 _dragAmount = new Num.Vector3(MathF.Round(deg, 3), 0, 0);
@@ -585,8 +710,14 @@ public partial class MapmakerPlugin
         _editDoc = (Session.Path, Session.Name);
         if (_editIds.Any(id => _editNodes.TryGetValue(id, out var was) && NodeOf(id) is { } now && GodotObject.IsInstanceValid(now) && now.GetInstanceId() != was)) { SetEditMode(false); return; }
         if (_drag is not null && (!ReferenceEquals(Session, _dragSession) || Session.Version != _dragVersion)) CancelEdit();
-        _editIds.RemoveAll(id => Session.Document.Find(id)?.Piece is null);
+        foreach (var gone in _editIds.Where(id => Session.Document.Find(id)?.Piece is null).ToList()) { _editIds.Remove(gone); Unlock(gone); }
+        // a piece of the edit set that an undo or redo brings back with its own node rejoins it (and is locked again below)
+        bool rejoined = false;
+        foreach (var id in _lockedIds)
+            if (_editableAtEntry.Contains(id) && !_editIds.Contains(id) && Session.Document.Find(id)?.Piece is not null && NodeOf(id) is { } back
+                && _editNodes.TryGetValue(id, out var was0) && back.GetInstanceId() == was0 && back.IsInsideTree()) { _editIds.Add(id); rejoined = true; }
         if (_editIds.Count == 0) { SetEditMode(false); return; }
+        if (rejoined) RestoreLockedSelection();   // and is selected again, as when Edit mode began
         if (_activeEdit is not null && !_editIds.Contains(_activeEdit)) _activeEdit = _editIds[0];
         foreach (var id in _compSel.Keys.ToList())
         {
@@ -595,7 +726,9 @@ public partial class MapmakerPlugin
             int count = ComponentMode switch { ComponentMode.Vertex => mesh.Vertices.Count, ComponentMode.Edge => mesh.Edges.Count, _ => mesh.Faces.Count };
             _compSel[id].RemoveWhere(c => c >= count);
         }
-        foreach (var id in _editIds) if (NodeOf(id) is { } n) LockForEdit(id, n);
+        bool newLock = false;
+        foreach (var id in _editIds) if (NodeOf(id) is { } n) newLock |= LockForEdit(id, n);
+        if (newLock) RefreshGodotTransformGizmo();   // a piece that rejoined: Godot's move gizmo leaves it at once
         RefreshEditViews();
         EditChanged?.Invoke();
     }
@@ -616,7 +749,7 @@ public partial class MapmakerPlugin
         if (!Project(c, out var p)) return null;
         var axes = new Vector2[3];
         for (int k = 0; k < 3; k++)
-            axes[k] = Project(c + AxisStepGlobal(id, k).Normalized() * 0.01f * MathF.Max(1f, (Viewport3D!.GetCamera3D()!.GlobalPosition - c).Length()), out var q) && (q - p).Length() > 0.5f ? (q - p).Normalized() : Vector2.Zero;
+            axes[k] = Project(c + AxisStepGlobal(id, k).Normalized() * 0.01f * MathF.Max(1f, (EditCamera!.GlobalPosition - c).Length()), out var q) && (q - p).Length() > 0.5f ? (q - p).Normalized() : Vector2.Zero;
         return new EditModeViews.GizmoLayout(p, axes, 80f * EditorInterface.Singleton.GetEditorScale());
     }
 
@@ -631,7 +764,7 @@ public partial class MapmakerPlugin
 
     void UpdateEditLayer()
     {
-        var vp = Viewport3D;
+        var vp = EditViewport;
         bool want = EditMode && vp is not null;
         if (!want)
         {
@@ -653,8 +786,30 @@ public partial class MapmakerPlugin
     {
         if (_editLayer is null || !EditMode) return;
         float scale = EditorInterface.Singleton.GetEditorScale();
+        _pickedEdgeSegments = SkipCosmeticFixes ? new() : PickedEdgeSegments();
+        EditModeViews.DrawPickedEdges(_editLayer, _pickedEdgeSegments, scale);   // under the gizmo, over the picture (Godot's orange selection box shares the box's edges)
         if (Gizmo() is { } g) EditModeViews.DrawGizmo(_editLayer, g, _drag is null ? null : (_dragKind, _dragAxis), scale);
         if (Readout is { } title) EditModeViews.DrawReadout(_editLayer, title, ReadoutDetail, scale);
+    }
+
+    List<(Vector2 A, Vector2 B)> _pickedEdgeSegments = new();
+    /// <summary>Test aid: the picked-edge strokes the view drew last (view pixels).</summary>
+    public IReadOnlyList<(Vector2 A, Vector2 B)> PickedEdgeStrokes => _pickedEdgeSegments;
+
+    /// <summary>In Edge mode: every selected edge of the edit set (the preview's during an edit) as a segment in view pixels, for the stroke drawn over the picture.</summary>
+    List<(Vector2 A, Vector2 B)> PickedEdgeSegments()
+    {
+        var list = new List<(Vector2, Vector2)>();
+        if (ComponentMode != ComponentMode.Edge || Session is null) return list;
+        foreach (var id in _editIds)
+        {
+            var ids = _drag?.Targets.FirstOrDefault(t => t.Id == id).Selection?.Ids ?? (IReadOnlyCollection<int>)SelectedComponents(id);
+            if (ids.Count == 0 || Session.Document.Find(id) is not { Piece: not null } o) continue;
+            var mesh = _drag?.Preview.GetValueOrDefault(id) ?? EditMesh.Of(o);
+            foreach (var e in ids)
+                if (e >= 0 && e < mesh.Edges.Count && Project(UnitToGlobal(id, mesh.Vertices[mesh.Edges[e].A]), out var a) && Project(UnitToGlobal(id, mesh.Vertices[mesh.Edges[e].B]), out var b)) list.Add((a, b));
+        }
+        return list;
     }
 
     /// <summary>Test aid: the gizmo handle at a point of the view, as a click would find it.</summary>
@@ -675,7 +830,7 @@ public partial class MapmakerPlugin
 
     Vector2 ViewToWindow(Vector2 viewPx)
     {
-        if (Viewport3D is not { } vp || vp.GetParent() is not Control c) return viewPx;
+        if (EditViewport is not { } vp || vp.GetParent() is not Control c) return viewPx;
         var rect = c.GetGlobalRect();
         return rect.Position + viewPx / new Vector2(vp.Size.X, vp.Size.Y) * rect.Size;
     }
@@ -684,16 +839,96 @@ public partial class MapmakerPlugin
     public void MoveEditMouse(Vector2 viewPx) { _mouse = ViewToWindow(viewPx); UpdateEditFromMouse(viewPx); }
 
     // ---- input ----
+    //
+    // Two routes (owner's repair brief 2026-11-28). Clicks that pick a component or a gizmo handle arrive through _Forward3DGuiInput: Godot hands it every event its 3D input surface
+    // gets (forwarding is always on), with the camera of the view that got it, and a Stop there is the only consumer, so Godot neither picks an object nor starts its box behind it.
+    // Keys, and the buttons and motion of an edit in progress (which may leave the view), stay in _Input with the hover check below.
 
-    /// <summary>Edit mode's share of the 3D view's input (called first from _Input). True when the event was used.</summary>
+    Camera3D? _editCam;          // the camera of the 3D view the mouse last worked in (split views: one of up to four)
+    bool _eatLeftRelease, _eatRightRelease;   // a press _Input used (before any control): its release is used there too, so Godot never sees half a click
+    bool _stopLeftRelease;                    // a press the 3D view forwarded and Edit mode used: its release is stopped there too (Godot's GUI still sees it and lets go of the mouse)
+
+    /// <summary>The camera Edit mode picks, projects and draws with: the one of the view that got the last event (the first view's until then).</summary>
+    Camera3D? EditCamera => _editCam is { } c && GodotObject.IsInstanceValid(c) && c.IsInsideTree() ? c : Viewport3D?.GetCamera3D();
+    SubViewport? EditViewport => EditCamera?.GetViewport() as SubViewport ?? Viewport3D;
+
+    /// <summary>
+    /// The mouse (window coordinates) is over one of the 3D views' own input surface, not over a menu, button or popup drawn on it. Godot's view is a SubViewportContainer (the
+    /// picture) with a sibling Control on top that takes the input (verified in Godot 4.7.2: the hovered control is that sibling); the shipped check only accepted the container and
+    /// its children, so the real mouse was never "over the view". Remembers that view's camera (not during an edit, whose pixels belong to the view it began in).
+    /// </summary>
+    bool OverEditSurface(Vector2 window)
+    {
+        var hovered = GetViewport().GuiGetHoveredControl();
+        for (int i = 0; i < 4; i++)
+        {
+            if (EditorInterface.Singleton.GetEditorViewport3D(i) is not { } vp || vp.GetParent() is not Control container || !container.IsVisibleInTree() || !container.GetGlobalRect().HasPoint(window)) continue;
+            bool surface = hovered is null || hovered == container || container.IsAncestorOf(hovered) || hovered.GetParent() == container.GetParent();
+            if (surface && _drag is null && vp.GetCamera3D() is { } cam) _editCam = cam;
+            return surface;
+        }
+        return false;
+    }
+
+    /// <summary>Test aid: <see cref="OverEditSurface"/> for a window point (after a real mouse motion there).</summary>
+    public bool TestOverEditSurface(Vector2 window) => OverEditSurface(window);
+
+    /// <summary>An event position in the forwarding view's input surface to that view's pixels (what its camera projects to; the same unless the view renders at half resolution).</summary>
+    static Vector2 SurfaceToView(Camera3D cam, Vector2 local)
+    {
+        if (cam.GetViewport() is not SubViewport vp || vp.GetParent() is not Control c || c.Size.X <= 0 || c.Size.Y <= 0) return local;
+        return local * new Vector2(vp.Size.X, vp.Size.Y) / c.Size;
+    }
+
+    /// <summary>Alt + left drag orbits the camera in some navigation setups (3-button emulation, the Maya and Modo schemes): then it is the camera's.</summary>
+    static bool AltLeftNavigates()
+    {
+        var s = EditorInterface.Singleton.GetEditorSettings();
+        bool emulate = s.HasSetting("editors/3d/navigation/emulate_3_button_mouse") && s.GetSetting("editors/3d/navigation/emulate_3_button_mouse").AsBool();
+        int scheme = s.HasSetting("editors/3d/navigation/navigation_scheme") ? s.GetSetting("editors/3d/navigation/navigation_scheme").AsInt32() : 0;
+        return emulate || scheme != 0;
+    }
+
+    public override int _Forward3DGuiInput(Camera3D viewportCamera, InputEvent @event) => (int)ForwardEditInput(viewportCamera, @event);
+
+    /// <summary>
+    /// Edit mode's share of what Godot's 3D input surface receives. A left press picks the component under it (or grabs a gizmo handle) in the view and camera that got it, and is
+    /// consumed (Stop) together with its release. Everything else (wheel, middle and right buttons, motion, keys) goes on to Godot, so the camera navigates as always.
+    /// </summary>
+    EditorPlugin.AfterGuiInput ForwardEditInput(Camera3D cam, InputEvent e)
+    {
+        if (!EditMode || Session is null) return EditorPlugin.AfterGuiInput.Pass;
+        if (_drag is null && e is InputEventMouse) _editCam = cam;
+        switch (e)
+        {
+            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } b when _drag is null:
+                if (b.AltPressed && AltLeftNavigates()) return EditorPlugin.AfterGuiInput.Pass;
+                if (FreelookActive()) return EditorPlugin.AfterGuiInput.Pass;   // freelook: the click is Godot's (no pick at the hidden cursor; re-review nit 2026-11-28)
+                var px = SurfaceToView(cam, b.Position);
+                EditClicks++;
+                if (!PressGizmo(px)) ClickComponent(px, b.ShiftPressed);
+                _stopLeftRelease = true;
+                return EditorPlugin.AfterGuiInput.Stop;
+            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } when _stopLeftRelease:
+                // The release of that press. It comes here (not to _Input) so Godot's GUI sees it and lets go of the mouse; a gizmo drag ends with it, wherever the mouse is.
+                _stopLeftRelease = false;
+                if (_drag is not null && _dragGizmo) CommitEdit();
+                return EditorPlugin.AfterGuiInput.Stop;
+            case InputEventMouseMotion when _drag is not null && _dragGizmo:
+                return EditorPlugin.AfterGuiInput.Stop;   // Godot's own gizmo hover stays out of a handle drag
+        }
+        return EditorPlugin.AfterGuiInput.Pass;
+    }
+
+    /// <summary>Edit mode's share of the input (called first from _Input, before any control): Tab, keys, and the buttons and motion of an edit in progress. True when it was used.</summary>
     bool EditModeInput(InputEvent e)
     {
-        bool hovered = EditKeysAnywhere || ViewportHovered(_mouse);
+        bool hovered = EditKeysAnywhere || OverEditSurface(_mouse);
         if (!EditMode)
         {
-            if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab, CtrlPressed: false, AltPressed: false, ShiftPressed: false } && hovered && EditedHasMap && !TextHasFocus())
+            if (e is InputEventKey { Pressed: true, Keycode: Key.Tab, CtrlPressed: false, AltPressed: false, ShiftPressed: false } tab && hovered && EditedHasMap && !TextHasFocus() && !FreelookActive())
             {
-                SetEditMode(true);
+                if (!tab.Echo) SetEditMode(true);   // a held Tab's repeats are used too: they would otherwise move the keyboard focus through the editor
                 GetViewport().SetInputAsHandled();
                 return true;
             }
@@ -706,29 +941,52 @@ public partial class MapmakerPlugin
                 UpdateEditFromMouse(WindowToView(m.Position));
                 if (_dragGizmo) GetViewport().SetInputAsHandled();
                 return _dragGizmo;
-            case InputEventMouseButton { ButtonIndex: MouseButton.Left } b:
-                if (!ViewportHovered(b.Position) && _drag is null) return false;
-                if (b.Pressed)
-                {
-                    if (_drag is not null) CommitEdit();
-                    else if (!PressGizmo(WindowToView(b.Position))) ClickComponent(WindowToView(b.Position), b.ShiftPressed);
-                }
-                else if (_drag is not null && _dragGizmo) CommitEdit();
+            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } when _drag is not null:
+                // during an edit a left press anywhere applies it (Blender); used here, before any control, with its release
+                CommitEdit();
+                _eatLeftRelease = true;
+                GetViewport().SetInputAsHandled();
+                return true;
+            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } when _drag is not null && _dragGizmo && !_stopLeftRelease:
+                CommitEdit();   // a gizmo drag begun without the view's press (the test aid's PressGizmo); a real one ends in ForwardEditInput
+                GetViewport().SetInputAsHandled();
+                return true;
+            case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } when _eatLeftRelease:
+                _eatLeftRelease = false;   // the release of a click that applied an edit: nobody else gets half a click
                 GetViewport().SetInputAsHandled();
                 return true;
             case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true } when _drag is not null:
                 CancelEdit();
+                _eatRightRelease = true;
+                GetViewport().SetInputAsHandled();
+                return true;
+            case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } when _eatRightRelease:
+                _eatRightRelease = false;
                 GetViewport().SetInputAsHandled();
                 return true;
             case InputEventKey { Pressed: true } k:
                 if (!hovered && _drag is null) return false;
                 if (_drag is null && TextHasFocus()) return false;   // typing in a field (a name, a number, a search) is the field's, Tab included; a drag keeps its keys
-                if (_drag is null && Input.IsMouseButtonPressed(MouseButton.Right)) return false;   // right mouse held: WASD / QE fly the camera
+                if (_drag is null && FreelookActive()) return false;   // freelook (right mouse held, or Shift+F): every key is the camera's, Shift+F again included
+                if (IsFreelookToggle(k)) { if (_drag is not null) CancelEdit(); return false; }   // Shift+F starts freelook: never swallowed, an edit in progress is cancelled first
                 if (HandleEditKey(k)) { GetViewport().SetInputAsHandled(); return true; }
+                if (k is { Echo: true, Keycode: Key.Tab, CtrlPressed: false, AltPressed: false, ShiftPressed: false, MetaPressed: false }) { GetViewport().SetInputAsHandled(); return true; }   // a held Tab's repeats
                 return false;
         }
         return false;
     }
+
+    /// <summary>Test aid: treat the camera as in freelook (headless Godot never captures the mouse).</summary>
+    public bool FreelookForTest { get; set; }
+
+    /// <summary>
+    /// Godot's 3D freelook is on: the right button held, or Shift+F's toggle (Godot captures the mouse while freelook runs, in Godot 4.7.2 as before). Then the movement keys
+    /// (W A S D Q E, and Shift+F to end it) are the camera's and Edit mode takes none.
+    /// </summary>
+    bool FreelookActive() => FreelookForTest || Input.IsMouseButtonPressed(MouseButton.Right) || Input.MouseMode == Input.MouseModeEnum.Captured;
+
+    /// <summary>Godot's freelook toggle at its default, Shift+F (a rebound toggle is not read: EditorSettings does not expose its shortcuts to plugins).</summary>
+    static bool IsFreelookToggle(InputEventKey k) => k is { Keycode: Key.F, ShiftPressed: true, CtrlPressed: false, AltPressed: false, MetaPressed: false };
 
     /// <summary>True when keyboard focus is in a text field (LineEdit, including a SpinBox's, or TextEdit) of the editor or the Mapmaker dock's window.</summary>
     bool TextHasFocus()
