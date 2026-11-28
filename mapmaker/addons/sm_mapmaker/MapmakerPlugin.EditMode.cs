@@ -133,8 +133,8 @@ public partial class MapmakerPlugin
         return true;
     }
 
-    readonly Dictionary<string, ulong> _lockedNodes = new();
-    readonly List<ulong> _lockedOther = new();   // other nodes selected at entry (not map objects, e.g. the map's root)   // the node of each locked object when Edit mode began (only those are put back: another map's o1 is not this one)
+    readonly Dictionary<string, ulong> _lockedNodes = new();   // the node of each locked object when Edit mode began (only those are put back: another map's o1 is not this one)
+    readonly List<ulong> _lockedOther = new();   // other nodes selected at entry (not map objects, e.g. the map's root)
 
     /// <summary>The locked objects' nodes that still exist (the same node instances as when Edit mode began).</summary>
     List<MapmakerObject> LockedNodes()
@@ -847,6 +847,7 @@ public partial class MapmakerPlugin
         {
             case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } b when _drag is null:
                 if (b.AltPressed && AltLeftNavigates()) return EditorPlugin.AfterGuiInput.Pass;
+                if (FreelookActive()) return EditorPlugin.AfterGuiInput.Pass;   // freelook: the click is Godot's (no pick at the hidden cursor; re-review nit 2026-11-28)
                 var px = SurfaceToView(cam, b.Position);
                 EditClicks++;
                 if (!PressGizmo(px)) ClickComponent(px, b.ShiftPressed);
