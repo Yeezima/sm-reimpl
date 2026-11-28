@@ -179,9 +179,13 @@ The playtest build holds the Mapmaker (docs/mapmaker.md) and the launcher has a 
   covers the Mapmaker's own button too) is never doubled: the button offers **Stop**: the script's `-Stop` (awaited) leaves `stop.flag`, which a run still starting
   checks between its steps (it ends as "stopped", not "the server did not start"), and ends the recorded processes; this launcher's own PowerShell still running
   10 s later is ended by its handle with what it started. The script stops only its own processes on its way out (not whatever `run.json` names by then), and its
-  `-RunTag` in `run.json` lets the launcher `-Stop` leftovers of its own run after a PowerShell that died early, never a Mapmaker run started meanwhile. Added content like the
-  rest of the Mapmaker: a build without `mapmaker\` has the button off. The Mapmaker's own Play test is unchanged apart from showing "Play test stopped" for a
-  stopped run.
+  `-RunTag` in `run.json` lets the launcher `-Stop -RunTag` leftovers of its own run after a PowerShell that died early (the script skips a run recorded under another
+  tag; a plain `-Stop` stops whatever is recorded), keeping the run's outcome line with "(leftover server and bots were stopped)" appended. A run that another play
+  test replaced (`run.json` gone or naming another run) ends at its next step check, or as soon as its game wait notices, as "replaced" (exit code 3; the launcher
+  says so), never writes `run.json` or `status.txt` again and never shows the safe-mode hint for its killed game. Added content like the rest of the Mapmaker: a build
+  without `mapmaker\` has the button off. **The Mapmaker's own Play test** runs the same script without `-SafeMode` or `-RunTag`, so it gets the same script changes:
+  its Stop (`-Stop`) also leaves `stop.flag` (a run still starting ends as "stopped", and the plugin shows "Play test stopped"), its game window that closes with an
+  error within 8 s ends the play test with the safe-mode hint, and starting it still replaces a running play test.
 - **Guard scope:** the project's text types (`.cs .uid .tscn .cfg .godot .csproj`) are allowed only for entries under `mapmaker/` (`PackageScanner.ScopedExtensions`), not globally.
 - **Pins cross-checked (2026-11-17):** the .NET 10.0.15 runtime SHA-512 equals the `dotnet-runtime-win-x64.zip` entry of Microsoft's `https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json`, and the zip's Content-Length is 36,980,907.
 - **Smoke test** (release.ps1 step 1d, never a visible window and never a download): `0 - SM Reimpl Launcher.exe --root <install> --mapmaker-check` must print

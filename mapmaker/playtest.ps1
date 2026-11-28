@@ -9,7 +9,10 @@
   playtest.ps1 -Map <file.smmap> [-Mode annihilation|seize] [-Bots 3] [-Side marines|chaos] [-Class tactical] [-Port n]
   playtest.ps1 -Stop                         stops only the processes the last run recorded (by id and start time), and leaves a stop marker
                                              (stop.flag) that a run still starting checks between its steps, so it ends as "stopped"
-  -RunTag <letters, digits . _ ->            written into run.json (the launcher tags its runs, to recognise its own leftovers)
+  -RunTag <letters, digits . _ ->            written into run.json (the launcher tags its runs, to recognise its own leftovers); with -Stop, only
+                                             a run recorded under that tag is stopped
+  A run replaced by another play test (run.json gone or naming another run) ends at its next step check as "replaced" (exit code 3)
+  and writes neither status.txt nor run.json again.
   -SafeMode                                  the game window on the Compatibility renderer with low settings, as the launcher's "Old GPU / safe mode"
                                              (the bots stay headless); the launcher's PLAY TEST MAP passes it when that box is ticked
   playtest.ps1 -Locate [-VersionDir <dir>]   prints where the server and the game were found (or why not), starts nothing
@@ -91,6 +94,20 @@ function Get-BotClass([string]$side, [int]$i) {
     if ($side -eq 'chaos') { @{ tactical = 'chaos tactical'; assault = 'raptor'; devastator = 'havoc' }[$role] } else { $role }
 }
 
+# How a game window that closed ended: '' (fine), or the failure for one that closed with an error within $EarlyExitSeconds (the launcher's SafeModePolicy).
+function Get-EarlyExitProblem($exitCode, [double]$ranFor, [bool]$safe) {
+    if ($null -eq $exitCode -or $exitCode -eq 0 -or $ranFor -gt $EarlyExitSeconds) { return '' }
+    # as the launcher's PLAY: a game that dies at once usually does not run on this graphics card with its normal settings
+    $hint = if ($safe) { 'This happened even in Old GPU / safe mode: update your graphics driver, then report it with the logs.' } else { 'Tick "Old GPU / safe mode" in the launcher and press PLAY TEST MAP again.' }
+    return "the game closed right after it started (exit code $exitCode after $([int]$ranFor) s). $hint"
+}
+# test aid: SM_PLAYTEST_EARLY_EXIT_CHECK=<exit code>,<seconds> prints that classification ("EARLY <problem or nothing>") and exits; it starts and touches nothing
+if ($env:SM_PLAYTEST_EARLY_EXIT_CHECK) {
+    $parts = $env:SM_PLAYTEST_EARLY_EXIT_CHECK -split ','
+    Write-Host ('EARLY ' + (Get-EarlyExitProblem ([int]$parts[0]) ([double]::Parse($parts[1], [Globalization.CultureInfo]::InvariantCulture)) ([bool]$SafeMode)))
+    exit 0
+}
+
 if ($Locate) {
     try { $g = Find-Game $VersionDir; Write-Host "LOCATE ok|$($g.Dir)|$($g.Server)|$($g.Game)|$($g.Console)"; exit 0 }
     catch { Write-Host "LOCATE failed: $($_.Exception.Message)"; exit 1 }
@@ -101,6 +118,8 @@ function Stop-Recorded {
     if (-not (Test-Path -LiteralPath $RunFile)) { return 0 }
     $n = 0
     try { $run = Get-Content -LiteralPath $RunFile -Raw | ConvertFrom-Json } catch { Remove-Item -LiteralPath $RunFile -Force -ErrorAction SilentlyContinue; return 0 }
+    # the record goes first, then its processes: a run that is replaced sees its record gone as soon as its game or server dies, and ends as "replaced"
+    Remove-Item -LiteralPath $RunFile -Force -ErrorAction SilentlyContinue
     foreach ($rec in @($run.pids)) {
         try {
             $p = Get-Process -Id ([int]$rec.pid) -ErrorAction Stop
@@ -108,11 +127,16 @@ function Stop-Recorded {
             if ($p.StartTime.ToFileTimeUtc() -eq [int64]$rec.start) { & taskkill.exe /PID $p.Id /T /F 2>$null | Out-Null; $n++ }
         } catch { }
     }
-    Remove-Item -LiteralPath $RunFile -Force -ErrorAction SilentlyContinue
     return $n
 }
 # The marker first: a run still starting (before it recorded anything, or between its steps) sees it and ends as "stopped" instead of starting the next step.
+# With -RunTag, only the run recorded under that tag is stopped (the launcher cleaning up its own run's leftovers); another run (the Mapmaker's) is left alone.
 if ($Stop) {
+    if ($RunTag) {
+        $recorded = ''
+        try { if (Test-Path -LiteralPath $RunFile) { $recorded = [string](Get-Content -LiteralPath $RunFile -Raw | ConvertFrom-Json).tag } } catch { }
+        if ($recorded -ne $RunTag) { Write-Host "Not stopped: the recorded play test is another run (tag '$recorded', not '$RunTag')."; exit 0 }
+    }
     try { Set-Content -LiteralPath $StopFlag -Value (Get-Date).ToUniversalTime().ToString('o') -Encoding utf8 } catch { }
     $n = Stop-Recorded; Write-Host "Stopped $n process(es) of the last play test."; exit 0
 }
@@ -136,8 +160,27 @@ Remove-Item -LiteralPath $StopFlag -Force -ErrorAction SilentlyContinue      # a
 
 $result = 'PLAYTEST failed: unknown'
 $records = [System.Collections.Generic.List[object]]::new()
-# run.json: this run's processes (pid and start time) and its -RunTag (the launcher's: processes still recorded under it after the script ended are its leftovers)
-function Record($proc) { $records.Add([pscustomobject]@{ pid = $proc.Id; start = $proc.StartTime.ToFileTimeUtc() }); @{ pids = $records; tag = $RunTag } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $RunFile -Encoding utf8 }
+$Replaced = $false
+# This run was replaced by another play test: it has recorded processes, but run.json is gone or names another run (a Play test started from the other button
+# stops this run's recorded processes and records its own). Never with -Stop pending: that removes run.json too, and is checked first.
+function Test-Replaced {
+    if ($records.Count -eq 0) { return $false }
+    if (-not (Test-Path -LiteralPath $RunFile)) { return $true }
+    try {
+        $first = @((Get-Content -LiteralPath $RunFile -Raw | ConvertFrom-Json).pids)[0]
+        return -not ($null -ne $first -and [int]$first.pid -eq $records[0].pid -and [int64]$first.start -eq $records[0].start)
+    } catch { return $false }     # being written right now: not decided on this read
+}
+# run.json: this run's processes (pid and start time) and its -RunTag (the launcher's: processes still recorded under it after the script ended are its leftovers).
+# A replaced run never writes it again (it would overwrite the new run's record); the process just started is in $records, so Stop-Own ends it.
+function Record($proc) {
+    $stopped = Test-StopAsked                                  # -Stop removes run.json too: a Stop is never read as "replaced"
+    $replaced = (-not $stopped) -and (Test-Replaced)
+    $records.Add([pscustomobject]@{ pid = $proc.Id; start = $proc.StartTime.ToFileTimeUtc() })
+    if ($stopped) { throw [OperationCanceledException]::new('stopped') }
+    if ($replaced) { $script:Replaced = $true; throw [OperationCanceledException]::new('replaced') }
+    @{ pids = $records; tag = $RunTag } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $RunFile -Encoding utf8
+}
 # Stops only what THIS run started (its own list, by id and start time), and removes run.json only while it still names this run: a Play test started meanwhile
 # from the other button replaced this run's record with its own, and its processes are not this run's to stop.
 function Stop-Own {
@@ -155,8 +198,11 @@ function Stop-Own {
     }
 }
 function Test-StopAsked { Test-Path -LiteralPath $StopFlag }
-function Assert-NotStopped { if (Test-StopAsked) { throw [OperationCanceledException]::new('stopped') } }
-try {
+# Between steps: Stop was asked (stop.flag), or another play test replaced this one: end now instead of starting the next step.
+function Assert-NotStopped {
+    if (Test-StopAsked) { throw [OperationCanceledException]::new('stopped') }
+    if (Test-Replaced) { $script:Replaced = $true; throw [OperationCanceledException]::new('replaced') }
+}try {
     $g = Find-Game $VersionDir
     if ($Port -eq 0) {
         foreach ($try in 27701..27760) {
@@ -217,7 +263,9 @@ try {
         $client = Start-Process -FilePath $g.Console -ArgumentList (Quote $cargs) -WorkingDirectory (Split-Path -Parent $g.Console) -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logDir 'client.log') -RedirectStandardError (Join-Path $logDir 'client.err.log')
         Record $client
         Say 'playing' "Headless play test of $name ($Mode) on 127.0.0.1:$Port for $Seconds s."
-        $null = $client.WaitForExit($Seconds * 1000)
+        $until = (Get-Date).AddSeconds($Seconds)
+        while ((Get-Date) -lt $until -and -not $client.WaitForExit(500)) { Assert-NotStopped }
+        Assert-NotStopped
         Write-Host "logs in $logDir"
         $result = "PLAYTEST ok (headless, port $Port)"
     } else {
@@ -227,20 +275,20 @@ try {
         $null = $client.Handle        # held from the start, so the exit code can be read after it ends
         $clientStarted = Get-Date
         Record $client
-        $client.WaitForExit()
-        Assert-NotStopped
+        # polled, so a Stop or a play test that replaced this one ends the wait at once (and a killed game is never read as "closed right away")
+        while (-not $client.WaitForExit(500)) { Assert-NotStopped }
         $ranFor = ((Get-Date) - $clientStarted).TotalSeconds
-        if ($null -ne $client.ExitCode -and $client.ExitCode -ne 0 -and $ranFor -le $EarlyExitSeconds) {
-            # as the launcher's PLAY: a game that dies at once usually does not run on this graphics card with its normal settings
-            $hint = if ($SafeMode) { 'even in Old GPU / safe mode. Update your graphics driver, then report it with the logs.' } else { 'Tick "Old GPU / safe mode" in the launcher and press PLAY TEST MAP again.' }
-            throw "the game closed right after it started (exit code $($client.ExitCode) after $([int]$ranFor) s) $hint"
-        }
+        Assert-NotStopped
+        $early = Get-EarlyExitProblem $client.ExitCode $ranFor ([bool]$SafeMode)
+        if ($early) { throw $early }
         $result = 'PLAYTEST ok (the game was closed; server and bots stopped)'
     }
     Say 'done' 'Play test over (the server and the bots are stopped).'
 }
 catch {
-    if ($_.Exception -is [OperationCanceledException] -or (Test-StopAsked)) { $result = 'PLAYTEST stopped'; Say 'stopped' 'Play test stopped (its server, bots and game are closed).' }
+    # replaced: status.txt, run.json and stop.flag now belong to the new play test, so this run writes none of them
+    if ($Replaced) { $result = 'PLAYTEST replaced by another play test' }
+    elseif ($_.Exception -is [OperationCanceledException] -or (Test-StopAsked)) { $result = 'PLAYTEST stopped'; Say 'stopped' 'Play test stopped (its server, bots and game are closed).' }
     else { $result = "PLAYTEST failed: $($_.Exception.Message)"; Say 'failed' $_.Exception.Message }
 }
 finally {
@@ -248,6 +296,7 @@ finally {
     Stop-Own
 }
 if ($result -like 'PLAYTEST ok*' -and (Test-StopAsked)) { $result = 'PLAYTEST stopped'; Say 'stopped' 'Play test stopped (its server, bots and game are closed).' }
-Remove-Item -LiteralPath $StopFlag -Force -ErrorAction SilentlyContinue
+if (-not $Replaced) { Remove-Item -LiteralPath $StopFlag -Force -ErrorAction SilentlyContinue }
 Write-Host $result
-exit $(if ($result -like 'PLAYTEST ok*' -or $result -eq 'PLAYTEST stopped') { 0 } else { 1 })
+# exit codes: 0 ok or stopped, 1 failed, 3 replaced by another play test (the launcher says so instead of reading the new run's status as this one's)
+exit $(if ($result -like 'PLAYTEST ok*' -or $result -eq 'PLAYTEST stopped') { 0 } elseif ($Replaced) { 3 } else { 1 })

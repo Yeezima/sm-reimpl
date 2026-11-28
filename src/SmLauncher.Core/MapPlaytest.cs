@@ -127,12 +127,16 @@ public static class MapPlaytest
         return new MapmakerLaunch(PowerShellExe(), args, dir, new Dictionary<string, string>());
     }
 
-    /// <summary>The script's <c>-Stop</c>: ends only the processes the last play test recorded (by id and start time).</summary>
-    public static MapmakerLaunch StopCommand(string versionDir)
+    /// <summary>
+    /// The script's <c>-Stop</c>: ends only the processes the last play test recorded (by id and start time). With <paramref name="runTag"/> it stops only a run
+    /// recorded under that tag (the launcher's clean-up of its own run's leftovers; a Mapmaker run is left alone).
+    /// </summary>
+    public static MapmakerLaunch StopCommand(string versionDir, string? runTag = null)
     {
         string dir = Folder(versionDir);
         var args = Lead(dir);
         args.Add("-Stop");
+        if (!string.IsNullOrEmpty(runTag)) { args.Add("-RunTag"); args.Add(runTag); }
         return new MapmakerLaunch(PowerShellExe(), args, dir, new Dictionary<string, string>());
     }
 
@@ -217,7 +221,7 @@ public static class MapPlaytest
         try
         {
             if (!File.Exists(f)) return null;
-            using var doc = JsonDocument.Parse(AtomicFile.ReadAllText(f).TrimStart('﻿'));
+            using var doc = JsonDocument.Parse(AtomicFile.ReadAllText(f).TrimStart((char)0xFEFF));
             return doc.RootElement.TryGetProperty("tag", out var t) && t.ValueKind == JsonValueKind.String && t.GetString() is { Length: > 0 } s ? s : null;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { return null; }
@@ -241,6 +245,8 @@ public static class MapPlaytest
     {
         // a deliberate Stop ends as stopped, whatever step it cut short (a killed server is not "the server did not start")
         if (stopAsked || status is { Stopped: true }) return (StoppedText, true);
+        // replaced by another play test (the Mapmaker's Play test stops a running one): status.txt is the new run's now, so it is not read as this one's
+        if (exitCode == ReplacedExitCode) return (ReplacedText, true);
         if (status is { Failed: true }) return ("Play test failed: " + status.Text, false);
         if (status is { Done: true } && exitCode == 0) return ("Play test over (the server and the bots are stopped).", true);
         string last = status is null ? "none" : $"{status.Stage}: {status.Text}";
@@ -248,6 +254,9 @@ public static class MapPlaytest
     }
 
     public const string StoppedText = "Play test stopped (its server, bots and game are closed).";
+    /// <summary>The script's exit code for a run that another play test replaced.</summary>
+    public const int ReplacedExitCode = 3;
+    public const string ReplacedText = "This play test ended: another play test replaced it (a Play test started from the Mapmaker stops a running one).";
 
     public static string StopFile(string stateDir) => Path.Combine(stateDir, "stop.flag");
 }

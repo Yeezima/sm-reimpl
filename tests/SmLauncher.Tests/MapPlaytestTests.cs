@@ -267,12 +267,15 @@ public class MapPlaytestTests
         Assert.Contains($"$SafeGameArg = '{SafeModePolicy.GameArg}'", text);
     }
 
-    static (int Code, string Out) Run(MapmakerLaunch cmd, string stateDir, params string[] more)
+    static (int Code, string Out) Run(MapmakerLaunch cmd, string stateDir, params string[] more) => RunEnv(cmd, stateDir, null, more);
+
+    static (int Code, string Out) RunEnv(MapmakerLaunch cmd, string stateDir, Dictionary<string, string>? env, params string[] more)
     {
         var psi = new ProcessStartInfo(cmd.FileName) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = cmd.WorkingDirectory };
         foreach (var a in cmd.Arguments.Concat(more)) psi.ArgumentList.Add(a);
         psi.Environment.Remove(MapmakerSetup.VersionDirVariable);
         psi.Environment[MapPlaytest.StateDirVariable] = stateDir;
+        if (env is not null) foreach (var (k, v) in env) psi.Environment[k] = v;
         using var p = Process.Start(psi)!;
         var stderr = p.StandardError.ReadToEndAsync();
         string o = p.StandardOutput.ReadToEnd() + stderr.Result;
@@ -352,6 +355,86 @@ public class MapPlaytestTests
         Assert.False(File.Exists(MapPlaytest.RunFile(state)));
         Assert.True(File.Exists(MapPlaytest.StopFile(state)));                  // a run still starting sees it between its steps
         Assert.False(MapPlaytest.RecordedRunAlive(state));
+    }
+
+    [Fact]
+    public void Stop_with_a_run_tag_stops_only_the_run_recorded_under_that_tag()
+    {
+        using var t = new TempDir();
+        string v = MakeVersion(t);
+        string state = t["state"];
+        Directory.CreateDirectory(state);
+        using var gone = Process.Start(new ProcessStartInfo("cmd.exe", "/d /c exit 0") { UseShellExecute = false, CreateNoWindow = true })!;
+        gone.WaitForExit();
+        string record = "{\"pids\":[{\"pid\":" + gone.Id + ",\"start\":" + gone.StartTime.ToFileTimeUtc() + "}],\"tag\":\"\"}";      // a Mapmaker run: no tag
+        File.WriteAllText(MapPlaytest.RunFile(state), record);
+        var (c1, o1) = Run(MapPlaytest.StopCommand(v, "launcher-1-2"), state);
+        Assert.True(c1 == 0, o1);
+        Assert.Contains("Not stopped", o1);
+        Assert.True(File.Exists(MapPlaytest.RunFile(state)));                   // the other run's record is left alone
+        Assert.False(File.Exists(MapPlaytest.StopFile(state)));                 // and no marker that would stop it
+        File.WriteAllText(MapPlaytest.RunFile(state), record.Replace("\"tag\":\"\"", "\"tag\":\"launcher-1-2\""));
+        var (c2, o2) = Run(MapPlaytest.StopCommand(v, "launcher-1-2"), state);
+        Assert.True(c2 == 0, o2);
+        Assert.Contains("Stopped 0 process(es)", o2);
+        Assert.False(File.Exists(MapPlaytest.RunFile(state)));
+        // a plain -Stop (no tag) keeps today's behaviour: whatever run is recorded
+        File.WriteAllText(MapPlaytest.RunFile(state), record);
+        var (c3, o3) = Run(MapPlaytest.StopCommand(v), state);
+        Assert.True(c3 == 0, o3);
+        Assert.False(File.Exists(MapPlaytest.RunFile(state)));
+        // a tag that is not letters, digits, '.', '_' or '-' is refused before anything happens
+        Assert.NotEqual(0, Run(MapPlaytest.StopCommand(v), state, "-RunTag", "bad tag;rm").Code);
+    }
+
+    [Fact]
+    public void A_stop_marker_left_by_an_earlier_stop_does_not_stop_the_next_run()
+    {
+        using var t = new TempDir();
+        string v = MakeVersion(t);                 // placeholder executables: the run fails when it starts the server, after its start-up clean-up
+        string state = t["state"];
+        Directory.CreateDirectory(state);
+        File.WriteAllText(MapPlaytest.StopFile(state), "earlier");
+        var cmd = MapPlaytest.StartCommand(v, new MapPlaytestChoice(MakeMap(t), "annihilation", 0, "marines"), runTag: "launcher-3-4");
+        var (code, o) = Run(cmd, state, "-Headless", "-Seconds", "1");
+        Assert.Equal(1, code);
+        Assert.Contains("PLAYTEST failed", o);                                  // not "stopped": the stale marker was cleared at the start
+        Assert.DoesNotContain("PLAYTEST stopped", o);
+        Assert.Equal("failed", MapPlaytest.ReadStatus(state)!.Stage);
+        Assert.False(File.Exists(MapPlaytest.StopFile(state)));
+        Assert.False(File.Exists(MapPlaytest.RunFile(state)));                  // nothing was recorded
+    }
+
+    [Theory]
+    [InlineData(0, 3.0, false, "")]                 // closed normally
+    [InlineData(1, 30.0, false, "")]                // an error after playing a while: not "right away"
+    [InlineData(1, 8.0, false, "Tick \"Old GPU / safe mode\"")]
+    [InlineData(-1073741819, 2.5, false, "Tick \"Old GPU / safe mode\"")]
+    [InlineData(1, 2.0, true, "even in Old GPU / safe mode")]
+    public void A_game_that_closes_with_an_error_right_away_gets_the_safe_mode_hint(int exitCode, double seconds, bool safe, string expected)
+    {
+        using var t = new TempDir();
+        string v = MakeVersion(t);
+        var cmd = new MapmakerLaunch("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", MapPlaytest.Script(v), .. (safe ? new[] { "-SafeMode" } : [])], v, new Dictionary<string, string>());
+        var (code, o) = RunEnv(cmd, t["state"], new() { ["SM_PLAYTEST_EARLY_EXIT_CHECK"] = $"{exitCode},{seconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}" });
+        Assert.True(code == 0, o);
+        string line = o.Split('\n').Single(l => l.StartsWith("EARLY", StringComparison.Ordinal)).TrimEnd();
+        if (expected.Length == 0) Assert.Equal("EARLY", line);
+        else
+        {
+            Assert.Contains("the game closed right after it started (exit code " + exitCode, line);
+            Assert.Contains("). ", line);                                       // a full stop before the hint
+            Assert.Contains(expected, line);
+        }
+        Assert.False(Directory.Exists(t["state"]));                              // the check touches nothing
+    }
+
+    [Fact]
+    public void A_replaced_run_ends_with_its_own_exit_code_and_the_launcher_says_so()
+    {
+        Assert.Equal((MapPlaytest.ReplacedText, true), MapPlaytest.Outcome(new MapPlaytestStatus("server", "the new run starts", DateTime.UtcNow), MapPlaytest.ReplacedExitCode));
+        string text = File.ReadAllText(ScriptSource());
+        Assert.Contains("elseif ($Replaced) { " + MapPlaytest.ReplacedExitCode + " }", text);
     }
 
     [Fact]

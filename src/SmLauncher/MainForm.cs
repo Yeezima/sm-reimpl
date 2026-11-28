@@ -1050,8 +1050,8 @@ sealed class MainForm : Form
         // a download leaves the active build alone (PLAY works meanwhile too); checking, unpacking or switching it does not (the button is off then)
         if (_busy && _busyPhase is not UpdatePhase.Downloading) { SetLine("Wait until the update has finished, then press PLAY TEST MAP again.", Warn); return; }
         if (MapPlaytest.Unavailable(dir) is { } why) { SetLine(why, Bad); return; }
-        string state;
-        try { state = MapPlaytest.StateDir(); }
+        string state, mapsDir;
+        try { state = MapPlaytest.StateDir(); mapsDir = MapPlaytest.MapsDir(); }
         catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException or System.Security.SecurityException)
         {
             SetLine($"The play test cannot start: {CacheRepair.DataDirEnvVar} (or {MapPlaytest.StateDirVariable}) is not a usable folder path: {e.Message}", Bad);
@@ -1069,7 +1069,7 @@ sealed class MainForm : Form
         }
         var settings = Store.ReadSettings(_layout);
         MapPlaytestChoice choice;
-        using (var dialog = new PlaytestDialog(MapPlaytest.FromSettings(settings), MapPlaytest.MapsDir()))
+        using (var dialog = new PlaytestDialog(MapPlaytest.FromSettings(settings), mapsDir))
         {
             if (dialog.ShowDialog(this) != DialogResult.OK || dialog.Choice is not { } c) return;
             choice = c;
@@ -1123,13 +1123,36 @@ sealed class MainForm : Form
         if (!watch.Finished) return;
         _playtestPoll?.Stop();
         _log?.Write($"play test map: the script ended with code {code}: {line}");
-        // The script stops what it started on its way out; if its PowerShell died first, what it recorded under this run's tag is still running: -Stop
-        // (by recorded id and start time only). A run started meanwhile from the Mapmaker has no such tag and is left alone.
+        // The script stops what it started on its way out; if its PowerShell died first, what it recorded under this run's tag is still running: -Stop -RunTag
+        // (by recorded id and start time only; the script itself skips a run recorded under another tag). The line just shown stays, with a note appended.
         if (!watch.StopAsked && MapPlaytest.RecordedTag(state) == tag && MapPlaytest.RecordedRunAlive(state))
         {
             _log?.Write("play test map: the script ended but processes of its run are still running; stopping them");
-            _ = StopPlaytestAsync(dir, state);
+            _ = CleanLeftoversAsync(dir, state, tag, line ?? "", bad);
         }
+    }
+
+    /// <summary>Runs the script's <c>-Stop</c> (with <paramref name="runTag"/>: only that run) and waits for it. Null when it finished, else what went wrong.</summary>
+    async Task<string?> RunStopAsync(string dir, string? runTag)
+    {
+        try
+        {
+            using var stop = MapmakerStart.StartHidden(MapPlaytest.StopCommand(dir, runTag));
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try { await stop.WaitForExitAsync(limit.Token); return stop.ExitCode == 0 ? null : $"-Stop ended with code {stop.ExitCode}"; }
+            catch (OperationCanceledException) { return "-Stop did not finish within 30 s"; }
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException) { return e.Message; }
+    }
+
+    /// <summary>Leftovers of this launcher's own finished run: stopped by its tag; the run's own outcome line stays and gets a note.</summary>
+    async Task CleanLeftoversAsync(string dir, string state, string tag, string line, bool bad)
+    {
+        string? problem = await RunStopAsync(dir, tag);
+        if (IsDisposed) return;
+        bool still = MapPlaytest.RecordedTag(state) == tag && MapPlaytest.RecordedRunAlive(state);
+        _log?.Write($"play test map: leftovers of {tag}: {problem ?? "-Stop ok"}; still running: {still}");
+        SetLine(line + (still ? " (its leftover server or bots are still running: close them, or press PLAY TEST MAP to stop them)" : " (leftover server and bots were stopped)"), bad || still ? Bad : Muted);
     }
 
     /// <summary>
@@ -1142,32 +1165,31 @@ sealed class MainForm : Form
         var proc = _playtest;
         if (mine && _playtestWatch is { } w) w.StopAsked = true;
         SetLine("Stopping the play test (its server, bots and game)...", Muted);
-        string? problem = null;
-        try
-        {
-            using var stop = MapmakerStart.StartHidden(MapPlaytest.StopCommand(dir));
-            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            try { await stop.WaitForExitAsync(limit.Token); if (stop.ExitCode != 0) problem = $"-Stop ended with code {stop.ExitCode}"; }
-            catch (OperationCanceledException) { problem = "-Stop did not finish within 30 s"; }
-        }
-        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException) { problem = e.Message; }
+        string? problem = await RunStopAsync(dir, null);
         if (mine && proc is not null)
         {
             using var grace = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             try { await proc.WaitForExitAsync(grace.Token); }
             catch (OperationCanceledException)
             {
-                try { proc.Kill(entireProcessTree: true); _log?.Write("play test map: ended its own PowerShell (by handle) after Stop"); }
-                catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException) { _log?.Write("play test map: " + e.Message); }
+                try
+                {
+                    proc.Kill(entireProcessTree: true);
+                    _log?.Write("play test map: ended its own PowerShell (by handle) after Stop");
+                    using var after = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    try { await proc.WaitForExitAsync(after.Token); } catch (OperationCanceledException) { }
+                }
+                catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException or AggregateException) { _log?.Write("play test map: " + e.Message); }
             }
         }
         if (IsDisposed) return;
         bool still = OwnPlaytestAlive() || MapPlaytest.RecordedRunAlive(state);
         _log?.Write($"play test map: Stop finished ({problem ?? "ok"}; still running: {still})");
-        if (problem is not null || still)
+        // this launcher's own run is judged on what is still running alone (a -Stop that hiccuped but whose run the kill ended is a stop); its poll then shows "Play test stopped"
+        bool failed = mine ? still : problem is not null || still;
+        if (failed)
             SetLine("The play test could not be stopped" + (problem is null ? "" : $" ({problem})") + ". Close its game window, or press PLAY TEST MAP again to retry.", Bad);
         else if (!mine) SetLine(MapPlaytest.StoppedText, Muted);
-        // this launcher's own run: its poll shows "Play test stopped" once its PowerShell has ended
     }
 
     // ---- check files, rollback, caches ----------------------------------------------------------------------------------------
